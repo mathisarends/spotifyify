@@ -1,5 +1,5 @@
-from .client import AsyncSpotify
-from .models import (
+from .service import AsyncSpotify
+from .schemas import (
     Device,
     DevicesResponse,
     PlaybackState,
@@ -8,11 +8,13 @@ from .models import (
     SimplifiedAlbum,
     Track,
 )
+from .credentials import SpotifyCredentials
 
 from .types import SpotifyScope, ActionSuccessResponse
 
 __all__ = [
     "AsyncSpotify",
+    "SpotifyCredentials",
     "Device",
     "DevicesResponse",
     "PlaybackState",

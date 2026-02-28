@@ -1,23 +1,19 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-import os
 
-from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
-from spotipy.oauth2 import SpotifyOAuth
 
-from spotify_mcp import AsyncSpotify, SpotifyScope
-from spotify_mcp.device_resolver import DeviceResolver
-from spotify_mcp.models import (
+from spotifyify import AsyncSpotify, SpotifyScope
+from spotifyify.credentials import SpotifyCredentials
+from spotifyify.device_resolver import DeviceResolver
+from spotifyify.schemas import (
     DevicesResponse,
     PlaybackState,
     RecentlyPlayedResponse,
     SimplifiedAlbum,
     Track,
 )
-from spotify_mcp.types import ActionSuccessResponse
-
-load_dotenv(override=True)
+from spotifyify.types import ActionSuccessResponse
 
 _SPOTIFY_SCOPES = [
     SpotifyScope.USER_READ_PLAYBACK_STATE,
@@ -39,12 +35,8 @@ async def lifespan(mcp: FastMCP) -> AsyncIterator[None]:
     global _spotify_client, _device_resolver
 
     _spotify_client = AsyncSpotify(
-        auth_manager=SpotifyOAuth(
-            client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-            redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
-            scope=" ".join(_SPOTIFY_SCOPES),
-        )
+        credentials=SpotifyCredentials(),
+        scopes=_SPOTIFY_SCOPES,
     )
 
     _device_resolver = DeviceResolver()
