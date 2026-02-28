@@ -163,3 +163,33 @@ class TopArtistsResponse(BaseModel):
     items: list[Artist] = Field(default_factory=list)
     total: int
     limit: int
+
+
+class QueueResponse(BaseModel):
+    currently_playing: Track | None = None
+    queue: list[Track] = Field(default_factory=list)
+
+
+class SavedShow(BaseModel):
+    added_at: datetime
+    show: Show
+
+
+class SavedShowsResponse(BaseModel):
+    items: list[SavedShow] = Field(default_factory=list)
+    limit: int
+    offset: int
+    total: int
+
+
+class NewReleasesResponse(BaseModel):
+    albums: list[SimplifiedAlbum] = Field(default_factory=list)
+    total: int
+    limit: int
+    offset: int
+
+
+class CurrentlyPlayingResponse(BaseModel):
+    is_playing: bool
+    progress_ms: int | None = None
+    item: Track | None = None

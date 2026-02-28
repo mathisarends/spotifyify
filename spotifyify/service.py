@@ -20,6 +20,10 @@ from spotifyify.schemas import (
     TopArtistsResponse,
     Artist,
     AlbumDetails,
+    QueueResponse,
+    SavedShowsResponse,
+    NewReleasesResponse,
+    CurrentlyPlayingResponse,
 )
 
 
@@ -41,6 +45,13 @@ class AsyncSpotify:
             requests_timeout=requests_timeout,
             language=language,
         )
+        self._user_id: str | None = None
+
+    async def _get_user_id(self) -> str:
+        if self._user_id is None:
+            user = await asyncio.to_thread(self._client.current_user)
+            self._user_id = user["id"]
+        return self._user_id
 
     async def current_playback(
         self,
@@ -184,8 +195,10 @@ class AsyncSpotify:
         description: str | None = None,
         public: bool = True,
     ) -> Playlist:
+        user_id = await self._get_user_id()
         result = await asyncio.to_thread(
             self._client.user_playlist_create,
+            user=user_id,
             name=name,
             public=public,
             description=description,
@@ -371,6 +384,63 @@ class AsyncSpotify:
             state=state,
             device_id=device_id,
         )
+
+    async def queue(self) -> QueueResponse:
+        result = await asyncio.to_thread(self._client.queue)
+        return QueueResponse.model_validate(result)
+
+    async def seek_track(
+        self,
+        position_ms: int,
+        device_id: str | None = None,
+    ) -> None:
+        return await asyncio.to_thread(
+            self._client.seek_track,
+            position_ms=position_ms,
+            device_id=device_id,
+        )
+
+    async def get_saved_shows(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> SavedShowsResponse:
+        result = await asyncio.to_thread(
+            self._client.current_user_saved_shows,
+            limit=limit,
+            offset=offset,
+        )
+        return SavedShowsResponse.model_validate(result)
+
+    async def get_new_releases(
+        self,
+        country: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> NewReleasesResponse:
+        result = await asyncio.to_thread(
+            self._client.new_releases,
+            country=country,
+            limit=limit,
+            offset=offset,
+        )
+        albums = result.get("albums", {})
+        return NewReleasesResponse(
+            albums=albums.get("items", []),
+            total=albums.get("total", 0),
+            limit=albums.get("limit", limit),
+            offset=albums.get("offset", offset),
+        )
+
+    async def currently_playing(
+        self,
+        market: str | None = None,
+    ) -> CurrentlyPlayingResponse | None:
+        result = await asyncio.to_thread(
+            self._client.currently_playing,
+            market=market,
+        )
+        return CurrentlyPlayingResponse.model_validate(result) if result else None
 
     def __getattr__(self, name: str) -> Any:
         """Delegate unknown attributes to wrapped client."""

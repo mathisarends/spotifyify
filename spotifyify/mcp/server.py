@@ -9,16 +9,19 @@ from spotifyify.device_resolver import DeviceResolver
 from spotifyify.schemas import (
     AlbumDetails,
     Artist,
+    CurrentlyPlayingResponse,
     DevicesResponse,
     Episode,
+    NewReleasesResponse,
     PlaybackState,
     Playlist,
     PlaylistsResponse,
+    QueueResponse,
     RecentlyPlayedResponse,
     SimplifiedAlbum,
     Track,
 )
-from spotifyify.types import ActionSuccessResponse
+from spotifyify.views import ActionSuccessResponse
 
 _SPOTIFY_SCOPES = [
     SpotifyScope.USER_READ_PLAYBACK_STATE,
@@ -29,6 +32,7 @@ _SPOTIFY_SCOPES = [
     SpotifyScope.USER_READ_RECENTLY_PLAYED,
     SpotifyScope.PLAYLIST_MODIFY_PUBLIC,
     SpotifyScope.PLAYLIST_MODIFY_PRIVATE,
+    SpotifyScope.PLAYLIST_READ_PRIVATE,
 ]
 
 _spotify_client: AsyncSpotify | None = None
@@ -365,3 +369,45 @@ async def set_repeat(
     device_id = _device_resolver.resolve(device_name)
     await _spotify_client.set_repeat(state=state, device_id=device_id)
     return ActionSuccessResponse(message=f"Repeat mode set to {state}")
+
+
+@mcp.tool()
+async def get_queue() -> QueueResponse:
+    return await _spotify_client.queue()
+
+
+@mcp.tool()
+async def seek_track(
+    position_ms: int,
+    device_name: str | None = None,
+) -> ActionSuccessResponse:
+    device_id = _device_resolver.resolve(device_name)
+    await _spotify_client.seek_track(position_ms=position_ms, device_id=device_id)
+    return ActionSuccessResponse(message=f"Seeked to {position_ms}ms")
+
+
+@mcp.tool()
+async def get_saved_shows(
+    limit: int = 20,
+    offset: int = 0,
+) -> list:
+    result = await _spotify_client.get_saved_shows(limit=limit, offset=offset)
+    return result.items if result.items else []
+
+
+@mcp.tool()
+async def get_new_releases(
+    country: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> NewReleasesResponse:
+    return await _spotify_client.get_new_releases(
+        country=country, limit=limit, offset=offset
+    )
+
+
+@mcp.tool()
+async def get_currently_playing(
+    market: str | None = None,
+) -> CurrentlyPlayingResponse | None:
+    return await _spotify_client.currently_playing(market=market)

@@ -19,6 +19,7 @@ class SpotifyScope(StrEnum):
     PLAYLIST_MODIFY_PRIVATE = (
         "playlist-modify-private"  # Create/modify private playlists
     )
+    PLAYLIST_READ_PRIVATE = "playlist-read-private"
 
 
 class ActionSuccessResponse(BaseModel):
