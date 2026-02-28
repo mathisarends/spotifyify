@@ -18,6 +18,7 @@ from spotifyify.schemas import (
     PlaylistsResponse,
     QueueResponse,
     RecentlyPlayedResponse,
+    SavedAlbumsResponse,
     SimplifiedAlbum,
     Track,
 )
@@ -79,7 +80,11 @@ async def get_devices() -> DevicesResponse:
     return devices
 
 
-@mcp.tool()
+@mcp.tool(
+    description="""Start or resume playback on a device.
+    IMPORTANT: If Spotify is paused or inactive, first call transfer_playback to activate the device,
+    then start_playback. Without an active device the API will return a 'No active device' error."""
+)
 async def start_playback(
     device_name: str | None = None,
     context_uri: str | None = None,
@@ -119,7 +124,11 @@ async def set_volume(
     return ActionSuccessResponse(message=f"Volume set to {volume_percent}%")
 
 
-@mcp.tool()
+@mcp.tool(
+    description="""Transfer playback to a device and force it to play.
+    Use this BEFORE start_playback if the device is paused or inactive.
+    Also use when switching between devices."""
+)
 async def transfer_playback(device_name: str) -> ActionSuccessResponse:
     device_id = _device_resolver.resolve(device_name)
     if not device_id:
@@ -393,6 +402,67 @@ async def get_saved_shows(
 ) -> list:
     result = await _spotify_client.get_saved_shows(limit=limit, offset=offset)
     return result.items if result.items else []
+
+
+@mcp.tool()
+async def get_saved_albums(
+    limit: int = 20,
+    offset: int = 0,
+) -> SavedAlbumsResponse:
+    return await _spotify_client.get_saved_albums(limit=limit, offset=offset)
+
+
+@mcp.tool()
+async def remove_saved_albums(
+    album_ids: list[str],
+) -> ActionSuccessResponse:
+    await _spotify_client.remove_saved_albums(album_ids=album_ids)
+    return ActionSuccessResponse(
+        message=f"Removed {len(album_ids)} album(s) from library"
+    )
+
+
+@mcp.tool()
+async def save_albums(
+    album_ids: list[str],
+) -> ActionSuccessResponse:
+    await _spotify_client.save_albums(album_ids=album_ids)
+    return ActionSuccessResponse(message=f"Saved {len(album_ids)} album(s) to library")
+
+
+@mcp.tool()
+async def is_album_saved(
+    album_id: str,
+) -> dict:
+    saved = await _spotify_client.is_album_saved(album_id=album_id)
+    return {"album_id": album_id, "saved": saved}
+
+
+@mcp.tool()
+async def get_album_tracks(
+    album_id: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[Track]:
+    result = await _spotify_client.album_tracks(
+        album_id=album_id, limit=limit, offset=offset
+    )
+    return result.items
+
+
+@mcp.tool()
+async def get_playlist(
+    playlist_id: str,
+) -> Playlist:
+    return await _spotify_client.get_playlist(playlist_id=playlist_id)
+
+
+@mcp.tool()
+async def delete_playlist(
+    playlist_id: str,
+) -> ActionSuccessResponse:
+    await _spotify_client.delete_playlist(playlist_id=playlist_id)
+    return ActionSuccessResponse(message=f"Playlist {playlist_id} deleted")
 
 
 @mcp.tool()

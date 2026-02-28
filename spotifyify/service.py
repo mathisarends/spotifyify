@@ -20,8 +20,10 @@ from spotifyify.schemas import (
     TopArtistsResponse,
     Artist,
     AlbumDetails,
+    AlbumTracksResponse,
     QueueResponse,
     SavedShowsResponse,
+    SavedAlbumsResponse,
     NewReleasesResponse,
     CurrentlyPlayingResponse,
 )
@@ -411,6 +413,79 @@ class AsyncSpotify:
             offset=offset,
         )
         return SavedShowsResponse.model_validate(result)
+
+    async def get_saved_albums(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> SavedAlbumsResponse:
+        result = await asyncio.to_thread(
+            self._client.current_user_saved_albums,
+            limit=limit,
+            offset=offset,
+        )
+        return SavedAlbumsResponse.model_validate(result)
+
+    async def remove_saved_albums(
+        self,
+        album_ids: list[str],
+    ) -> None:
+        return await asyncio.to_thread(
+            self._client.current_user_saved_albums_delete,
+            albums=album_ids,
+        )
+
+    async def save_albums(
+        self,
+        album_ids: list[str],
+    ) -> None:
+        return await asyncio.to_thread(
+            self._client.current_user_saved_albums_add,
+            albums=album_ids,
+        )
+
+    async def is_album_saved(
+        self,
+        album_id: str,
+    ) -> bool:
+        result = await asyncio.to_thread(
+            self._client.current_user_saved_albums_contains,
+            albums=[album_id],
+        )
+        return result[0] if result else False
+
+    async def album_tracks(
+        self,
+        album_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> AlbumTracksResponse:
+        result = await asyncio.to_thread(
+            self._client.album_tracks,
+            album_id=album_id,
+            limit=limit,
+            offset=offset,
+        )
+        return AlbumTracksResponse.model_validate(result)
+
+    async def get_playlist(
+        self,
+        playlist_id: str,
+    ) -> Playlist:
+        result = await asyncio.to_thread(
+            self._client.playlist,
+            playlist_id=playlist_id,
+        )
+        return Playlist.model_validate(result)
+
+    async def delete_playlist(
+        self,
+        playlist_id: str,
+    ) -> None:
+        return await asyncio.to_thread(
+            self._client.current_user_unfollow_playlist,
+            playlist_id,
+        )
 
     async def get_new_releases(
         self,

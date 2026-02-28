@@ -1,4 +1,5 @@
 import asyncio
+
 from agents import Agent, Runner
 from agents.mcp import MCPServerStdio
 from dotenv import load_dotenv
@@ -28,6 +29,8 @@ async def interactive_session():
         print("🎵 Spotify DJ gestartet!")
         print("Schreib 'exit' zum Beenden\n")
 
+        history = []
+
         while True:
             user_input = input("Du: ").strip()
 
@@ -37,8 +40,17 @@ async def interactive_session():
             if not user_input:
                 continue
 
-            # Run the agent
-            result = await Runner.run(agent, user_input)
+            history.append({"role": "user", "content": user_input})
+
+            result = await Runner.run(agent, history)
+
+            history = result.to_input_list()
+
+            for item in result.new_items:
+                if hasattr(item, "type") and item.type == "tool_call_item":
+                    print(f"🔧 Tool: {item.raw_item.name}({item.raw_item.arguments})")
+
+            history = result.to_input_list()
             print(f"🤖 Assistant: {result.final_output}\n")
 
 

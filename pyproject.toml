@@ -1,15 +1,21 @@
 [project]
-name = "spotify-mcp"
+name = "spotifyify"
 version = "0.1.0"
-description = "Add your description here"
+description = "Async wrapper for spotipy with a focus on integration with MCP agents."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
-    "fastmcp>=2.14.3",
-    "openai-agents>=0.6.7",
     "pydantic-settings>=2.12.0",
     "python-dotenv>=1.2.1",
     "spotipy>=2.25.2",
+]
+
+[project.optional-dependencies]
+mcp = [
+    "mcp[cli]>=1.0.0",
+]
+agents = [
+    "openai-agents>=0.6.7",
 ]
 
 [dependency-groups]
@@ -25,7 +31,7 @@ dev = [
 ]
 
 [project.scripts]
-spotify-mcp = "spotify_mcp.cli:main"
+spotify-mcp = "spotifyify.mcp.cli:main"
 
 [tool.uv]
 package = true

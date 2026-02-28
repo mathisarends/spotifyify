@@ -94,6 +94,13 @@ class AlbumDetails(Album):
     tracks: list[Track] = Field(default_factory=list)
 
 
+class AlbumTracksResponse(BaseModel):
+    items: list[Track] = Field(default_factory=list)
+    limit: int
+    offset: int
+    total: int
+
+
 class Playlist(BaseModel):
     id: str
     name: str
@@ -177,6 +184,18 @@ class SavedShow(BaseModel):
 
 class SavedShowsResponse(BaseModel):
     items: list[SavedShow] = Field(default_factory=list)
+    limit: int
+    offset: int
+    total: int
+
+
+class SavedAlbum(BaseModel):
+    added_at: datetime
+    album: SimplifiedAlbum
+
+
+class SavedAlbumsResponse(BaseModel):
+    items: list[SavedAlbum] = Field(default_factory=list)
     limit: int
     offset: int
     total: int
