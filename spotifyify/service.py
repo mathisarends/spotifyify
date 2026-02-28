@@ -292,7 +292,6 @@ class AsyncSpotify:
         self,
         uri: str,
     ) -> bool:
-        # Convert URI to track ID if needed
         track_id = uri.split(":")[-1] if ":" in uri else uri
         result = await asyncio.to_thread(
             self._client.current_user_saved_tracks_contains,
