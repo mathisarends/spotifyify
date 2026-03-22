@@ -219,6 +219,24 @@ async def create_playlist(
 
 
 @mcp.tool()
+async def change_playlist_details(
+    playlist_id: str,
+    name: str | None = None,
+    public: bool | None = None,
+    collaborative: bool | None = None,
+    description: str | None = None,
+) -> ActionSuccessResponse:
+    await _spotify_client.change_playlist_details(
+        playlist_id=playlist_id,
+        name=name,
+        public=public,
+        collaborative=collaborative,
+        description=description,
+    )
+    return ActionSuccessResponse(message=f"Playlist {playlist_id} details updated")
+
+
+@mcp.tool()
 async def add_tracks_to_playlist(
     playlist_id: str,
     uris: list[str],

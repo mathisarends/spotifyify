@@ -478,6 +478,23 @@ class AsyncSpotify:
         )
         return Playlist.model_validate(result)
 
+    async def change_playlist_details(
+        self,
+        playlist_id: str,
+        name: str | None = None,
+        public: bool | None = None,
+        collaborative: bool | None = None,
+        description: str | None = None,
+    ) -> None:
+        return await asyncio.to_thread(
+            self._client.playlist_change_details,
+            playlist_id=playlist_id,
+            name=name,
+            public=public,
+            collaborative=collaborative,
+            description=description,
+        )
+
     async def delete_playlist(
         self,
         playlist_id: str,
