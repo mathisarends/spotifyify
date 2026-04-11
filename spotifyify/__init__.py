@@ -1,51 +1,13 @@
-from .service import AsyncSpotify
-from .schemas import (
-    DevicesResponse,
-    PlaybackState,
-    RecentlyPlayedResponse,
-    SearchResponse,
-    SavedTracksResponse,
-    PlaylistsResponse,
-    Playlist,
-    ShowsSearchResult,
-    EpisodesResponse,
-    TopTracksResponse,
-    TopArtistsResponse,
-    Artist,
-    AlbumDetails,
-    AlbumTracksResponse,
-    QueueResponse,
-    SavedShowsResponse,
-    SavedAlbumsResponse,
-    NewReleasesResponse,
-    CurrentlyPlayingResponse,
-)
+from .spotifyify import Spotifyify
 from .credentials import SpotifyCredentials
-
-from .views import SpotifyScope, ActionSuccessResponse
+from .exceptions import SpotifyAPIError, SpotifyAuthError, SpotifyifyError
+from .views import SpotifyScope
 
 __all__ = [
-    "AsyncSpotify",
+    "Spotifyify",
     "SpotifyCredentials",
-    "DevicesResponse",
-    "PlaybackState",
-    "RecentlyPlayedResponse",
-    "SearchResponse",
-    "SavedTracksResponse",
-    "PlaylistsResponse",
-    "Playlist",
-    "ShowsSearchResult",
-    "EpisodesResponse",
-    "TopTracksResponse",
-    "TopArtistsResponse",
-    "Artist",
-    "AlbumDetails",
-    "AlbumTracksResponse",
-    "QueueResponse",
-    "SavedShowsResponse",
-    "SavedAlbumsResponse",
-    "NewReleasesResponse",
-    "CurrentlyPlayingResponse",
     "SpotifyScope",
-    "ActionSuccessResponse",
+    "SpotifyifyError",
+    "SpotifyAPIError",
+    "SpotifyAuthError",
 ]

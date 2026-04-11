@@ -1,6 +1,6 @@
 # spotifyify
 
-Async wrapper around [spotipy](https://github.com/spotipy-dev/spotipy) with Pydantic models, built for integration with MCP agents.
+Async Spotify Web API client with Pydantic models, built for integration with MCP agents.
 
 ## Installation
 
@@ -36,12 +36,12 @@ Get your Spotify credentials at [developer.spotify.com/dashboard](https://develo
 
 ```python
 import asyncio
-from spotifyify import AsyncSpotify
+from spotifyify import Spotifyify
 from spotifyify.credentials import SpotifyCredentials
-from spotifyify.types import SpotifyScope
+from spotifyify.views import SpotifyScope
 
 async def main():
-    client = AsyncSpotify(
+    client = Spotifyify(
         credentials=SpotifyCredentials(),
         scopes=[
             SpotifyScope.USER_READ_PLAYBACK_STATE,
@@ -106,79 +106,87 @@ asyncio.run(main())
 ## MCP Tools
 
 ### Playback
-| Tool | Description |
-|------|-------------|
-| `get_current_playback` | Current playback state and track info |
-| `get_currently_playing` | Lightweight currently playing track |
-| `start_playback` | Start playback via context URI or track URIs |
-| `pause_playback` | Pause current playback |
-| `next_track` | Skip to next track |
-| `previous_track` | Skip to previous track |
-| `set_shuffle` | Enable/disable shuffle |
-| `set_repeat` | Set repeat mode (`track`, `context`, `off`) |
-| `seek_track` | Seek to position in current track |
-| `set_volume` | Set device volume (0–100) |
+
+| Tool                    | Description                                  |
+| ----------------------- | -------------------------------------------- |
+| `get_current_playback`  | Current playback state and track info        |
+| `get_currently_playing` | Lightweight currently playing track          |
+| `start_playback`        | Start playback via context URI or track URIs |
+| `pause_playback`        | Pause current playback                       |
+| `next_track`            | Skip to next track                           |
+| `previous_track`        | Skip to previous track                       |
+| `set_shuffle`           | Enable/disable shuffle                       |
+| `set_repeat`            | Set repeat mode (`track`, `context`, `off`)  |
+| `seek_track`            | Seek to position in current track            |
+| `set_volume`            | Set device volume (0–100)                    |
 
 ### Devices
-| Tool | Description |
-|------|-------------|
-| `get_devices` | List available devices and refresh cache |
-| `transfer_playback` | Transfer playback to another device |
+
+| Tool                | Description                              |
+| ------------------- | ---------------------------------------- |
+| `get_devices`       | List available devices and refresh cache |
+| `transfer_playback` | Transfer playback to another device      |
 
 ### Queue
-| Tool | Description |
-|------|-------------|
-| `get_queue` | Get current playback queue |
-| `add_to_queue` | Add track to queue |
+
+| Tool           | Description                |
+| -------------- | -------------------------- |
+| `get_queue`    | Get current playback queue |
+| `add_to_queue` | Add track to queue         |
 
 ### Search
-| Tool | Description |
-|------|-------------|
-| `search_tracks` | Search for tracks |
-| `search_albums` | Search for albums |
-| `search_shows` | Search for podcasts/shows |
+
+| Tool            | Description               |
+| --------------- | ------------------------- |
+| `search_tracks` | Search for tracks         |
+| `search_albums` | Search for albums         |
+| `search_shows`  | Search for podcasts/shows |
 
 ### Library
-| Tool | Description |
-|------|-------------|
-| `get_saved_tracks` | Get liked songs |
-| `save_tracks` | Like tracks |
-| `remove_saved_tracks` | Unlike tracks |
-| `is_track_saved` | Check if track is liked |
-| `get_saved_albums` | Get saved albums |
-| `save_albums` | Save albums to library |
+
+| Tool                  | Description                |
+| --------------------- | -------------------------- |
+| `get_saved_tracks`    | Get liked songs            |
+| `save_tracks`         | Like tracks                |
+| `remove_saved_tracks` | Unlike tracks              |
+| `is_track_saved`      | Check if track is liked    |
+| `get_saved_albums`    | Get saved albums           |
+| `save_albums`         | Save albums to library     |
 | `remove_saved_albums` | Remove albums from library |
-| `is_album_saved` | Check if album is saved |
-| `get_saved_shows` | Get saved podcasts |
+| `is_album_saved`      | Check if album is saved    |
+| `get_saved_shows`     | Get saved podcasts         |
 
 ### Playlists
-| Tool | Description |
-|------|-------------|
-| `get_user_playlists` | List user playlists |
-| `create_playlist` | Create a new playlist |
-| `add_tracks_to_playlist` | Add tracks to playlist |
-| `remove_tracks_from_playlist` | Remove tracks from playlist |
-| `play_playlist` | Play a playlist |
-| `delete_playlist` | Delete (unfollow) a playlist |
+
+| Tool                          | Description                  |
+| ----------------------------- | ---------------------------- |
+| `get_user_playlists`          | List user playlists          |
+| `create_playlist`             | Create a new playlist        |
+| `add_tracks_to_playlist`      | Add tracks to playlist       |
+| `remove_tracks_from_playlist` | Remove tracks from playlist  |
+| `play_playlist`               | Play a playlist              |
+| `delete_playlist`             | Delete (unfollow) a playlist |
 
 ### Artists & Albums
-| Tool | Description |
-|------|-------------|
-| `get_artist` | Get artist details |
+
+| Tool                    | Description                |
+| ----------------------- | -------------------------- |
+| `get_artist`            | Get artist details         |
 | `get_artist_top_tracks` | Get artist's top 10 tracks |
-| `get_album` | Get album details |
-| `album_tracks` | Get all tracks of an album |
-| `play_album` | Play an album |
+| `get_album`             | Get album details          |
+| `album_tracks`          | Get all tracks of an album |
+| `play_album`            | Play an album              |
 
 ### Discovery
-| Tool | Description |
-|------|-------------|
-| `get_recently_played` | Recently played tracks |
-| `get_top_tracks` | User's top tracks (`short_term`, `medium_term`, `long_term`) |
-| `get_top_artists` | User's top artists |
-| `get_new_releases` | New album releases |
-| `get_show_episodes` | Episodes of a podcast |
-| `play_episode` | Play a podcast episode |
+
+| Tool                  | Description                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `get_recently_played` | Recently played tracks                                       |
+| `get_top_tracks`      | User's top tracks (`short_term`, `medium_term`, `long_term`) |
+| `get_top_artists`     | User's top artists                                           |
+| `get_new_releases`    | New album releases                                           |
+| `get_show_episodes`   | Episodes of a podcast                                        |
+| `play_episode`        | Play a podcast episode                                       |
 
 ## Device Resolution
 
@@ -192,7 +200,7 @@ If a device isn't found, call `get_devices` to refresh the cache — e.g. after 
 
 ```
 spotifyify/
-├── __init__.py          # AsyncSpotify, SpotifyScope
+├── __init__.py          # Spotifyify, SpotifyScope
 ├── credentials.py       # Pydantic settings (reads from .env)
 ├── device_resolver.py   # Device name → ID cache
 ├── schemas.py           # Pydantic models for all API responses

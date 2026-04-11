@@ -1,13 +1,25 @@
-from pydantic_settings import BaseSettings
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SpotifyCredentials(BaseSettings):
-    spotify_client_id: str
-    spotify_client_secret: str
-    spotify_redirect_uri: str = "http://127.0.0.1:8080"
+    """Environment-backed credentials used by the async Spotify client."""
 
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "extra": "ignore",
-    }
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    client_id: str | None = Field(default=None, validation_alias="SPOTIFY_CLIENT_ID")
+    client_secret: SecretStr | None = Field(
+        default=None, validation_alias="SPOTIFY_CLIENT_SECRET"
+    )
+    redirect_uri: str | None = Field(
+        default=None, validation_alias="SPOTIFY_REDIRECT_URI"
+    )
+    access_token: SecretStr | None = Field(
+        default=None, validation_alias="SPOTIFY_ACCESS_TOKEN"
+    )
+    refresh_token: SecretStr | None = Field(
+        default=None, validation_alias="SPOTIFY_REFRESH_TOKEN"
+    )
+    token_expires_at: int | None = Field(
+        default=None, validation_alias="SPOTIFY_TOKEN_EXPIRES_AT"
+    )

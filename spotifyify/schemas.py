@@ -1,214 +1,118 @@
-from datetime import datetime
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class SimplifiedArtist(BaseModel):
-    id: str
+class SpotifyModel(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+
+class Image(SpotifyModel):
+    url: str
+    width: int | None = None
+    height: int | None = None
+
+
+class Artist(SpotifyModel):
+    id: str | None = None
     name: str
+    uri: str | None = None
+    href: str | None = None
 
 
-class SimplifiedAlbum(BaseModel):
+class Album(SpotifyModel):
     id: str
     name: str
     uri: str
-    artists: list[SimplifiedArtist] = Field(default_factory=list)
+    album_type: str | None = None
+    artists: list[Artist] = Field(default_factory=list)
+    images: list[Image] = Field(default_factory=list)
 
 
-class Track(BaseModel):
+class Track(SpotifyModel):
+    id: str | None = None
+    name: str
+    uri: str | None = None
+    duration_ms: int | None = None
+    explicit: bool | None = None
+    artists: list[Artist] = Field(default_factory=list)
+    album: Album | None = None
+
+
+class Episode(SpotifyModel):
+    id: str | None = None
+    name: str
+    uri: str | None = None
+    duration_ms: int | None = None
+    explicit: bool | None = None
+    images: list[Image] = Field(default_factory=list)
+
+
+class Show(SpotifyModel):
     id: str
     name: str
-    uri: str
-    artists: list[SimplifiedArtist] = Field(default_factory=list)
-    duration_ms: int
-    album: SimplifiedAlbum | None = None
+    uri: str | None = None
+    publisher: str | None = None
+    images: list[Image] = Field(default_factory=list)
 
 
-class Device(BaseModel):
-    id: str
-    name: str
+class Device(SpotifyModel):
+    id: str | None = None
     is_active: bool
+    is_private_session: bool
+    is_restricted: bool
+    name: str
+    type: str
     volume_percent: int | None = None
 
 
-class PlaybackState(BaseModel):
-    is_playing: bool
-    progress_ms: int | None = None
-    device: Device
-    item: Track | None = None
-
-
-class DevicesResponse(BaseModel):
-    devices: list[Device] = Field(default_factory=list)
-
-
-class PagingObject(BaseModel):
-    total: int
-    limit: int
-    offset: int
-
-
-class RecentlyPlayedTrack(BaseModel):
-    track: Track
-    played_at: datetime
-
-
-class RecentlyPlayedResponse(BaseModel):
-    items: list[RecentlyPlayedTrack] = Field(default_factory=list)
-    limit: int
-
-
-class TracksSearchResult(PagingObject):
-    items: list[Track] = Field(default_factory=list)
-
-
-class AlbumsSearchResult(PagingObject):
-    items: list[SimplifiedAlbum] = Field(default_factory=list)
-
-
-class SearchResponse(BaseModel):
-    tracks: TracksSearchResult | None = None
-    albums: AlbumsSearchResult | None = None
-
-
-class Artist(BaseModel):
-    id: str
-    name: str
-    uri: str
-    images: list[dict] = Field(default_factory=list)
-    genres: list[str] = Field(default_factory=list)
-    popularity: int | None = None
-    followers: dict | None = None
-
-
-class Album(BaseModel):
-    id: str
-    name: str
-    uri: str
-    artists: list[SimplifiedArtist] = Field(default_factory=list)
-    images: list[dict] = Field(default_factory=list)
-    release_date: str | None = None
-    total_tracks: int | None = None
-
-
-class AlbumDetails(Album):
-    tracks: list[Track] = Field(default_factory=list)
-
-
-class AlbumTracksResponse(BaseModel):
-    items: list[Track] = Field(default_factory=list)
-    limit: int
-    offset: int
-    total: int
-
-
-class Playlist(BaseModel):
+class Playlist(SpotifyModel):
     id: str
     name: str
     uri: str
     description: str | None = None
     public: bool | None = None
-    owner: dict | None = None
-    images: list[dict] = Field(default_factory=list)
+    collaborative: bool | None = None
+    images: list[Image] = Field(default_factory=list)
 
 
-class PlaylistsResponse(BaseModel):
-    items: list[Playlist] = Field(default_factory=list)
-    limit: int
-    offset: int
-    total: int
+class Queue(SpotifyModel):
+    currently_playing: Track | Episode | None = None
+    queue: list[Track | Episode] = Field(default_factory=list)
 
 
-class Show(BaseModel):
-    id: str
-    name: str
-    uri: str
-    description: str | None = None
-    images: list[dict] = Field(default_factory=list)
-    publisher: str | None = None
-    total_episodes: int | None = None
+class Paging(SpotifyModel):
+    href: str | None = None
+    limit: int | None = None
+    next: str | None = None
+    offset: int | None = None
+    previous: str | None = None
+    total: int | None = None
+    items: list[Any] = Field(default_factory=list)
 
 
-class Episode(BaseModel):
-    id: str
-    name: str
-    uri: str
-    description: str | None = None
-    release_date: str | None = None
-    duration_ms: int | None = None
-    show: Show | None = None
+class SearchResult(SpotifyModel):
+    tracks: Paging | None = None
+    albums: Paging | None = None
+    artists: Paging | None = None
+    playlists: Paging | None = None
+    shows: Paging | None = None
+    episodes: Paging | None = None
 
 
-class ShowsSearchResult(PagingObject):
-    items: list[Show] = Field(default_factory=list)
-
-
-class EpisodesResponse(BaseModel):
-    items: list[Episode] = Field(default_factory=list)
-    limit: int
-    offset: int
-    total: int
-
-
-class SavedTracksResponse(BaseModel):
-    items: list[Track] = Field(default_factory=list)
-    limit: int
-    offset: int
-    total: int
-
-
-class ArtistsSearchResult(PagingObject):
-    items: list[Artist] = Field(default_factory=list)
-
-
-class TopTracksResponse(BaseModel):
-    items: list[Track] = Field(default_factory=list)
-    total: int
-    limit: int
-
-
-class TopArtistsResponse(BaseModel):
-    items: list[Artist] = Field(default_factory=list)
-    total: int
-    limit: int
-
-
-class QueueResponse(BaseModel):
-    currently_playing: Track | None = None
-    queue: list[Track] = Field(default_factory=list)
-
-
-class SavedShow(BaseModel):
-    added_at: datetime
-    show: Show
-
-
-class SavedShowsResponse(BaseModel):
-    items: list[SavedShow] = Field(default_factory=list)
-    limit: int
-    offset: int
-    total: int
-
-
-class SavedAlbum(BaseModel):
-    added_at: datetime
-    album: SimplifiedAlbum
-
-
-class SavedAlbumsResponse(BaseModel):
-    items: list[SavedAlbum] = Field(default_factory=list)
-    limit: int
-    offset: int
-    total: int
-
-
-class NewReleasesResponse(BaseModel):
-    albums: list[SimplifiedAlbum] = Field(default_factory=list)
-    total: int
-    limit: int
-    offset: int
-
-
-class CurrentlyPlayingResponse(BaseModel):
-    is_playing: bool
+class PlaybackState(SpotifyModel):
+    device: Device | None = None
+    shuffle_state: bool | None = None
+    repeat_state: str | None = None
+    timestamp: int | None = None
     progress_ms: int | None = None
-    item: Track | None = None
+    is_playing: bool | None = None
+    item: Track | Episode | None = None
+
+
+class CurrentlyPlaying(SpotifyModel):
+    timestamp: int | None = None
+    progress_ms: int | None = None
+    is_playing: bool | None = None
+    currently_playing_type: str | None = None
+    item: Track | Episode | None = None
