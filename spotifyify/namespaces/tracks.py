@@ -5,8 +5,7 @@ from collections.abc import Iterable
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
     AudioFeatures,
-    AudioFeaturesObject,
-    PagingTrackObject,
+    PagingTrack,
     Recommendations,
     Track,
 )
@@ -24,7 +23,7 @@ class Tracks:
         limit: int = 10,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingTrackObject:
+    ) -> PagingTrack:
         params: dict[str, Any] = {
             "q": query,
             "type": "track",
@@ -35,7 +34,7 @@ class Tracks:
             params["market"] = market
         data = await self._http.get("/search", params=params, require_user=False) or {}
         tracks = data.get("tracks", {}) if isinstance(data, dict) else {}
-        return PagingTrackObject.model_validate(tracks)
+        return PagingTrack.model_validate(tracks)
 
     async def get(self, track_id: str, *, market: str | None = None) -> Track:
         data = (
@@ -65,7 +64,7 @@ class Tracks:
             require_user=False,
         )
         features = data.get("audio_features", []) if isinstance(data, dict) else []
-        return [AudioFeaturesObject.model_validate(item) for item in features if item]
+        return [AudioFeatures.model_validate(item) for item in features if item]
 
     async def recommendations(
         self,

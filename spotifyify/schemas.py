@@ -1893,29 +1893,76 @@ class PagingSavedEpisodeObject(PagingObject):
 
 
 # ---------------------------------------------------------------------------
-# Convenience aliases used by the namespace API layer
+# Convenience aliases – drop the verbose "Object" suffix
 # ---------------------------------------------------------------------------
+
+# Core models
 Track = TrackObject
 Album = AlbumObject
 Artist = ArtistObject
 Playlist = PlaylistObject
-SimplifiedPlaylist = SimplifiedPlaylistObject
 Episode = EpisodeObject
-SimplifiedEpisode = SimplifiedEpisodeObject
 Show = ShowObject
-SimplifiedShow = SimplifiedShowObject
 Device = DeviceObject
 PlaybackState = CurrentlyPlayingContextObject
 PlayerQueue = QueueObject
-Paging = PagingObject
-CursorPaging = CursorPagingObject
 AudioFeatures = AudioFeaturesObject
 AudioAnalysis = AudioAnalysisObject
 User = PrivateUserObject
 PublicUser = PublicUserObject
+Image = ImageObject
+ExternalUrl = ExternalUrlObject
+ExternalId = ExternalIdObject
+Followers = FollowersObject
+Copyright = CopyrightObject
+Context = ContextObject
+LinkedTrack = LinkedTrackObject
+Category = CategoryObject
+Audiobook = AudiobookObject
+Chapter = ChapterObject
+PlaylistTrack = PlaylistTrackObject
+
+# Simplified models
+SimplifiedTrack = SimplifiedTrackObject
+SimplifiedAlbum = SimplifiedAlbumObject
+SimplifiedArtist = SimplifiedArtistObject
+SimplifiedPlaylist = SimplifiedPlaylistObject
+SimplifiedEpisode = SimplifiedEpisodeObject
+SimplifiedShow = SimplifiedShowObject
+SimplifiedAudiobook = SimplifiedAudiobookObject
+SimplifiedChapter = SimplifiedChapterObject
+ArtistDiscographyAlbum = ArtistDiscographyAlbumObject
+
+# Saved-item wrappers
 SavedTrack = SavedTrackObject
 SavedAlbum = SavedAlbumObject
 SavedShow = SavedShowObject
 SavedEpisode = SavedEpisodeObject
+
+# Other compound models
 PlayHistory = PlayHistoryObject
 Recommendations = RecommendationsObject
+Error = ErrorObject
+
+# Paging helpers (generic bases)
+Paging = PagingObject
+CursorPaging = CursorPagingObject
+
+# Typed paging models
+PagingTrack = PagingTrackObject
+PagingArtist = PagingArtistObject
+PagingPlaylist = PagingPlaylistObject
+PagingPlaylistTrack = PagingPlaylistTrackObject
+PagingSimplifiedTrack = PagingSimplifiedTrackObject
+PagingSimplifiedAlbum = PagingSimplifiedAlbumObject
+PagingSimplifiedEpisode = PagingSimplifiedEpisodeObject
+PagingSimplifiedShow = PagingSimplifiedShowObject
+PagingSimplifiedAudiobook = PagingSimplifiedAudiobookObject
+PagingSimplifiedChapter = PagingSimplifiedChapterObject
+PagingArtistDiscographyAlbum = PagingArtistDiscographyAlbumObject
+PagingSavedTrack = PagingSavedTrackObject
+PagingSavedAlbum = PagingSavedAlbumObject
+PagingSavedShow = PagingSavedShowObject
+PagingSavedEpisode = PagingSavedEpisodeObject
+CursorPagingPlayHistory = CursorPagingPlayHistoryObject
+CursorPagingSimplifiedArtist = CursorPagingSimplifiedArtistObject

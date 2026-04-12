@@ -4,8 +4,8 @@ from collections.abc import Iterable
 
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
-    PagingSimplifiedEpisodeObject,
-    PagingSimplifiedShowObject,
+    PagingSimplifiedEpisode,
+    PagingSimplifiedShow,
     Show,
     SimplifiedShow,
 )
@@ -23,7 +23,7 @@ class Shows:
         limit: int = 10,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingSimplifiedShowObject:
+    ) -> PagingSimplifiedShow:
         params: dict[str, Any] = {
             "q": query,
             "type": "show",
@@ -34,7 +34,7 @@ class Shows:
             params["market"] = market
         data = await self._http.get("/search", params=params, require_user=False) or {}
         shows = data.get("shows", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedShowObject.model_validate(shows)
+        return PagingSimplifiedShow.model_validate(shows)
 
     async def get(self, show_id: str, *, market: str | None = None) -> Show:
         data = (
@@ -64,7 +64,7 @@ class Shows:
         market: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingSimplifiedEpisodeObject:
+    ) -> PagingSimplifiedEpisode:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
@@ -76,4 +76,4 @@ class Shows:
             )
             or {}
         )
-        return PagingSimplifiedEpisodeObject.model_validate(data)
+        return PagingSimplifiedEpisode.model_validate(data)

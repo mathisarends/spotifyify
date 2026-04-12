@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Any
 
 from collections.abc import Iterable
 
-from spotifyify.schemas import ImageObject, PagingPlaylistObject, Playlist
+from spotifyify.schemas import Image, PagingPlaylist, Playlist
 from spotifyify.utils import coalesce_items
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class Playlists:
         *,
         limit: int = 10,
         offset: int = 0,
-    ) -> PagingPlaylistObject:
+    ) -> PagingPlaylist:
         params: dict[str, Any] = {
             "q": query,
             "type": "playlist",
@@ -29,7 +29,7 @@ class Playlists:
         }
         data = await self._http.get("/search", params=params, require_user=False) or {}
         playlists = data.get("playlists", {}) if isinstance(data, dict) else {}
-        return PagingPlaylistObject.model_validate(playlists)
+        return PagingPlaylist.model_validate(playlists)
 
     async def get(self, playlist_id: str, *, market: str | None = None) -> Playlist:
         params = {"market": market} if market else None
@@ -49,14 +49,14 @@ class Playlists:
         user_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> PagingPlaylistObject:
+    ) -> PagingPlaylist:
         if user_id:
             path = f"/users/{user_id}/playlists"
         else:
             path = "/me/playlists"
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get(path, params=params) or {}
-        return PagingPlaylistObject.model_validate(data)
+        return PagingPlaylist.model_validate(data)
 
     async def create(
         self,
@@ -151,11 +151,11 @@ class Playlists:
         )
         return data.get("snapshot_id") if isinstance(data, dict) else None
 
-    async def cover_image(self, playlist_id: str) -> list[ImageObject]:
+    async def cover_image(self, playlist_id: str) -> list[Image]:
         data = (
             await self._http.get(f"/playlists/{playlist_id}/images", require_user=False)
             or []
         )
         if isinstance(data, list):
-            return [ImageObject.model_validate(item) for item in data]
+            return [Image.model_validate(item) for item in data]
         return []

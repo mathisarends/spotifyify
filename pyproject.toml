@@ -33,5 +33,12 @@ dev = [
 [project.scripts]
 spotify-mcp = "spotifyify.mcp.cli:main"
 
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["spotifyify*"]
+
 [tool.uv]
 package = true

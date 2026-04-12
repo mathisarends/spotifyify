@@ -3,7 +3,7 @@ from typing import Any
 from collections.abc import Iterable
 
 from spotifyify.client import SpotifyClient
-from spotifyify.schemas import Episode, PagingSimplifiedEpisodeObject
+from spotifyify.schemas import Episode, PagingSimplifiedEpisode
 from spotifyify.utils import coalesce_csv
 
 
@@ -18,7 +18,7 @@ class Episodes:
         limit: int = 10,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingSimplifiedEpisodeObject:
+    ) -> PagingSimplifiedEpisode:
         params: dict[str, Any] = {
             "q": query,
             "type": "episode",
@@ -29,7 +29,7 @@ class Episodes:
             params["market"] = market
         data = await self._http.get("/search", params=params, require_user=False) or {}
         episodes = data.get("episodes", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedEpisodeObject.model_validate(episodes)
+        return PagingSimplifiedEpisode.model_validate(episodes)
 
     async def get(self, episode_id: str, *, market: str | None = None) -> Episode:
         data = (

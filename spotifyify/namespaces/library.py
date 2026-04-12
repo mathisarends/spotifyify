@@ -4,12 +4,12 @@ from collections.abc import Iterable
 
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
-    PagingArtistObject,
-    PagingSavedAlbumObject,
-    PagingSavedEpisodeObject,
-    PagingSavedShowObject,
-    PagingSavedTrackObject,
-    PagingTrackObject,
+    PagingArtist,
+    PagingSavedAlbum,
+    PagingSavedEpisode,
+    PagingSavedShow,
+    PagingSavedTrack,
+    PagingTrack,
 )
 from spotifyify.utils import coalesce_csv
 
@@ -24,12 +24,12 @@ class Library:
         limit: int = 20,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingSavedTrackObject:
+    ) -> PagingSavedTrack:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
         data = await self._http.get("/me/tracks", params=params) or {}
-        return PagingSavedTrackObject.model_validate(data)
+        return PagingSavedTrack.model_validate(data)
 
     async def saved_albums(
         self,
@@ -37,32 +37,32 @@ class Library:
         limit: int = 20,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingSavedAlbumObject:
+    ) -> PagingSavedAlbum:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
         data = await self._http.get("/me/albums", params=params) or {}
-        return PagingSavedAlbumObject.model_validate(data)
+        return PagingSavedAlbum.model_validate(data)
 
     async def saved_shows(
         self,
         *,
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingSavedShowObject:
+    ) -> PagingSavedShow:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get("/me/shows", params=params) or {}
-        return PagingSavedShowObject.model_validate(data)
+        return PagingSavedShow.model_validate(data)
 
     async def saved_episodes(
         self,
         *,
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingSavedEpisodeObject:
+    ) -> PagingSavedEpisode:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get("/me/episodes", params=params) or {}
-        return PagingSavedEpisodeObject.model_validate(data)
+        return PagingSavedEpisode.model_validate(data)
 
     async def save_tracks(self, track_ids: Iterable[str]) -> None:
         await self._http.put("/me/tracks", params={"ids": coalesce_csv(track_ids)})
@@ -120,7 +120,7 @@ class Library:
         time_range: str = "medium_term",
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingTrackObject:
+    ) -> PagingTrack:
         data = (
             await self._http.get(
                 "/me/top/tracks",
@@ -128,7 +128,7 @@ class Library:
             )
             or {}
         )
-        return PagingTrackObject.model_validate(data)
+        return PagingTrack.model_validate(data)
 
     async def top_artists(
         self,
@@ -136,7 +136,7 @@ class Library:
         time_range: str = "medium_term",
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingArtistObject:
+    ) -> PagingArtist:
         data = (
             await self._http.get(
                 "/me/top/artists",
@@ -144,4 +144,4 @@ class Library:
             )
             or {}
         )
-        return PagingArtistObject.model_validate(data)
+        return PagingArtist.model_validate(data)

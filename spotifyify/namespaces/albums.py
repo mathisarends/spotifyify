@@ -5,8 +5,8 @@ from collections.abc import Iterable
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
     Album,
-    PagingSimplifiedAlbumObject,
-    PagingSimplifiedTrackObject,
+    PagingSimplifiedAlbum,
+    PagingSimplifiedTrack,
 )
 from spotifyify.utils import coalesce_csv
 
@@ -22,7 +22,7 @@ class Albums:
         limit: int = 10,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingSimplifiedAlbumObject:
+    ) -> PagingSimplifiedAlbum:
         params: dict[str, Any] = {
             "q": query,
             "type": "album",
@@ -33,7 +33,7 @@ class Albums:
             params["market"] = market
         data = await self._http.get("/search", params=params, require_user=False) or {}
         albums = data.get("albums", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedAlbumObject.model_validate(albums)
+        return PagingSimplifiedAlbum.model_validate(albums)
 
     async def get(self, album_id: str, *, market: str | None = None) -> Album:
         data = (
@@ -63,7 +63,7 @@ class Albums:
         limit: int = 50,
         offset: int = 0,
         market: str | None = None,
-    ) -> PagingSimplifiedTrackObject:
+    ) -> PagingSimplifiedTrack:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
@@ -75,7 +75,7 @@ class Albums:
             )
             or {}
         )
-        return PagingSimplifiedTrackObject.model_validate(data)
+        return PagingSimplifiedTrack.model_validate(data)
 
     async def new_releases(
         self,
@@ -83,7 +83,7 @@ class Albums:
         country: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingSimplifiedAlbumObject:
+    ) -> PagingSimplifiedAlbum:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if country:
             params["country"] = country
@@ -96,4 +96,4 @@ class Albums:
             or {}
         )
         albums = data.get("albums", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedAlbumObject.model_validate(albums)
+        return PagingSimplifiedAlbum.model_validate(albums)

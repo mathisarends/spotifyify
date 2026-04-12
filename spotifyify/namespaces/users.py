@@ -1,5 +1,5 @@
 from spotifyify.client import SpotifyClient
-from spotifyify.schemas import CursorPagingSimplifiedArtistObject, PublicUser, User
+from spotifyify.schemas import CursorPagingSimplifiedArtist, PublicUser, User
 
 
 class Users:
@@ -20,13 +20,13 @@ class Users:
         type: str = "artist",
         limit: int = 20,
         after: str | None = None,
-    ) -> CursorPagingSimplifiedArtistObject:
+    ) -> CursorPagingSimplifiedArtist:
         params: dict[str, str | int] = {"type": type, "limit": limit}
         if after:
             params["after"] = after
         data = await self._http.get("/me/following", params=params) or {}
         artists = data.get("artists", {}) if isinstance(data, dict) else {}
-        return CursorPagingSimplifiedArtistObject.model_validate(artists)
+        return CursorPagingSimplifiedArtist.model_validate(artists)
 
     async def follow(self, type: str, ids: list[str]) -> None:
         await self._http.put(

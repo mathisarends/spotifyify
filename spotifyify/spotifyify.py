@@ -19,7 +19,7 @@ from spotifyify.namespaces import (
     Users,
 )
 
-from spotifyify.views import SpotifyScope
+from spotifyify.scopes import SpotifyScope
 
 
 class Spotifyify:

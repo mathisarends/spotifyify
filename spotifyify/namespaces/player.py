@@ -2,7 +2,7 @@ from typing import Any
 
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
-    CursorPagingPlayHistoryObject,
+    CursorPagingPlayHistory,
     Device,
     PlaybackState,
     PlayerQueue,
@@ -117,11 +117,11 @@ class Player:
         limit: int = 20,
         after: int | None = None,
         before: int | None = None,
-    ) -> CursorPagingPlayHistoryObject:
+    ) -> CursorPagingPlayHistory:
         params: dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
         if before is not None:
             params["before"] = before
         data = await self._http.get("/me/player/recently-played", params=params) or {}
-        return CursorPagingPlayHistoryObject.model_validate(data)
+        return CursorPagingPlayHistory.model_validate(data)

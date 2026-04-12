@@ -5,8 +5,8 @@ from collections.abc import Iterable
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
     Artist,
-    PagingArtistDiscographyAlbumObject,
-    PagingArtistObject,
+    PagingArtistDiscographyAlbum,
+    PagingArtist,
     Track,
 )
 from spotifyify.utils import coalesce_csv
@@ -22,7 +22,7 @@ class Artists:
         *,
         limit: int = 10,
         offset: int = 0,
-    ) -> PagingArtistObject:
+    ) -> PagingArtist:
         params: dict[str, Any] = {
             "q": query,
             "type": "artist",
@@ -31,7 +31,7 @@ class Artists:
         }
         data = await self._http.get("/search", params=params, require_user=False) or {}
         artists = data.get("artists", {}) if isinstance(data, dict) else {}
-        return PagingArtistObject.model_validate(artists)
+        return PagingArtist.model_validate(artists)
 
     async def get(self, artist_id: str) -> Artist:
         data = await self._http.get(f"/artists/{artist_id}", require_user=False) or {}
@@ -63,7 +63,7 @@ class Artists:
         market: str | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> PagingArtistDiscographyAlbumObject:
+    ) -> PagingArtistDiscographyAlbum:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if include_groups:
             params["include_groups"] = include_groups
@@ -77,7 +77,7 @@ class Artists:
             )
             or {}
         )
-        return PagingArtistDiscographyAlbumObject.model_validate(data)
+        return PagingArtistDiscographyAlbum.model_validate(data)
 
     async def related(self, artist_id: str) -> list[Artist]:
         data = (
