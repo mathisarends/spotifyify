@@ -3,7 +3,8 @@
     "allow": [
       "Bash(.venv/Scripts/pre-commit install:*)",
       "Bash(git commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(uvx:*)"
     ]
   }
 }
