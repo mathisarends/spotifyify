@@ -1,5 +1,5 @@
 from .spotifyify import Spotifyify
-from .credentials import SpotifyCredentials
+from .auth.credentials import SpotifyCredentials
 from .exceptions import SpotifyAPIError, SpotifyAuthError, SpotifyifyError
 from .views import SpotifyScope
 

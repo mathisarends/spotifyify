@@ -4,11 +4,10 @@ from typing import Any
 
 from pydantic import BaseModel, SecretStr
 
-from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
-from spotifyify.credentials import SpotifyCredentials
+from spotifyify.auth.cache_handler import CacheHandler, MemoryCacheHandler
+from spotifyify.auth.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError
 from spotifyify.http.client import AsyncHttpClient
-from spotifyify.util import SPOTIFY_OAUTH_TOKEN_URL, normalize_scope
 
 
 class TokenFormPayload(BaseModel):
@@ -17,6 +16,8 @@ class TokenFormPayload(BaseModel):
 
 
 class SpotifyifyOAuth:
+    _SPOTIFY_OAUTH_TOKEN_URL = "https://accounts.spotify.com/api/token"
+
     def __init__(
         self,
         credentials: SpotifyCredentials,
@@ -61,7 +62,7 @@ class SpotifyifyOAuth:
 
         try:
             parsed = await self.http.post_form(
-                SPOTIFY_OAUTH_TOKEN_URL,
+                self._SPOTIFY_OAUTH_TOKEN_URL,
                 data=payload,
                 headers=headers,
             )
@@ -106,7 +107,7 @@ class SpotifyifyOAuth:
         require_user: bool,
         scope: str | list[str] | tuple[str, ...] | None = None,
     ) -> str:
-        desired_scope = normalize_scope(scope)
+        desired_scope = self._normalize_scope(scope)
         token_info = self._cached_token()
 
         if token_info and not self._is_token_expired(token_info):
@@ -141,3 +142,16 @@ class SpotifyifyOAuth:
         client_token["scope"] = desired_scope
         self._save_token(client_token)
         return client_token["access_token"]
+
+    def _normalize_scope(
+        self, scope: str | list[str] | tuple[str, ...] | None
+    ) -> str | None:
+        if scope is None:
+            return None
+        if isinstance(scope, str):
+            chunks = [part.strip() for part in scope.replace(",", " ").split()]
+            return " ".join(sorted(set(filter(None, chunks)))) or None
+        if isinstance(scope, (list, tuple)):
+            chunks = [str(part).strip() for part in scope]
+            return " ".join(sorted(set(filter(None, chunks)))) or None
+        raise TypeError("scope must be str, list[str], tuple[str, ...], or None")

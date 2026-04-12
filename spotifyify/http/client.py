@@ -95,15 +95,18 @@ class AsyncHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
+        json_payload = None if content is not None else self._dump_payload(payload)
         response = await self._client.request(
             method,
             url,
             headers=headers,
             params=self._dump_params(params),
-            json=self._dump_payload(payload),
+            json=json_payload,
+            content=content,
         )
         parsed = self._parse_response(response)
         return self._validate_response(parsed, response_model)
@@ -131,6 +134,7 @@ class AsyncHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
@@ -139,6 +143,7 @@ class AsyncHttpClient:
             url,
             params=params,
             payload=payload,
+            content=content,
             headers=headers,
             response_model=response_model,
         )
@@ -154,6 +159,7 @@ class AsyncHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
@@ -162,6 +168,7 @@ class AsyncHttpClient:
             url,
             params=params,
             payload=payload,
+            content=content,
             headers=headers,
             response_model=response_model,
         )
@@ -177,6 +184,7 @@ class AsyncHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
@@ -185,6 +193,7 @@ class AsyncHttpClient:
             url,
             params=params,
             payload=payload,
+            content=content,
             headers=headers,
             response_model=response_model,
         )
@@ -200,6 +209,7 @@ class AsyncHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
@@ -208,6 +218,7 @@ class AsyncHttpClient:
             url,
             params=params,
             payload=payload,
+            content=content,
             headers=headers,
             response_model=response_model,
         )
@@ -275,7 +286,13 @@ class SpotifyAPIHttpClient:
     ) -> None:
         self._token_provider = token_provider
         self._scopes = list(scopes or [])
-        self._http = AsyncHttpClient(base_url=base_url, timeout=timeout)
+        self._base_url = base_url
+        self._timeout = timeout
+        self._http: AsyncHttpClient | None = None
+
+    async def open(self) -> None:
+        if self._http is None:
+            self._http = AsyncHttpClient(base_url=self._base_url, timeout=self._timeout)
 
     async def __aenter__(self) -> SpotifyAPIHttpClient:
         return self
@@ -284,7 +301,10 @@ class SpotifyAPIHttpClient:
         await self.close()
 
     async def close(self) -> None:
+        if self._http is None:
+            return
         await self._http.close()
+        self._http = None
 
     async def request_json(
         self,
@@ -298,20 +318,28 @@ class SpotifyAPIHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         require_user: bool = True,
+        headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
+        await self.open()
         token = await self._token_provider.get_access_token(
             require_user=require_user,
             scope=self._scopes,
         )
-        headers = {"Authorization": f"Bearer {token}"}
+        request_headers = {"Authorization": f"Bearer {token}"}
+        if headers:
+            request_headers.update(headers)
+        if self._http is None:
+            raise RuntimeError("HTTP client was not initialized")
         return await self._http.request_json(
             method,
             path,
             params=params,
             payload=payload,
-            headers=headers,
+            content=content,
+            headers=request_headers,
             response_model=response_model,
         )
 
@@ -321,6 +349,7 @@ class SpotifyAPIHttpClient:
         *,
         params: QueryParams | BaseModel | dict[str, Any] | None = None,
         require_user: bool = True,
+        headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
         return await self.request_json(
@@ -328,6 +357,7 @@ class SpotifyAPIHttpClient:
             path,
             params=params,
             require_user=require_user,
+            headers=headers,
             response_model=response_model,
         )
 
@@ -342,7 +372,9 @@ class SpotifyAPIHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         require_user: bool = True,
+        headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
         return await self.request_json(
@@ -350,7 +382,9 @@ class SpotifyAPIHttpClient:
             path,
             params=params,
             payload=payload,
+            content=content,
             require_user=require_user,
+            headers=headers,
             response_model=response_model,
         )
 
@@ -365,7 +399,9 @@ class SpotifyAPIHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         require_user: bool = True,
+        headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
         return await self.request_json(
@@ -373,7 +409,9 @@ class SpotifyAPIHttpClient:
             path,
             params=params,
             payload=payload,
+            content=content,
             require_user=require_user,
+            headers=headers,
             response_model=response_model,
         )
 
@@ -388,7 +426,9 @@ class SpotifyAPIHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         require_user: bool = True,
+        headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
         return await self.request_json(
@@ -396,7 +436,9 @@ class SpotifyAPIHttpClient:
             path,
             params=params,
             payload=payload,
+            content=content,
             require_user=require_user,
+            headers=headers,
             response_model=response_model,
         )
 
@@ -411,7 +453,9 @@ class SpotifyAPIHttpClient:
         | list[Any]
         | str
         | None = None,
+        content: str | bytes | None = None,
         require_user: bool = True,
+        headers: dict[str, str] | None = None,
         response_model: type[TModel] | None = None,
     ) -> TModel | JSONResponse:
         return await self.request_json(
@@ -419,6 +463,8 @@ class SpotifyAPIHttpClient:
             path,
             params=params,
             payload=payload,
+            content=content,
             require_user=require_user,
+            headers=headers,
             response_model=response_model,
         )
