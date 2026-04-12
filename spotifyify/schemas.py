@@ -728,7 +728,7 @@ class PublicUserObject(BaseModel):
     )
 
 
-class Track(BaseModel):
+class AudioAnalysisTrack(BaseModel):
     num_samples: int | None = Field(
         None,
         description="The exact number of audio samples analyzed from this track. See also `analysis_sample_rate`.",
@@ -1456,7 +1456,7 @@ class ContextObject(BaseModel):
 
 class AudioAnalysisObject(BaseModel):
     meta: Meta | None = None
-    track: Track | None = None
+    track: AudioAnalysisTrack | None = None
     bars: list[TimeIntervalObject] | None = Field(
         None,
         description="The time intervals of the bars throughout the track. A bar (or measure) is a segment of time defined as a given number of beats.",
@@ -1890,3 +1890,32 @@ class PagingSavedTrackObject(PagingObject):
 
 class PagingSavedEpisodeObject(PagingObject):
     items: list[SavedEpisodeObject] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Convenience aliases used by the namespace API layer
+# ---------------------------------------------------------------------------
+Track = TrackObject
+Album = AlbumObject
+Artist = ArtistObject
+Playlist = PlaylistObject
+SimplifiedPlaylist = SimplifiedPlaylistObject
+Episode = EpisodeObject
+SimplifiedEpisode = SimplifiedEpisodeObject
+Show = ShowObject
+SimplifiedShow = SimplifiedShowObject
+Device = DeviceObject
+PlaybackState = CurrentlyPlayingContextObject
+PlayerQueue = QueueObject
+Paging = PagingObject
+CursorPaging = CursorPagingObject
+AudioFeatures = AudioFeaturesObject
+AudioAnalysis = AudioAnalysisObject
+User = PrivateUserObject
+PublicUser = PublicUserObject
+SavedTrack = SavedTrackObject
+SavedAlbum = SavedAlbumObject
+SavedShow = SavedShowObject
+SavedEpisode = SavedEpisodeObject
+PlayHistory = PlayHistoryObject
+Recommendations = RecommendationsObject

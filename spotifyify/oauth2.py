@@ -4,10 +4,12 @@ from typing import Any
 
 from pydantic import BaseModel, SecretStr
 
-from spotifyify.auth.cache_handler import CacheHandler, MemoryCacheHandler
-from spotifyify.auth.credentials import SpotifyCredentials
+from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
+import httpx
+
+from spotifyify.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError
-from spotifyify.http.client import AsyncHttpClient
+from spotifyify.client import parse_response
 
 
 class TokenFormPayload(BaseModel):
@@ -27,10 +29,10 @@ class SpotifyifyOAuth:
         self.credentials = credentials
         self.cache_handler = cache_handler or MemoryCacheHandler()
         self.timeout = timeout
-        self.http = AsyncHttpClient(timeout=timeout)
+        self._http = httpx.AsyncClient(timeout=timeout)
 
     async def close(self) -> None:
-        await self.http.close()
+        await self._http.aclose()
 
     @staticmethod
     def _is_token_expired(token_info: dict[str, Any]) -> bool:
@@ -61,11 +63,15 @@ class SpotifyifyOAuth:
             headers.update(self._client_auth_header())
 
         try:
-            parsed = await self.http.post_form(
+            form_data = payload.model_dump(mode="json", exclude_none=True)
+            response = await self._http.post(
                 self._SPOTIFY_OAUTH_TOKEN_URL,
-                data=payload,
+                data=form_data,
                 headers=headers,
             )
+            parsed = parse_response(response)
+        except SpotifyAuthError:
+            raise
         except Exception as exc:
             raise SpotifyAuthError(f"Token request failed: {exc}") from exc
 

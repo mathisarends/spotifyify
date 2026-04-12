@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import CursorPagingSimplifiedArtistObject, PublicUser, User
 
