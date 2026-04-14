@@ -129,7 +129,7 @@ echo "Writing package re-exports to $PACKAGE_INIT_FILE..."
 cat > "$PACKAGE_INIT_FILE" << 'PACKAGE_INIT'
 from .spotifyify import Spotifyify
 from .credentials import SpotifyCredentials
-from .scopes import SpotifyScope
+from .oauth2 import SpotifyScope
 from .schemas import (
     # Core models
     Track,

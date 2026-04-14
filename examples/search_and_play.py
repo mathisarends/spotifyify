@@ -12,12 +12,6 @@ async def main() -> None:
 
         first = results.items[0]
 
-        features = await sp.tracks.audio_features([first.id])
-        f = features[0]
-        print(
-            f"\ntempo: {f.tempo:.0f} BPM  energy: {f.energy:.2f}  danceability: {f.danceability:.2f}"
-        )
-
         await sp.player.play(uris=[first.uri])
         print(f"\nPlaying: {first.name}")
 

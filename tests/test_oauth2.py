@@ -162,8 +162,25 @@ class TestGetAccessToken(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(token, "valid_token")
         await oauth.close()
 
-    async def test_raises_when_user_required_no_token(self):
+    async def test_requests_user_token_when_user_required_no_token(self):
         creds = _make_credentials()
+        oauth = SpotifyifyOAuth(creds)
+        oauth._request_user_token = unittest.mock.AsyncMock(
+            return_value={
+                "access_token": "interactive-token",
+                "refresh_token": "interactive-refresh",
+                "expires_at": int(time.time()) + 3600,
+                "scope": "user-modify-playback-state",
+            }
+        )
+        token = await oauth.get_access_token(
+            require_user=True, scope="user-modify-playback-state"
+        )
+        self.assertEqual(token, "interactive-token")
+        await oauth.close()
+
+    async def test_missing_redirect_uri_raises_for_interactive_login(self):
+        creds = _make_credentials(SPOTIFY_REDIRECT_URI=None)
         oauth = SpotifyifyOAuth(creds)
         with self.assertRaises(SpotifyAuthError):
             await oauth.get_access_token(require_user=True)

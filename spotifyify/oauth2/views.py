@@ -5,6 +5,8 @@ from pydantic import BaseModel
 class TokenFormPayload(BaseModel):
     grant_type: str
     refresh_token: str | None = None
+    code: str | None = None
+    redirect_uri: str | None = None
 
 
 class SpotifyScope(StrEnum):

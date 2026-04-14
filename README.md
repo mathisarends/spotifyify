@@ -43,6 +43,13 @@ SPOTIFY_REFRESH_TOKEN=your_refresh_token
 
 If `SPOTIFY_REFRESH_TOKEN` (or `SPOTIFY_ACCESS_TOKEN`) is present the client operates in user mode. Without them it falls back to the [Client Credentials flow](https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow), which only allows access to public data.
 
+If a user-scoped endpoint is called and no user token is available, spotifyify starts an interactive Authorization Code login:
+
+1. Opens the Spotify consent page in your browser.
+2. Waits for the redirect on your configured `SPOTIFY_REDIRECT_URI` (for example `http://localhost:8888/callback`).
+3. Exchanges the code for access and refresh tokens.
+4. Stores tokens in `.spotify_cache` by default (already git-ignored in this project).
+
 ## Quick start
 
 ```python

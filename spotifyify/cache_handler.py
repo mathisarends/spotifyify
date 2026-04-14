@@ -26,7 +26,7 @@ class MemoryCacheHandler(CacheHandler):
 
 
 class CacheFileHandler(CacheHandler):
-    def __init__(self, cache_path: str | Path = ".cache-spotifyify") -> None:
+    def __init__(self, cache_path: str | Path = ".cache") -> None:
         self.cache_path = Path(cache_path)
 
     def get_cached_token(self) -> dict[str, Any] | None:

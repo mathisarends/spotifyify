@@ -2,7 +2,7 @@ from typing import Self
 
 from collections.abc import Iterable
 
-from spotifyify.cache_handler import CacheHandler
+from spotifyify.cache_handler import CacheFileHandler, CacheHandler
 from spotifyify.client import SpotifyClient
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.oauth2 import SpotifyifyOAuth
@@ -36,7 +36,7 @@ class Spotifyify:
         self._scopes = [scope for scope in (scopes or ())]
         self._oauth = SpotifyifyOAuth(
             self._credentials,
-            cache_handler=cache_handler,
+            cache_handler=cache_handler or CacheFileHandler(),
             timeout=timeout,
         )
         self._http = SpotifyClient(
