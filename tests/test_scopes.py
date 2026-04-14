@@ -1,6 +1,6 @@
 import unittest
 
-from spotifyify.scopes import SpotifyScope
+from spotifyify.oauth2.views import SpotifyScope
 
 
 class TestSpotifyScope(unittest.TestCase):
