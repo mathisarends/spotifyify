@@ -68,6 +68,10 @@ class Spotifyify:
         await self._oauth.close()
 
     @property
+    def http(self) -> SpotifyClient:
+        return self._http
+
+    @property
     def tracks(self) -> Tracks:
         if self._tracks is None:
             self._tracks = Tracks(self._http)

@@ -10,20 +10,16 @@ async def main() -> None:
         print(f"Found {results.total} artists for 'Radiohead':\n")
 
         for artist in results.items:
-            genres = ", ".join(artist.genres or [])
-            print(
-                f"  {artist.name} — followers: {artist.followers.total if artist.followers else 0}, genres: {genres}"
-            )
+            print(f"  {artist.name}")
 
         first = results.items[0]
         full_artist = await sp.artists.get(first.id)
         print(f"\nArtist details for '{full_artist.name}':")
-        print(f"  Popularity: {full_artist.popularity}")
 
         top = await sp.artists.top_tracks(first.id)
         print(f"\nTop tracks ({len(top)}):")
         for i, track in enumerate(top[:5], 1):
-            print(f"  {i}. {track.name} (popularity: {track.popularity})")
+            print(f"  {i}. {track.name}")
 
         discography = await sp.artists.albums(first.id, limit=5, include_groups="album")
         print(f"\nAlbums ({discography.total} total):")

@@ -17,14 +17,13 @@ async def main() -> None:
         full_track = await sp.tracks.get(first.id)
         print(f"\nFull track details for '{full_track.name}':")
         print(f"  Album: {full_track.album.name if full_track.album else 'N/A'}")
-        print(f"  Popularity: {full_track.popularity}")
         print(f"  Explicit: {full_track.explicit}")
 
         ids = [t.id for t in results.items]
         batch = await sp.tracks.get_many(ids)
         print(f"\nBatch fetch returned {len(batch)} tracks")
         for t in batch:
-            print(f"  {t.name} (popularity: {t.popularity})")
+            print(f"  {t.name}")
 
 
 asyncio.run(main())

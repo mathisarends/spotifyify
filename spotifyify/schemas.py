@@ -561,10 +561,12 @@ class Image(BaseModel):
         description="The source URL of the image.\n",
         examples=["https://i.scdn.co/image/ab67616d00001e02ff9ca10b55ce82ae553c8228\n"],
     )
-    height: int = Field(
-        ..., description="The image height in pixels.\n", examples=[300]
+    height: int | None = Field(
+        None, description="The image height in pixels.\n", examples=[300]
     )
-    width: int = Field(..., description="The image width in pixels.\n", examples=[300])
+    width: int | None = Field(
+        None, description="The image width in pixels.\n", examples=[300]
+    )
 
 
 class ExplicitContentSettings(BaseModel):
@@ -1248,8 +1250,8 @@ class AlbumBase(BaseModel):
     total_tracks: int = Field(
         ..., description="The number of tracks in the album.", examples=[9]
     )
-    available_markets: list[str] = Field(
-        ...,
+    available_markets: list[str] | None = Field(
+        None,
         deprecated=True,
         description="The markets in which the album is available: [ISO 3166-1 alpha-2 country codes](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2). _**NOTE**: an album is considered available in a market when at least 1 of its tracks is available in that market._\n",
         examples=[["CA", "BR", "IT"]],
@@ -1707,7 +1709,7 @@ class PlayerQueue(BaseModel):
         description="The currently playing track or episode. Can be `null`.",
         discriminator="type",
     )
-    queue: list[Queue] | None = Field(
+    queue: list[Track | Episode] | None = Field(
         None, description="The tracks or episodes in the queue. Can be empty."
     )
 
@@ -1752,7 +1754,7 @@ class CursorPagingPlayHistory(CursorPaging):
 
 
 class PagingPlaylist(Paging):
-    items: list[SimplifiedPlaylist] | None = None
+    items: list[SimplifiedPlaylist | None] | None = None
 
 
 class PagingFeaturedPlaylist(BaseModel):

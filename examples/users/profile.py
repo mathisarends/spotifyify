@@ -8,13 +8,9 @@ async def main() -> None:
     async with Spotifyify() as sp:
         me = await sp.users.me()
         print(f"Current user: {me.display_name} ({me.id})")
-        print(f"  Country: {me.country}")
-        print(f"  Product: {me.product}")
-        print(f"  Followers: {me.followers.total if me.followers else 0}")
 
         public = await sp.users.get(me.id)
-        print(f"\nPublic profile for '{public.display_name}':")
-        print(f"  Followers: {public.followers.total if public.followers else 0}")
+        print(f"\nPublic profile for '{public.display_name}':  ({public.id})")
 
         following = await sp.users.following(limit=5)
         print(f"\nFollowed artists ({following.total} total):")

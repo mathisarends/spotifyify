@@ -9,6 +9,8 @@ async def main() -> None:
         search = await sp.playlists.find("chill vibes", limit=3)
         print(f"Search results for 'chill vibes' ({search.total} total):")
         for pl in search.items:
+            if pl is None:
+                continue
             owner = pl.owner.display_name if pl.owner else "unknown"
             print(
                 f"  {pl.name} — by {owner} ({pl.tracks.total if pl.tracks else 0} tracks)"
@@ -16,7 +18,7 @@ async def main() -> None:
 
         my_playlists = await sp.playlists.list(limit=5)
         print(f"\nMy playlists ({my_playlists.total} total):")
-        for pl in my_playlists.items:
+        for pl in my_playlists.items or []:
             print(
                 f"  {pl.name} — {pl.tracks.total if pl.tracks else 0} tracks, public: {pl.public}"
             )
@@ -26,7 +28,6 @@ async def main() -> None:
             full = await sp.playlists.get(first.id)
             print(f"\nPlaylist details for '{full.name}':")
             print(f"  Description: {full.description or 'N/A'}")
-            print(f"  Followers: {full.followers.total if full.followers else 0}")
 
             images = await sp.playlists.cover_image(first.id)
             print(f"  Cover images: {len(images)}")
