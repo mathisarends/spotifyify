@@ -1,6 +1,6 @@
 # spotifyify
 
-An async-first Spotify client with a namespaced API and fully typed response models generated from the [official Spotify OpenAPI specification](https://developer.spotify.com/reference/web-api/open-api-schema.yaml).
+An async-first Spotify client with a namespaced API and fully typed response models maintained in the codebase and aligned with the [official Spotify OpenAPI specification](https://developer.spotify.com/reference/web-api/open-api-schema.yaml).
 
 ## Requirements
 
