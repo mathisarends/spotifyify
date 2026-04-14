@@ -2,7 +2,7 @@ import base64
 import time
 from typing import Any
 
-from pydantic import BaseModel, SecretStr
+from pydantic import SecretStr
 
 from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
 import httpx
@@ -10,11 +10,7 @@ import httpx
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError
 from spotifyify.client import parse_response
-
-
-class TokenFormPayload(BaseModel):
-    grant_type: str
-    refresh_token: str | None = None
+from spotifyify.oauth2.views import TokenFormPayload
 
 
 class SpotifyifyOAuth:

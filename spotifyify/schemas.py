@@ -387,8 +387,8 @@ class PagingObject(BaseModel):
         description="The maximum number of items in the response (as set in the query or by default).\n",
         examples=[20],
     )
-    next: str = Field(
-        ...,
+    next: str | None = Field(
+        None,
         description="URL to the next page of items. ( `null` if none)\n",
         examples=["https://api.spotify.com/v1/me/shows?offset=1&limit=1"],
     )
@@ -397,8 +397,8 @@ class PagingObject(BaseModel):
         description="The offset of the items returned (as set in the query or by default)\n",
         examples=[0],
     )
-    previous: str = Field(
-        ...,
+    previous: str | None = Field(
+        None,
         description="URL to the previous page of items. ( `null` if none)\n",
         examples=["https://api.spotify.com/v1/me/shows?offset=1&limit=1"],
     )

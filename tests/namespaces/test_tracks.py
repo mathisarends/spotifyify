@@ -27,6 +27,14 @@ class TestTracks(unittest.IsolatedAsyncioTestCase):
         call_kwargs = self.http.get.call_args
         self.assertEqual(call_kwargs.kwargs["params"]["market"], "US")
 
+    async def test_find_accepts_null_paging_links(self):
+        self.http.get.return_value = {
+            "tracks": paging(previous=None, next=None),
+        }
+        result = await self.tracks.find("test query")
+        self.assertIsNone(result.previous)
+        self.assertIsNone(result.next)
+
     async def test_get(self):
         self.http.get.return_value = track(id="abc123", name="Test Track")
         result = await self.tracks.get("abc123")

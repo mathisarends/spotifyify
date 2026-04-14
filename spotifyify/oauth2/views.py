@@ -1,4 +1,10 @@
 from enum import StrEnum
+from pydantic import BaseModel
+
+
+class TokenFormPayload(BaseModel):
+    grant_type: str
+    refresh_token: str | None = None
 
 
 class SpotifyScope(StrEnum):

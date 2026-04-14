@@ -1,6 +1,6 @@
 from .spotifyify import Spotifyify
 from .credentials import SpotifyCredentials
-from .scopes import SpotifyScope
+from .oauth2 import SpotifyScope
 from .schemas import (
     # Core models
     Track,

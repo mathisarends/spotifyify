@@ -19,7 +19,7 @@ from spotifyify.namespaces import (
     Users,
 )
 
-from spotifyify.scopes import SpotifyScope
+from spotifyify.oauth2 import SpotifyScope
 
 
 class Spotifyify:
@@ -28,12 +28,12 @@ class Spotifyify:
     def __init__(
         self,
         credentials: SpotifyCredentials | None = None,
-        scopes: Iterable[SpotifyScope | str] | None = None,
+        scopes: Iterable[SpotifyScope] | None = None,
         cache_handler: CacheHandler | None = None,
         timeout: float = 10.0,
     ) -> None:
         self._credentials = credentials or SpotifyCredentials()
-        self._scopes = [str(scope) for scope in scopes] if scopes else []
+        self._scopes = [scope for scope in (scopes or ())]
         self._oauth = SpotifyifyOAuth(
             self._credentials,
             cache_handler=cache_handler,

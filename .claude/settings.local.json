@@ -5,7 +5,8 @@
       "Bash(git commit:*)",
       "Bash(git add:*)",
       "Bash(uvx:*)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(.venv/Scripts/python -m pytest --tb=short)"
     ]
   }
 }

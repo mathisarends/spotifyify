@@ -17,6 +17,35 @@ uvx --from datamodel-code-generator datamodel-codegen \
   --output "$OUTPUT_FILE" \
   --output-model-type pydantic_v2.BaseModel
 
+echo "Applying schema compatibility patch for nullable paging links..."
+python - << 'PY'
+from pathlib import Path
+
+path = Path("spotifyify/schemas.py")
+content = path.read_text(encoding="utf-8")
+
+marker = "class PagingObject(BaseModel):"
+start = content.find(marker)
+if start == -1:
+  raise RuntimeError("PagingObject not found in generated schemas")
+
+next_class = content.find("\n\nclass ", start + len(marker))
+if next_class == -1:
+  next_class = len(content)
+
+block = content[start:next_class]
+updated = block
+updated = updated.replace("next: str = Field(", "next: str | None = Field(")
+updated = updated.replace("previous: str = Field(", "previous: str | None = Field(")
+updated = updated.replace("next: str | None = Field(\n        ...,", "next: str | None = Field(\n        None,")
+updated = updated.replace("previous: str | None = Field(\n        ...,", "previous: str | None = Field(\n        None,")
+
+if block == updated:
+  raise RuntimeError("PagingObject patch did not apply; generator output changed")
+
+path.write_text(content[:start] + updated + content[next_class:], encoding="utf-8")
+PY
+
 echo "Appending convenience aliases..."
 cat >> "$OUTPUT_FILE" << 'ALIASES'
 
