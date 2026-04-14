@@ -5,17 +5,9 @@ description = "Async wrapper for spotipy with a focus on integration with MCP ag
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "httpx>=0.28.0",
+    "pydantic>=2.12.0",
     "pydantic-settings>=2.12.0",
-    "python-dotenv>=1.2.1",
-    "spotipy>=2.25.2",
-]
-
-[project.optional-dependencies]
-mcp = [
-    "mcp[cli]>=1.0.0",
-]
-agents = [
-    "openai-agents>=0.6.7",
 ]
 
 [dependency-groups]
@@ -30,8 +22,12 @@ dev = [
     "pre-commit>=4.3.0",
 ]
 
-[project.scripts]
-spotify-mcp = "spotifyify.mcp.cli:main"
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["spotifyify*"]
 
 [tool.uv]
 package = true
