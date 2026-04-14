@@ -16,9 +16,7 @@ async def main() -> None:
         first = results.items[0]
         full_album = await sp.albums.get(first.id)
         print(f"\nAlbum details for '{full_album.name}':")
-        print(f"  Label: {full_album.label}")
         print(f"  Total tracks: {full_album.total_tracks}")
-        print(f"  Popularity: {full_album.popularity}")
 
         tracklist = await sp.albums.tracks(first.id, limit=5)
         print(f"\nFirst {len(tracklist.items)} tracks:")

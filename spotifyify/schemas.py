@@ -5,12 +5,19 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, Field, RootModel, confloat, conint
+from pydantic import AwareDatetime, BaseModel, Field, RootModel
 
 
-class TrackRestrictionObject(BaseModel):
+HTTPStatusCode = Annotated[int, Field(ge=400, le=599)]
+Confidence = Annotated[float, Field(ge=0.0, le=1.0)]
+TimeSignatureValue = Annotated[int, Field(ge=3, le=7)]
+MusicalKeyValue = Annotated[int, Field(ge=-1, le=11)]
+VolumePercent = Annotated[int, Field(ge=0, le=100)]
+
+
+class TrackRestriction(BaseModel):
     reason: str | None = Field(
         None,
         description="The reason for the restriction. Supported values:\n- `market` - The content item is not available in the given market.\n- `product` - The content item is not available for the user's subscription type.\n- `explicit` - The content item is explicit and the user's account is set to not play explicit content.\n\nAdditional reasons may be added in the future.\n**Note**: If you use this field, make sure that your application safely handles unknown values.\n",
@@ -23,21 +30,21 @@ class Reason(Enum):
     explicit = "explicit"
 
 
-class AlbumRestrictionObject(BaseModel):
+class AlbumRestriction(BaseModel):
     reason: Reason | None = Field(
         None,
         description="The reason for the restriction. Albums may be restricted if the content is not available in a given market, to the user's subscription type, or when the user's account is set to not play explicit content.\nAdditional reasons may be added in the future.\n",
     )
 
 
-class EpisodeRestrictionObject(BaseModel):
+class EpisodeRestriction(BaseModel):
     reason: str | None = Field(
         None,
         description="The reason for the restriction. Supported values:\n- `market` - The content item is not available in the given market.\n- `product` - The content item is not available for the user's subscription type.\n- `explicit` - The content item is explicit and the user's account is set to not play explicit content.\n\nAdditional reasons may be added in the future.\n**Note**: If you use this field, make sure that your application safely handles unknown values.\n",
     )
 
 
-class ChapterRestrictionObject(BaseModel):
+class ChapterRestriction(BaseModel):
     reason: str | None = Field(
         None,
         description="The reason for the restriction. Supported values:\n- `market` - The content item is not available in the given market.\n- `product` - The content item is not available for the user's subscription type.\n- `explicit` - The content item is explicit and the user's account is set to not play explicit content.\n- `payment_required` - Payment is required to play the content item.\n\nAdditional reasons may be added in the future.\n**Note**: If you use this field, make sure that your application safely handles unknown values.\n",
@@ -48,7 +55,7 @@ class Type(Enum):
     artist = "artist"
 
 
-class DisallowsObject(BaseModel):
+class Disallows(BaseModel):
     interrupting_playback: bool | None = Field(
         None, description="Interrupting playback. Optional field."
     )
@@ -77,8 +84,8 @@ class DisallowsObject(BaseModel):
     )
 
 
-class ErrorObject(BaseModel):
-    status: conint(ge=400, le=599) = Field(
+class Error(BaseModel):
+    status: HTTPStatusCode = Field(
         ...,
         description="The HTTP status code (also returned in the response header; see [Response Status Codes](/documentation/web-api/concepts/api-calls#response-status-codes) for more information).\n",
     )
@@ -129,7 +136,7 @@ class Meta(BaseModel):
     )
 
 
-class TimeIntervalObject(BaseModel):
+class TimeInterval(BaseModel):
     start: float | None = Field(
         None,
         description="The starting point (in seconds) of the time interval.",
@@ -140,7 +147,7 @@ class TimeIntervalObject(BaseModel):
         description="The duration (in seconds) of the time interval.",
         examples=[2.18749],
     )
-    confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the interval.",
         examples=[0.925],
@@ -153,7 +160,7 @@ class Mode1(Enum):
     number_1 = 1
 
 
-class SegmentObject(BaseModel):
+class Segment(BaseModel):
     start: float | None = Field(
         None,
         description="The starting point (in seconds) of the segment.",
@@ -164,7 +171,7 @@ class SegmentObject(BaseModel):
         description="The duration (in seconds) of the segment.",
         examples=[0.19891],
     )
-    confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the segmentation. Segments of the song which are difficult to logically segment (e.g: noise) may correspond to low values in this field.\n",
         examples=[0.435],
@@ -189,7 +196,7 @@ class SegmentObject(BaseModel):
         description="The offset loudness of the segment in decibels (dB). This value should be equivalent to the loudness_start of the following segment.",
         examples=[0.0],
     )
-    pitches: list[confloat(ge=0.0, le=1.0)] | None = Field(
+    pitches: list[Confidence] | None = Field(
         None,
         description="Pitch content is given by a “chroma” vector, corresponding to the 12 pitch classes C, C#, D to B, with values ranging from 0 to 1 that describe the relative dominance of every pitch in the chromatic scale. For example a C Major chord would likely be represented by large values of C, E and G (i.e. classes 0, 4, and 7).\n\nVectors are normalized to 1 by their strongest dimension, therefore noisy sounds are likely represented by values that are all close to 1, while pure tones are described by one value at 1 (the pitch) and others near 0.\nAs can be seen below, the 12 vector indices are a combination of low-power spectrum values at their respective pitch frequencies.\n![pitch vector](/assets/audio/Pitch_vector.png)\n",
         examples=[[0.212, 0.141, 0.294]],
@@ -201,8 +208,8 @@ class SegmentObject(BaseModel):
     )
 
 
-class TimeSignature(RootModel[conint(ge=3, le=7)]):
-    root: conint(ge=3, le=7) = Field(
+class TimeSignature(RootModel[TimeSignatureValue]):
+    root: TimeSignatureValue = Field(
         ...,
         description='An estimated time signature. The time signature (meter) is a notational convention to specify how many beats are in each bar (or measure). The time signature ranges from 3 to 7 indicating time signatures of "3/4", to "7/4".',
         examples=[4],
@@ -225,8 +232,8 @@ class Loudness(RootModel[float]):
     )
 
 
-class Key(RootModel[conint(ge=-1, le=11)]):
-    root: conint(ge=-1, le=11) = Field(
+class Key(RootModel[MusicalKeyValue]):
+    root: MusicalKeyValue = Field(
         ...,
         description="The key the track is in. Integers map to pitches using standard [Pitch Class notation](https://en.wikipedia.org/wiki/Pitch_class). E.g. 0 = C, 1 = C♯/D♭, 2 = D, and so on. If no key was detected, the value is -1.\n",
         examples=[9],
@@ -245,8 +252,8 @@ class Type3(Enum):
     audio_features = "audio_features"
 
 
-class AudioFeaturesObject(BaseModel):
-    acousticness: confloat(ge=0.0, le=1.0) | None = Field(
+class AudioFeatures(BaseModel):
+    acousticness: Confidence | None = Field(
         None,
         description="A confidence measure from 0.0 to 1.0 of whether the track is acoustic. 1.0 represents high confidence the track is acoustic.\n",
         examples=[0.00242],
@@ -307,14 +314,14 @@ class AudioFeaturesObject(BaseModel):
         description="The Spotify URI for the track.\n",
         examples=["spotify:track:2takcwOaAZWiXQijPHIx7B"],
     )
-    valence: confloat(ge=0.0, le=1.0) | None = Field(
+    valence: Confidence | None = Field(
         None,
         description="A measure from 0.0 to 1.0 describing the musical positiveness conveyed by a track. Tracks with high valence sound more positive (e.g. happy, cheerful, euphoric), while tracks with low valence sound more negative (e.g. sad, depressed, angry).\n",
         examples=[0.428],
     )
 
 
-class DeviceObject(BaseModel):
+class Device(BaseModel):
     id: str | None = Field(
         None,
         description="The device ID. This ID is unique and persistent to some extent. However, this is not guaranteed and any cached `device_id` should periodically be cleared out and refetched as necessary.",
@@ -339,7 +346,7 @@ class DeviceObject(BaseModel):
         description='Device type, such as "computer", "smartphone" or "speaker".',
         examples=["computer"],
     )
-    volume_percent: conint(ge=0, le=100) | None = Field(
+    volume_percent: VolumePercent | None = Field(
         None, description="The current volume in percent.", examples=[59]
     )
     supports_volume: bool | None = Field(
@@ -347,7 +354,7 @@ class DeviceObject(BaseModel):
     )
 
 
-class CursorObject(BaseModel):
+class Cursor(BaseModel):
     after: str | None = Field(
         None, description="The cursor to use as key to find the next page of items."
     )
@@ -356,7 +363,7 @@ class CursorObject(BaseModel):
     )
 
 
-class CursorPagingObject(BaseModel):
+class CursorPaging(BaseModel):
     href: str | None = Field(
         None,
         description="A link to the Web API endpoint returning the full result of the request.",
@@ -368,7 +375,7 @@ class CursorPagingObject(BaseModel):
     next: str | None = Field(
         None, description="URL to the next page of items. ( `null` if none)"
     )
-    cursors: CursorObject | None = Field(
+    cursors: Cursor | None = Field(
         None, description="The cursors used to find the next set of items."
     )
     total: int | None = Field(
@@ -376,7 +383,7 @@ class CursorPagingObject(BaseModel):
     )
 
 
-class PagingObject(BaseModel):
+class Paging(BaseModel):
     href: str = Field(
         ...,
         description="A link to the Web API endpoint returning the full result of the request\n",
@@ -409,7 +416,7 @@ class PagingObject(BaseModel):
     )
 
 
-class RecommendationSeedObject(BaseModel):
+class RecommendationSeed(BaseModel):
     afterFilteringSize: int | None = Field(
         None,
         description="The number of tracks available after min\\_\\* and max\\_\\* filters have been applied.\n",
@@ -435,7 +442,7 @@ class RecommendationSeedObject(BaseModel):
     )
 
 
-class PlaylistTracksRefObject(BaseModel):
+class PlaylistTracksRef(BaseModel):
     href: str | None = Field(
         None,
         description="A link to the Web API endpoint where full details of the playlist's tracks can be retrieved.\n",
@@ -461,7 +468,7 @@ class Type6(Enum):
     episode = "episode"
 
 
-class ResumePointObject(BaseModel):
+class ResumePoint(BaseModel):
     fully_played: bool | None = Field(
         None,
         description="Whether or not the episode has been fully played by the user.\n",
@@ -484,6 +491,7 @@ class AlbumType(Enum):
     album = "album"
     single = "single"
     compilation = "compilation"
+    ep = "ep"
 
 
 class Type9(Enum):
@@ -501,7 +509,7 @@ class Type10(Enum):
     episode = "episode"
 
 
-class CopyrightObject(BaseModel):
+class Copyright(BaseModel):
     text: str | None = Field(None, description="The copyright text for this content.\n")
     type: str | None = Field(
         None,
@@ -509,15 +517,15 @@ class CopyrightObject(BaseModel):
     )
 
 
-class AuthorObject(BaseModel):
+class Author(BaseModel):
     name: str | None = Field(None, description="The name of the author.\n")
 
 
-class NarratorObject(BaseModel):
+class Narrator(BaseModel):
     name: str | None = Field(None, description="The name of the Narrator.\n")
 
 
-class ExternalIdObject(BaseModel):
+class ExternalId(BaseModel):
     isrc: str | None = Field(
         None,
         description="[International Standard Recording Code](http://en.wikipedia.org/wiki/International_Standard_Recording_Code)\n",
@@ -532,14 +540,14 @@ class ExternalIdObject(BaseModel):
     )
 
 
-class ExternalUrlObject(BaseModel):
+class ExternalUrl(BaseModel):
     spotify: str | None = Field(
         None,
         description="The [Spotify URL](/documentation/web-api/concepts/spotify-uris-ids) for the object.\n",
     )
 
 
-class FollowersObject(BaseModel):
+class Followers(BaseModel):
     href: str | None = Field(
         None,
         description="This will always be set to null, as the Web API does not support it at the moment.\n",
@@ -547,7 +555,7 @@ class FollowersObject(BaseModel):
     total: int | None = Field(None, description="The total number of followers.\n")
 
 
-class ImageObject(BaseModel):
+class Image(BaseModel):
     url: str = Field(
         ...,
         description="The source URL of the image.\n",
@@ -559,7 +567,7 @@ class ImageObject(BaseModel):
     width: int = Field(..., description="The image width in pixels.\n", examples=[300])
 
 
-class ExplicitContentSettingsObject(BaseModel):
+class ExplicitContentSettings(BaseModel):
     filter_enabled: bool | None = Field(
         None,
         description="When `true`, indicates that explicit content should not be played.\n",
@@ -570,8 +578,8 @@ class ExplicitContentSettingsObject(BaseModel):
     )
 
 
-class LinkedTrackObject(BaseModel):
-    external_urls: ExternalUrlObject | None = Field(
+class LinkedTrack(BaseModel):
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this track.\n"
     )
     href: str | None = Field(
@@ -589,11 +597,11 @@ class LinkedTrackObject(BaseModel):
     )
 
 
-class ArtistObject(BaseModel):
-    external_urls: ExternalUrlObject | None = Field(
+class Artist(BaseModel):
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this artist.\n"
     )
-    followers: FollowersObject | None = Field(
+    followers: Followers | None = Field(
         None,
         deprecated=True,
         description="Information about the followers of the artist.\n",
@@ -612,7 +620,7 @@ class ArtistObject(BaseModel):
         None,
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the artist.\n",
     )
-    images: list[ImageObject] | None = Field(
+    images: list[Image] | None = Field(
         None, description="Images of the artist in various sizes, widest first.\n"
     )
     name: str | None = Field(None, description="The name of the artist.\n")
@@ -628,8 +636,8 @@ class ArtistObject(BaseModel):
     )
 
 
-class SimplifiedArtistObject(BaseModel):
-    external_urls: ExternalUrlObject | None = Field(
+class SimplifiedArtist(BaseModel):
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this artist.\n"
     )
     href: str | None = Field(
@@ -648,7 +656,7 @@ class SimplifiedArtistObject(BaseModel):
     )
 
 
-class PrivateUserObject(BaseModel):
+class User(BaseModel):
     country: str | None = Field(
         None,
         deprecated=True,
@@ -663,15 +671,15 @@ class PrivateUserObject(BaseModel):
         deprecated=True,
         description="The user's email address, as entered by the user when creating their account. _**Important!** This email address is unverified; there is no proof that it actually belongs to the user._ _This field is only available when the current user has granted access to the [user-read-email](/documentation/web-api/concepts/scopes/#list-of-scopes) scope._\n",
     )
-    explicit_content: ExplicitContentSettingsObject | None = Field(
+    explicit_content: ExplicitContentSettings | None = Field(
         None,
         deprecated=True,
         description="The user's explicit content settings. _This field is only available when the current user has granted access to the [user-read-private](/documentation/web-api/concepts/scopes/#list-of-scopes) scope._\n",
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this user."
     )
-    followers: FollowersObject | None = Field(
+    followers: Followers | None = Field(
         None,
         deprecated=True,
         description="Information about the followers of the user.",
@@ -683,9 +691,7 @@ class PrivateUserObject(BaseModel):
         None,
         description="The [Spotify user ID](/documentation/web-api/concepts/spotify-uris-ids) for the user.\n",
     )
-    images: list[ImageObject] | None = Field(
-        None, description="The user's profile image."
-    )
+    images: list[Image] | None = Field(None, description="The user's profile image.")
     product: str | None = Field(
         None,
         deprecated=True,
@@ -698,15 +704,15 @@ class PrivateUserObject(BaseModel):
     )
 
 
-class PublicUserObject(BaseModel):
+class PublicUser(BaseModel):
     display_name: str | None = Field(
         None,
         description="The name displayed on the user's profile. `null` if not available.\n",
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="Known public external URLs for this user.\n"
     )
-    followers: FollowersObject | None = Field(
+    followers: Followers | None = Field(
         None,
         deprecated=True,
         description="Information about the followers of this user.\n",
@@ -718,9 +724,7 @@ class PublicUserObject(BaseModel):
         None,
         description="The [Spotify user ID](/documentation/web-api/concepts/spotify-uris-ids) for this user.\n",
     )
-    images: list[ImageObject] | None = Field(
-        None, description="The user's profile image.\n"
-    )
+    images: list[Image] | None = Field(None, description="The user's profile image.\n")
     type: Type2 | None = Field(None, description="The object type.\n")
     uri: str | None = Field(
         None,
@@ -772,25 +776,25 @@ class AudioAnalysisTrack(BaseModel):
     )
     loudness: Loudness | None = None
     tempo: Tempo | None = None
-    tempo_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    tempo_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the `tempo`.",
         examples=[0.73],
     )
     time_signature: TimeSignature | None = None
-    time_signature_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    time_signature_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the `time_signature`.",
         examples=[0.994],
     )
     key: Key | None = None
-    key_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    key_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the `key`.",
         examples=[0.408],
     )
     mode: Mode | None = None
-    mode_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    mode_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the `mode`.",
         examples=[0.485],
@@ -833,7 +837,7 @@ class AudioAnalysisTrack(BaseModel):
     )
 
 
-class SectionObject(BaseModel):
+class Section(BaseModel):
     start: float | None = Field(
         None,
         description="The starting point (in seconds) of the section.",
@@ -844,7 +848,7 @@ class SectionObject(BaseModel):
         description="The duration (in seconds) of the section.",
         examples=[6.97092],
     )
-    confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    confidence: Confidence | None = Field(
         None,
         description='The confidence, from 0.0 to 1.0, of the reliability of the section\'s "designation".',
         examples=[1.0],
@@ -859,7 +863,7 @@ class SectionObject(BaseModel):
         description="The overall estimated tempo of the section in beats per minute (BPM). In musical terminology, tempo is the speed or pace of a given piece and derives directly from the average beat duration.",
         examples=[113.178],
     )
-    tempo_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    tempo_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the tempo. Some tracks contain tempo changes or sounds which don't contain tempo (like pure speech) which would correspond to a low value in this field.",
         examples=[0.647],
@@ -869,7 +873,7 @@ class SectionObject(BaseModel):
         description="The estimated overall key of the section. The values in this field ranging from 0 to 11 mapping to pitches using standard Pitch Class notation (E.g. 0 = C, 1 = C♯/D♭, 2 = D, and so on). If no key was detected, the value is -1.",
         examples=[9],
     )
-    key_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    key_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the key. Songs with many key changes may correspond to low values in this field.",
         examples=[0.297],
@@ -878,21 +882,21 @@ class SectionObject(BaseModel):
         None,
         description='Indicates the modality (major or minor) of a section, the type of scale from which its melodic content is derived. This field will contain a 0 for "minor", a 1 for "major", or a -1 for no result. Note that the major key (e.g. C major) could more likely be confused with the minor key at 3 semitones lower (e.g. A minor) as both keys carry the same pitches.',
     )
-    mode_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    mode_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the `mode`.",
         examples=[0.471],
     )
     time_signature: TimeSignature | None = None
-    time_signature_confidence: confloat(ge=0.0, le=1.0) | None = Field(
+    time_signature_confidence: Confidence | None = Field(
         None,
         description="The confidence, from 0.0 to 1.0, of the reliability of the `time_signature`. Sections with time signature changes may correspond to low values in this field.",
         examples=[1.0],
     )
 
 
-class SimplifiedTrackObject(BaseModel):
-    artists: list[SimplifiedArtistObject] | None = Field(
+class SimplifiedTrack(BaseModel):
+    artists: list[SimplifiedArtist] | None = Field(
         None,
         description="The artists who performed the track. Each artist object includes a link in `href` to more detailed information about the artist.",
     )
@@ -912,7 +916,7 @@ class SimplifiedTrackObject(BaseModel):
         None,
         description="Whether or not the track has explicit lyrics ( `true` = yes it does; `false` = no it does not OR unknown).",
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="External URLs for this track.\n"
     )
     href: str | None = Field(
@@ -927,12 +931,12 @@ class SimplifiedTrackObject(BaseModel):
         None,
         description="Part of the response when [Track Relinking](/documentation/web-api/concepts/track-relinking/) is applied. If `true`, the track is playable in the given market. Otherwise `false`.\n",
     )
-    linked_from: LinkedTrackObject | None = Field(
+    linked_from: LinkedTrack | None = Field(
         None,
         deprecated=True,
         description="Part of the response when [Track Relinking](/documentation/web-api/concepts/track-relinking/) is applied and is only part of the response if the track linking, in fact, exists. The requested track has been replaced with a different track. The track in the `linked_from` object contains information about the originally requested track.",
     )
-    restrictions: TrackRestrictionObject | None = Field(
+    restrictions: TrackRestriction | None = Field(
         None,
         description="Included in the response when a content restriction is applied.\n",
     )
@@ -956,20 +960,20 @@ class SimplifiedTrackObject(BaseModel):
     )
 
 
-class CursorPagingSimplifiedArtistObject(CursorPagingObject):
-    items: list[ArtistObject] | None = None
+class CursorPagingSimplifiedArtist(CursorPaging):
+    items: list[Artist] | None = None
 
 
-class PagingSimplifiedTrackObject(PagingObject):
-    items: list[SimplifiedTrackObject] | None = None
+class PagingSimplifiedTrack(Paging):
+    items: list[SimplifiedTrack] | None = None
 
 
-class PagingArtistObject(PagingObject):
-    items: list[ArtistObject] | None = None
+class PagingArtist(Paging):
+    items: list[Artist] | None = None
 
 
-class PlaylistUserObject(BaseModel):
-    external_urls: ExternalUrlObject | None = Field(
+class PlaylistUser(BaseModel):
+    external_urls: ExternalUrl | None = Field(
         None, description="Known public external URLs for this user.\n"
     )
     href: str | None = Field(
@@ -986,19 +990,19 @@ class PlaylistUserObject(BaseModel):
     )
 
 
-class PlaylistOwnerObject(PlaylistUserObject):
+class PlaylistOwner(PlaylistUser):
     display_name: str | None = Field(
         None,
         description="The name displayed on the user's profile. `null` if not available.\n",
     )
 
 
-class CategoryObject(BaseModel):
+class Category(BaseModel):
     href: str = Field(
         ...,
         description="A link to the Web API endpoint returning full details of the category.\n",
     )
-    icons: list[ImageObject] = Field(
+    icons: list[Image] = Field(
         ..., description="The category icon, in various sizes.\n"
     )
     id: str = Field(
@@ -1041,7 +1045,7 @@ class EpisodeBase(BaseModel):
         ...,
         description="Whether or not the episode has explicit content (true = yes it does; false = no it does not OR unknown).\n",
     )
-    external_urls: ExternalUrlObject = Field(
+    external_urls: ExternalUrl = Field(
         ..., description="External URLs for this episode.\n"
     )
     href: str = Field(
@@ -1054,7 +1058,7 @@ class EpisodeBase(BaseModel):
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the episode.\n",
         examples=["5Xt5DXGzch68nYYamXrNxZ"],
     )
-    images: list[ImageObject] = Field(
+    images: list[Image] = Field(
         ...,
         description="The cover art for the episode in various sizes, widest first.\n",
     )
@@ -1093,7 +1097,7 @@ class EpisodeBase(BaseModel):
         description="The precision with which `release_date` value is known.\n",
         examples=["day"],
     )
-    resume_point: ResumePointObject | None = Field(
+    resume_point: ResumePoint | None = Field(
         None,
         description="The user's most recent position in the episode. Set if the supplied access token is a user token and has the scope 'user-read-playback-position'.\n",
     )
@@ -1103,7 +1107,7 @@ class EpisodeBase(BaseModel):
         description="The [Spotify URI](/documentation/web-api/concepts/spotify-uris-ids) for the episode.\n",
         examples=["spotify:episode:0zLhl3WsOCQHbe1BPTiHgr"],
     )
-    restrictions: EpisodeRestrictionObject | None = Field(
+    restrictions: EpisodeRestriction | None = Field(
         None,
         description="Included in the response when a content restriction is applied.\n",
     )
@@ -1115,7 +1119,7 @@ class ShowBase(BaseModel):
         deprecated=True,
         description="A list of the countries in which the show can be played, identified by their [ISO 3166-1 alpha-2](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) code.\n",
     )
-    copyrights: list[CopyrightObject] = Field(
+    copyrights: list[Copyright] = Field(
         ..., description="The copyright statements of the show.\n"
     )
     description: str = Field(
@@ -1130,7 +1134,7 @@ class ShowBase(BaseModel):
         ...,
         description="Whether or not the show has explicit content (true = yes it does; false = no it does not OR unknown).\n",
     )
-    external_urls: ExternalUrlObject = Field(
+    external_urls: ExternalUrl = Field(
         ..., description="External URLs for this show.\n"
     )
     href: str = Field(
@@ -1141,7 +1145,7 @@ class ShowBase(BaseModel):
         ...,
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the show.\n",
     )
-    images: list[ImageObject] = Field(
+    images: list[Image] = Field(
         ..., description="The cover art for the show in various sizes, widest first.\n"
     )
     is_externally_hosted: bool = Field(
@@ -1167,20 +1171,18 @@ class ShowBase(BaseModel):
     )
 
 
-class SimplifiedShowObject(ShowBase):
+class SimplifiedShow(ShowBase):
     pass
 
 
 class AudiobookBase(BaseModel):
-    authors: list[AuthorObject] = Field(
-        ..., description="The author(s) for the audiobook.\n"
-    )
+    authors: list[Author] = Field(..., description="The author(s) for the audiobook.\n")
     available_markets: list[str] = Field(
         ...,
         deprecated=True,
         description="A list of the countries in which the audiobook can be played, identified by their [ISO 3166-1 alpha-2](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) code.\n",
     )
-    copyrights: list[CopyrightObject] = Field(
+    copyrights: list[Copyright] = Field(
         ..., description="The copyright statements of the audiobook.\n"
     )
     description: str = Field(
@@ -1198,7 +1200,7 @@ class AudiobookBase(BaseModel):
         ...,
         description="Whether or not the audiobook has explicit content (true = yes it does; false = no it does not OR unknown).\n",
     )
-    external_urls: ExternalUrlObject = Field(
+    external_urls: ExternalUrl = Field(
         ..., description="External URLs for this audiobook.\n"
     )
     href: str = Field(
@@ -1209,7 +1211,7 @@ class AudiobookBase(BaseModel):
         ...,
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the audiobook.\n",
     )
-    images: list[ImageObject] = Field(
+    images: list[Image] = Field(
         ...,
         description="The cover art for the audiobook in various sizes, widest first.\n",
     )
@@ -1219,7 +1221,7 @@ class AudiobookBase(BaseModel):
     )
     media_type: str = Field(..., description="The media type of the audiobook.\n")
     name: str = Field(..., description="The name of the audiobook.\n")
-    narrators: list[NarratorObject] = Field(
+    narrators: list[Narrator] = Field(
         ..., description="The narrator(s) for the audiobook.\n"
     )
     publisher: str = Field(
@@ -1235,7 +1237,7 @@ class AudiobookBase(BaseModel):
     )
 
 
-class SimplifiedAudiobookObject(AudiobookBase):
+class SimplifiedAudiobook(AudiobookBase):
     pass
 
 
@@ -1252,7 +1254,7 @@ class AlbumBase(BaseModel):
         description="The markets in which the album is available: [ISO 3166-1 alpha-2 country codes](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2). _**NOTE**: an album is considered available in a market when at least 1 of its tracks is available in that market._\n",
         examples=[["CA", "BR", "IT"]],
     )
-    external_urls: ExternalUrlObject = Field(
+    external_urls: ExternalUrl = Field(
         ..., description="Known external URLs for this album.\n"
     )
     href: str = Field(
@@ -1264,7 +1266,7 @@ class AlbumBase(BaseModel):
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the album.\n",
         examples=["2up3OPMp9Tb4dAKM2erWXQ"],
     )
-    images: list[ImageObject] = Field(
+    images: list[Image] = Field(
         ..., description="The cover art for the album in various sizes, widest first.\n"
     )
     name: str = Field(
@@ -1281,7 +1283,7 @@ class AlbumBase(BaseModel):
         description="The precision with which `release_date` value is known.\n",
         examples=["year"],
     )
-    restrictions: AlbumRestrictionObject | None = Field(
+    restrictions: AlbumRestriction | None = Field(
         None,
         description="Included in the response when a content restriction is applied.\n",
     )
@@ -1293,14 +1295,14 @@ class AlbumBase(BaseModel):
     )
 
 
-class SimplifiedAlbumObject(AlbumBase):
-    artists: list[SimplifiedArtistObject] = Field(
+class SimplifiedAlbum(AlbumBase):
+    artists: list[SimplifiedArtist] = Field(
         ...,
         description="The artists of the album. Each artist object includes a link in `href` to more detailed information about the artist.\n",
     )
 
 
-class ArtistDiscographyAlbumObject(SimplifiedAlbumObject):
+class ArtistDiscographyAlbum(SimplifiedAlbum):
     album_group: AlbumGroup = Field(
         ...,
         deprecated=True,
@@ -1347,7 +1349,7 @@ class ChapterBase(BaseModel):
         ...,
         description="Whether or not the chapter has explicit content (true = yes it does; false = no it does not OR unknown).\n",
     )
-    external_urls: ExternalUrlObject = Field(
+    external_urls: ExternalUrl = Field(
         ..., description="External URLs for this chapter.\n"
     )
     href: str = Field(
@@ -1360,7 +1362,7 @@ class ChapterBase(BaseModel):
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the chapter.\n",
         examples=["5Xt5DXGzch68nYYamXrNxZ"],
     )
-    images: list[ImageObject] = Field(
+    images: list[Image] = Field(
         ...,
         description="The cover art for the chapter in various sizes, widest first.\n",
     )
@@ -1390,7 +1392,7 @@ class ChapterBase(BaseModel):
         description="The precision with which `release_date` value is known.\n",
         examples=["day"],
     )
-    resume_point: ResumePointObject | None = Field(
+    resume_point: ResumePoint | None = Field(
         None,
         description="The user's most recent position in the chapter. Set if the supplied access token is a user token and has the scope 'user-read-playback-position'.\n",
     )
@@ -1400,24 +1402,22 @@ class ChapterBase(BaseModel):
         description="The [Spotify URI](/documentation/web-api/concepts/spotify-uris-ids) for the chapter.\n",
         examples=["spotify:episode:0zLhl3WsOCQHbe1BPTiHgr"],
     )
-    restrictions: ChapterRestrictionObject | None = Field(
+    restrictions: ChapterRestriction | None = Field(
         None,
         description="Included in the response when a content restriction is applied.\n",
     )
 
 
-class AlbumObject(AlbumBase):
-    artists: list[SimplifiedArtistObject] = Field(
+class Album(AlbumBase):
+    artists: list[SimplifiedArtist] = Field(
         ...,
         description="The artists of the album. Each artist object includes a link in `href` to more detailed information about the artist.\n",
     )
-    tracks: PagingSimplifiedTrackObject = Field(
-        ..., description="The tracks of the album.\n"
-    )
-    copyrights: list[CopyrightObject] = Field(
+    tracks: PagingSimplifiedTrack = Field(..., description="The tracks of the album.\n")
+    copyrights: list[Copyright] = Field(
         ..., description="The copyright statements of the album.\n"
     )
-    external_ids: ExternalIdObject = Field(
+    external_ids: ExternalId = Field(
         ..., description="Known external IDs for the album.\n"
     )
     genres: list[str] = Field(
@@ -1436,7 +1436,7 @@ class AlbumObject(AlbumBase):
     )
 
 
-class ContextObject(BaseModel):
+class Context(BaseModel):
     type: str | None = Field(
         None,
         description='The object type, e.g. "artist", "playlist", "album", "show".\n',
@@ -1445,7 +1445,7 @@ class ContextObject(BaseModel):
         None,
         description="A link to the Web API endpoint providing full details of the track.",
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="External URLs for this context."
     )
     uri: str | None = Field(
@@ -1454,66 +1454,64 @@ class ContextObject(BaseModel):
     )
 
 
-class AudioAnalysisObject(BaseModel):
+class AudioAnalysis(BaseModel):
     meta: Meta | None = None
     track: AudioAnalysisTrack | None = None
-    bars: list[TimeIntervalObject] | None = Field(
+    bars: list[TimeInterval] | None = Field(
         None,
         description="The time intervals of the bars throughout the track. A bar (or measure) is a segment of time defined as a given number of beats.",
     )
-    beats: list[TimeIntervalObject] | None = Field(
+    beats: list[TimeInterval] | None = Field(
         None,
         description="The time intervals of beats throughout the track. A beat is the basic time unit of a piece of music; for example, each tick of a metronome. Beats are typically multiples of tatums.",
     )
-    sections: list[SectionObject] | None = Field(
+    sections: list[Section] | None = Field(
         None,
         description="Sections are defined by large variations in rhythm or timbre, e.g. chorus, verse, bridge, guitar solo, etc. Each section contains its own descriptions of tempo, key, mode, time_signature, and loudness.",
     )
-    segments: list[SegmentObject] | None = Field(
+    segments: list[Segment] | None = Field(
         None,
         description="Each segment contains a roughly conisistent sound throughout its duration.",
     )
-    tatums: list[TimeIntervalObject] | None = Field(
+    tatums: list[TimeInterval] | None = Field(
         None,
         description="A tatum represents the lowest regular pulse train that a listener intuitively infers from the timing of perceived musical events (segments).",
     )
 
 
-class PagingArtistDiscographyAlbumObject(PagingObject):
-    items: list[ArtistDiscographyAlbumObject] | None = None
+class PagingArtistDiscographyAlbum(Paging):
+    items: list[ArtistDiscographyAlbum] | None = None
 
 
-class PagingSimplifiedAlbumObject(PagingObject):
-    items: list[SimplifiedAlbumObject] | None = None
+class PagingSimplifiedAlbum(Paging):
+    items: list[SimplifiedAlbum] | None = None
 
 
-class PagingSimplifiedShowObject(PagingObject):
-    items: list[SimplifiedShowObject] | None = None
+class PagingSimplifiedShow(Paging):
+    items: list[SimplifiedShow] | None = None
 
 
-class PagingSimplifiedAudiobookObject(PagingObject):
-    items: list[SimplifiedAudiobookObject] | None = None
+class PagingSimplifiedAudiobook(Paging):
+    items: list[SimplifiedAudiobook] | None = None
 
 
-class SavedAlbumObject(BaseModel):
+class SavedAlbum(BaseModel):
     added_at: AwareDatetime | None = Field(
         None,
         description="The date and time the album was saved\nTimestamps are returned in ISO 8601 format as Coordinated Universal Time (UTC) with a zero offset: YYYY-MM-DDTHH:MM:SSZ.\nIf the time is imprecise (for example, the date/time of an album release), an additional field indicates the precision; see for example, release_date in an album object.\n",
     )
-    album: AlbumObject | None = Field(None, description="Information about the album.")
+    album: Album | None = Field(None, description="Information about the album.")
 
 
-class SavedShowObject(BaseModel):
+class SavedShow(BaseModel):
     added_at: AwareDatetime | None = Field(
         None,
         description="The date and time the show was saved.\nTimestamps are returned in ISO 8601 format as Coordinated Universal Time (UTC) with a zero offset: YYYY-MM-DDTHH:MM:SSZ.\nIf the time is imprecise (for example, the date/time of an album release), an additional field indicates the precision; see for example, release_date in an album object.\n",
     )
-    show: SimplifiedShowObject | None = Field(
-        None, description="Information about the show."
-    )
+    show: SimplifiedShow | None = Field(None, description="Information about the show.")
 
 
-class SimplifiedPlaylistObject(BaseModel):
+class SimplifiedPlaylist(BaseModel):
     collaborative: bool | None = Field(
         None,
         description="`true` if the owner allows other users to modify the playlist.\n",
@@ -1522,7 +1520,7 @@ class SimplifiedPlaylistObject(BaseModel):
         None,
         description="The playlist description. _Only returned for modified, verified playlists, otherwise_ `null`.\n",
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this playlist.\n"
     )
     href: str | None = Field(
@@ -1533,12 +1531,12 @@ class SimplifiedPlaylistObject(BaseModel):
         None,
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the playlist.\n",
     )
-    images: list[ImageObject] | None = Field(
+    images: list[Image] | None = Field(
         None,
         description="Images for the playlist. The array may be empty or contain up to three images. The images are returned by size in descending order. See [Working with Playlists](/documentation/web-api/concepts/playlists). _**Note**: If returned, the source URL for the image (`url`) is temporary and will expire in less than a day._\n",
     )
     name: str | None = Field(None, description="The name of the playlist.\n")
-    owner: PlaylistOwnerObject | None = Field(
+    owner: PlaylistOwner | None = Field(
         None, description="The user who owns the playlist\n"
     )
     public: bool | None = Field(
@@ -1549,11 +1547,11 @@ class SimplifiedPlaylistObject(BaseModel):
         None,
         description="The version identifier for the current playlist. Can be supplied in other requests to target a specific playlist version\n",
     )
-    items: PlaylistTracksRefObject | None = Field(
+    items: PlaylistTracksRef | None = Field(
         None,
         description="A collection containing a link ( `href` ) to the Web API endpoint where full details of the playlist's items can be retrieved, along with the `total` number of items in the playlist. Note, a track object may be `null`. This can happen if a track is no longer available.\n",
     )
-    tracks: PlaylistTracksRefObject | None = Field(
+    tracks: PlaylistTracksRef | None = Field(
         None,
         deprecated=True,
         description="**Deprecated:** Use `items` instead. A collection containing a link ( `href` ) to the Web API endpoint where full details of the playlist's tracks can be retrieved, along with the `total` number of tracks in the playlist. Note, a track object may be `null`. This can happen if a track is no longer available.\n",
@@ -1565,12 +1563,12 @@ class SimplifiedPlaylistObject(BaseModel):
     )
 
 
-class TrackObject(BaseModel):
-    album: SimplifiedAlbumObject | None = Field(
+class Track(BaseModel):
+    album: SimplifiedAlbum | None = Field(
         None,
         description="The album on which the track appears. The album object includes a link in `href` to full information about the album.\n",
     )
-    artists: list[SimplifiedArtistObject] | None = Field(
+    artists: list[SimplifiedArtist] | None = Field(
         None,
         description="The artists who performed the track. Each artist object includes a link in `href` to more detailed information about the artist.\n",
     )
@@ -1590,10 +1588,10 @@ class TrackObject(BaseModel):
         None,
         description="Whether or not the track has explicit lyrics ( `true` = yes it does; `false` = no it does not OR unknown).\n",
     )
-    external_ids: ExternalIdObject | None = Field(
+    external_ids: ExternalId | None = Field(
         None, description="Known external IDs for the track.\n"
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this track.\n"
     )
     href: str | None = Field(
@@ -1613,7 +1611,7 @@ class TrackObject(BaseModel):
         deprecated=True,
         description="Part of the response when [Track Relinking](/documentation/web-api/concepts/track-relinking) is applied, and the requested track has been replaced with different track. The track in the `linked_from` object contains information about the originally requested track.\n",
     )
-    restrictions: TrackRestrictionObject | None = Field(
+    restrictions: TrackRestriction | None = Field(
         None,
         description="Included in the response when a content restriction is applied.\n",
     )
@@ -1642,45 +1640,43 @@ class TrackObject(BaseModel):
     )
 
 
-class EpisodeObject(EpisodeBase):
-    show: SimplifiedShowObject = Field(
+class Episode(EpisodeBase):
+    show: SimplifiedShow = Field(
         ..., description="The show on which the episode belongs.\n"
     )
-    type: Literal["EpisodeObject"]
+    type: Literal["episode", "EpisodeObject"]
 
 
-class SimplifiedEpisodeObject(EpisodeBase):
+class SimplifiedEpisode(EpisodeBase):
     pass
 
 
-class ChapterObject(ChapterBase):
-    audiobook: SimplifiedAudiobookObject = Field(
+class Chapter(ChapterBase):
+    audiobook: SimplifiedAudiobook = Field(
         ..., description="The audiobook for which the chapter belongs.\n"
     )
 
 
-class SimplifiedChapterObject(ChapterBase):
+class SimplifiedChapter(ChapterBase):
     pass
 
 
-class PlayHistoryObject(BaseModel):
-    track: TrackObject | None = Field(
-        None, description="The track the user listened to."
-    )
+class PlayHistory(BaseModel):
+    track: Track | None = Field(None, description="The track the user listened to.")
     played_at: AwareDatetime | None = Field(
         None, description="The date and time the track was played."
     )
-    context: ContextObject | None = Field(
+    context: Context | None = Field(
         None, description="The context the track was played from."
     )
 
 
-class PlaylistTrackObject(BaseModel):
+class PlaylistTrack(BaseModel):
     added_at: AwareDatetime | None = Field(
         None,
         description="The date and time the track or episode was added. _**Note**: some very old playlists may return `null` in this field._\n",
     )
-    added_by: PlaylistUserObject | None = Field(
+    added_by: PlaylistUser | None = Field(
         None,
         description="The Spotify user who added the track or episode. _**Note**: some very old playlists may return `null` in this field._\n",
     )
@@ -1688,12 +1684,12 @@ class PlaylistTrackObject(BaseModel):
         None,
         description="Whether this track or episode is a [local file](/documentation/web-api/concepts/playlists/#local-files) or not.\n",
     )
-    item: TrackObject | EpisodeObject | None = Field(
+    item: Track | Episode | None = Field(
         None,
         description="Information about the track or episode.",
         discriminator="type",
     )
-    track: TrackObject | EpisodeObject | None = Field(
+    track: Track | Episode | None = Field(
         None,
         deprecated=True,
         description="**Deprecated:** Use `item` instead. Information about the track or episode.\n",
@@ -1701,12 +1697,12 @@ class PlaylistTrackObject(BaseModel):
     )
 
 
-class Queue(RootModel[TrackObject | EpisodeObject]):
-    root: TrackObject | EpisodeObject = Field(..., discriminator="type")
+class Queue(RootModel[Track | Episode]):
+    root: Track | Episode = Field(..., discriminator="type")
 
 
-class QueueObject(BaseModel):
-    currently_playing: TrackObject | EpisodeObject | None = Field(
+class PlayerQueue(BaseModel):
+    currently_playing: Track | Episode | None = Field(
         None,
         description="The currently playing track or episode. Can be `null`.",
         discriminator="type",
@@ -1716,13 +1712,13 @@ class QueueObject(BaseModel):
     )
 
 
-class CurrentlyPlayingContextObject(BaseModel):
-    device: DeviceObject | None = Field(
+class PlaybackState(BaseModel):
+    device: Device | None = Field(
         None, description="The device that is currently active.\n"
     )
     repeat_state: str | None = Field(None, description="off, track, context")
     shuffle_state: bool | None = Field(None, description="If shuffle is on or off.")
-    context: ContextObject | None = Field(
+    context: Context | None = Field(
         None, description="A Context Object. Can be `null`."
     )
     timestamp: int | None = Field(
@@ -1736,7 +1732,7 @@ class CurrentlyPlayingContextObject(BaseModel):
     is_playing: bool | None = Field(
         None, description="If something is currently playing, return `true`."
     )
-    item: TrackObject | EpisodeObject | None = Field(
+    item: Track | Episode | None = Field(
         None,
         description="The currently playing track or episode. Can be `null`.",
         discriminator="type",
@@ -1745,82 +1741,80 @@ class CurrentlyPlayingContextObject(BaseModel):
         None,
         description="The object type of the currently playing item. Can be one of `track`, `episode`, `ad` or `unknown`.\n",
     )
-    actions: DisallowsObject | None = Field(
+    actions: Disallows | None = Field(
         None,
         description="Allows to update the user interface based on which playback actions are available within the current context.\n",
     )
 
 
-class CursorPagingPlayHistoryObject(CursorPagingObject):
-    items: list[PlayHistoryObject] | None = None
+class CursorPagingPlayHistory(CursorPaging):
+    items: list[PlayHistory] | None = None
 
 
-class PagingPlaylistObject(PagingObject):
-    items: list[SimplifiedPlaylistObject] | None = None
+class PagingPlaylist(Paging):
+    items: list[SimplifiedPlaylist] | None = None
 
 
-class PagingFeaturedPlaylistObject(BaseModel):
+class PagingFeaturedPlaylist(BaseModel):
     message: str | None = Field(
         None,
         description="The localized message of a playlist.\n",
         examples=["Popular Playlists"],
     )
-    playlists: PagingPlaylistObject | None = None
+    playlists: PagingPlaylist | None = None
 
 
-class PagingSavedAlbumObject(PagingObject):
-    items: list[SavedAlbumObject] | None = None
+class PagingSavedAlbum(Paging):
+    items: list[SavedAlbum] | None = None
 
 
-class PagingTrackObject(PagingObject):
-    items: list[TrackObject] | None = None
+class PagingTrack(Paging):
+    items: list[Track] | None = None
 
 
-class PagingPlaylistTrackObject(PagingObject):
-    items: list[PlaylistTrackObject] | None = None
+class PagingPlaylistTrack(Paging):
+    items: list[PlaylistTrack] | None = None
 
 
-class PagingSavedShowObject(PagingObject):
-    items: list[SavedShowObject] | None = None
+class PagingSavedShow(Paging):
+    items: list[SavedShow] | None = None
 
 
-class PagingSimplifiedEpisodeObject(PagingObject):
-    items: list[SimplifiedEpisodeObject] | None = None
+class PagingSimplifiedEpisode(Paging):
+    items: list[SimplifiedEpisode] | None = None
 
 
-class PagingSimplifiedChapterObject(PagingObject):
-    items: list[SimplifiedChapterObject] | None = None
+class PagingSimplifiedChapter(Paging):
+    items: list[SimplifiedChapter] | None = None
 
 
-class RecommendationsObject(BaseModel):
-    seeds: list[RecommendationSeedObject] = Field(
+class Recommendations(BaseModel):
+    seeds: list[RecommendationSeed] = Field(
         ..., description="An array of recommendation seed objects.\n"
     )
-    tracks: list[TrackObject] = Field(
+    tracks: list[Track] = Field(
         ...,
         description="An array of track object (simplified) ordered according to the parameters supplied.\n",
     )
 
 
-class SavedTrackObject(BaseModel):
+class SavedTrack(BaseModel):
     added_at: AwareDatetime | None = Field(
         None,
         description="The date and time the track was saved.\nTimestamps are returned in ISO 8601 format as Coordinated Universal Time (UTC) with a zero offset: YYYY-MM-DDTHH:MM:SSZ.\nIf the time is imprecise (for example, the date/time of an album release), an additional field indicates the precision; see for example, release_date in an album object.\n",
     )
-    track: TrackObject | None = Field(None, description="Information about the track.")
+    track: Track | None = Field(None, description="Information about the track.")
 
 
-class SavedEpisodeObject(BaseModel):
+class SavedEpisode(BaseModel):
     added_at: AwareDatetime | None = Field(
         None,
         description="The date and time the episode was saved.\nTimestamps are returned in ISO 8601 format as Coordinated Universal Time (UTC) with a zero offset: YYYY-MM-DDTHH:MM:SSZ.\n",
     )
-    episode: EpisodeObject | None = Field(
-        None, description="Information about the episode."
-    )
+    episode: Episode | None = Field(None, description="Information about the episode.")
 
 
-class PlaylistObject(BaseModel):
+class Playlist(BaseModel):
     collaborative: bool | None = Field(
         None,
         description="`true` if the owner allows other users to modify the playlist.\n",
@@ -1829,7 +1823,7 @@ class PlaylistObject(BaseModel):
         None,
         description="The playlist description. _Only returned for modified, verified playlists, otherwise_ `null`.\n",
     )
-    external_urls: ExternalUrlObject | None = Field(
+    external_urls: ExternalUrl | None = Field(
         None, description="Known external URLs for this playlist.\n"
     )
     href: str | None = Field(
@@ -1840,12 +1834,12 @@ class PlaylistObject(BaseModel):
         None,
         description="The [Spotify ID](/documentation/web-api/concepts/spotify-uris-ids) for the playlist.\n",
     )
-    images: list[ImageObject] | None = Field(
+    images: list[Image] | None = Field(
         None,
         description="Images for the playlist. The array may be empty or contain up to three images. The images are returned by size in descending order. See [Working with Playlists](/documentation/web-api/concepts/playlists). _**Note**: If returned, the source URL for the image (`url`) is temporary and will expire in less than a day._\n",
     )
     name: str | None = Field(None, description="The name of the playlist.\n")
-    owner: PlaylistOwnerObject | None = Field(
+    owner: PlaylistOwner | None = Field(
         None, description="The user who owns the playlist\n"
     )
     public: bool | None = Field(
@@ -1856,11 +1850,11 @@ class PlaylistObject(BaseModel):
         None,
         description="The version identifier for the current playlist. Can be supplied in other requests to target a specific playlist version\n",
     )
-    items: PagingPlaylistTrackObject | None = Field(
+    items: PagingPlaylistTrack | None = Field(
         None,
         description="The items of the playlist. _**Note**: This field is only available for playlists owned by the current user or playlists the user is a collaborator of._\n",
     )
-    tracks: PagingPlaylistTrackObject | None = Field(
+    tracks: PagingPlaylistTrack | None = Field(
         None,
         deprecated=True,
         description="**Deprecated:** Use `items` instead. The tracks of the playlist.\n",
@@ -1872,97 +1866,21 @@ class PlaylistObject(BaseModel):
     )
 
 
-class ShowObject(ShowBase):
-    episodes: PagingSimplifiedEpisodeObject = Field(
+class Show(ShowBase):
+    episodes: PagingSimplifiedEpisode = Field(
         ..., description="The episodes of the show.\n"
     )
 
 
-class AudiobookObject(AudiobookBase):
-    chapters: PagingSimplifiedChapterObject = Field(
+class Audiobook(AudiobookBase):
+    chapters: PagingSimplifiedChapter = Field(
         ..., description="The chapters of the audiobook.\n"
     )
 
 
-class PagingSavedTrackObject(PagingObject):
-    items: list[SavedTrackObject] | None = None
+class PagingSavedTrack(Paging):
+    items: list[SavedTrack] | None = None
 
 
-class PagingSavedEpisodeObject(PagingObject):
-    items: list[SavedEpisodeObject] | None = None
-
-
-# ---------------------------------------------------------------------------
-# Convenience aliases – drop the verbose "Object" suffix
-# ---------------------------------------------------------------------------
-
-# Core models
-Track = TrackObject
-Album = AlbumObject
-Artist = ArtistObject
-Playlist = PlaylistObject
-Episode = EpisodeObject
-Show = ShowObject
-Device = DeviceObject
-PlaybackState = CurrentlyPlayingContextObject
-PlayerQueue = QueueObject
-AudioFeatures = AudioFeaturesObject
-AudioAnalysis = AudioAnalysisObject
-User = PrivateUserObject
-PublicUser = PublicUserObject
-Image = ImageObject
-ExternalUrl = ExternalUrlObject
-ExternalId = ExternalIdObject
-Followers = FollowersObject
-Copyright = CopyrightObject
-Context = ContextObject
-LinkedTrack = LinkedTrackObject
-Category = CategoryObject
-Audiobook = AudiobookObject
-Chapter = ChapterObject
-PlaylistTrack = PlaylistTrackObject
-
-# Simplified models
-SimplifiedTrack = SimplifiedTrackObject
-SimplifiedAlbum = SimplifiedAlbumObject
-SimplifiedArtist = SimplifiedArtistObject
-SimplifiedPlaylist = SimplifiedPlaylistObject
-SimplifiedEpisode = SimplifiedEpisodeObject
-SimplifiedShow = SimplifiedShowObject
-SimplifiedAudiobook = SimplifiedAudiobookObject
-SimplifiedChapter = SimplifiedChapterObject
-ArtistDiscographyAlbum = ArtistDiscographyAlbumObject
-
-# Saved-item wrappers
-SavedTrack = SavedTrackObject
-SavedAlbum = SavedAlbumObject
-SavedShow = SavedShowObject
-SavedEpisode = SavedEpisodeObject
-
-# Other compound models
-PlayHistory = PlayHistoryObject
-Recommendations = RecommendationsObject
-Error = ErrorObject
-
-# Paging helpers (generic bases)
-Paging = PagingObject
-CursorPaging = CursorPagingObject
-
-# Typed paging models
-PagingTrack = PagingTrackObject
-PagingArtist = PagingArtistObject
-PagingPlaylist = PagingPlaylistObject
-PagingPlaylistTrack = PagingPlaylistTrackObject
-PagingSimplifiedTrack = PagingSimplifiedTrackObject
-PagingSimplifiedAlbum = PagingSimplifiedAlbumObject
-PagingSimplifiedEpisode = PagingSimplifiedEpisodeObject
-PagingSimplifiedShow = PagingSimplifiedShowObject
-PagingSimplifiedAudiobook = PagingSimplifiedAudiobookObject
-PagingSimplifiedChapter = PagingSimplifiedChapterObject
-PagingArtistDiscographyAlbum = PagingArtistDiscographyAlbumObject
-PagingSavedTrack = PagingSavedTrackObject
-PagingSavedAlbum = PagingSavedAlbumObject
-PagingSavedShow = PagingSavedShowObject
-PagingSavedEpisode = PagingSavedEpisodeObject
-CursorPagingPlayHistory = CursorPagingPlayHistoryObject
-CursorPagingSimplifiedArtist = CursorPagingSimplifiedArtistObject
+class PagingSavedEpisode(Paging):
+    items: list[SavedEpisode] | None = None
