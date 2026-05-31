@@ -48,18 +48,20 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
         with patch(
             "spotifyify.http.transport.asyncio.sleep", new_callable=AsyncMock
         ) as sleep:
-            response = await transport.request(
-                HttpMethod.GET,
-                "/tracks",
-                headers={},
-                params=None,
-                json=None,
-                content=None,
-            )
+            with self.assertLogs("spotifyify.http.transport", level="WARNING") as logs:
+                response = await transport.request(
+                    HttpMethod.GET,
+                    "/tracks",
+                    headers={},
+                    params=None,
+                    json=None,
+                    content=None,
+                )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(transport._client.request.await_count, 2)
         sleep.assert_awaited_once_with(1.0)
+        self.assertIn("status_code=503", logs.output[0])
 
     async def test_request_honors_retry_after(self):
         transport = self._make_transport()

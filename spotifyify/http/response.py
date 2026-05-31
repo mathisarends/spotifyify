@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import httpx
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 from spotifyify.exceptions import SpotifyAPIError
 
 JsonResponse = dict[str, Any] | list[Any] | None
+logger = logging.getLogger(__name__)
 
 
 def parse_response(response: httpx.Response) -> JsonResponse:
@@ -24,6 +26,11 @@ def parse_response(response: httpx.Response) -> JsonResponse:
         except ValueError:
             data = None
             message = response.text
+        logger.warning(
+            "Spotify API returned an error response: status_code=%d message=%s",
+            response.status_code,
+            message,
+        )
         raise SpotifyAPIError(
             response.status_code,
             message,
@@ -43,5 +50,8 @@ def validate_response_model(
     if response_model is None or parsed is None:
         return parsed
     if isinstance(parsed, list):
+        logger.warning(
+            "Unable to validate Spotify API response: expected object, got list"
+        )
         raise SpotifyAPIError(500, "Expected object response but got list")
     return response_model.model_validate(parsed)

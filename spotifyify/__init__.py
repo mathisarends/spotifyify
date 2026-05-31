@@ -1,3 +1,5 @@
+import logging
+
 from .spotifyify import Spotifyify
 from .credentials import SpotifyCredentials
 from .oauth2 import SpotifyScope
@@ -121,3 +123,5 @@ __all__ = [
     "CursorPagingPlayHistory",
     "CursorPagingSimplifiedArtist",
 ]
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())

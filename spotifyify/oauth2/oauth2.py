@@ -1,4 +1,5 @@
 import base64
+import logging
 import secrets
 import time
 import webbrowser
@@ -17,6 +18,8 @@ from spotifyify.exceptions import SpotifyAuthError
 from spotifyify.oauth2.views import TokenFormPayload
 from spotifyify.http import parse_response
 
+logger = logging.getLogger(__name__)
+
 
 class SpotifyifyOAuth:
     _SPOTIFY_OAUTH_AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
@@ -34,6 +37,7 @@ class SpotifyifyOAuth:
         self._http = httpx.AsyncClient(timeout=timeout)
 
     async def close(self) -> None:
+        logger.debug("Closing Spotify OAuth HTTP client")
         await self._http.aclose()
 
     @staticmethod
@@ -68,6 +72,7 @@ class SpotifyifyOAuth:
     ) -> str | None:
         parsed = urlparse(redirect_uri)
         if parsed.scheme != "http" or parsed.hostname not in {"localhost", "127.0.0.1"}:
+            logger.debug("OAuth redirect URI does not support a local callback server")
             return None
 
         host = parsed.hostname
@@ -107,6 +112,10 @@ class SpotifyifyOAuth:
                     error = query.get("error", [None])[0]
 
                     if error:
+                        logger.warning(
+                            "Spotify OAuth callback reported an error: error=%s",
+                            error,
+                        )
                         response_body = f"Spotify authorization failed: {error}"
                         status_line = "HTTP/1.1 400 Bad Request"
                         if not code_future.done():
@@ -116,6 +125,7 @@ class SpotifyifyOAuth:
                                 )
                             )
                     elif returned_state != state:
+                        logger.warning("State mismatch during Spotify OAuth callback")
                         response_body = "State mismatch during OAuth callback."
                         status_line = "HTTP/1.1 400 Bad Request"
                         if not code_future.done():
@@ -123,6 +133,7 @@ class SpotifyifyOAuth:
                                 SpotifyAuthError("State mismatch during OAuth callback")
                             )
                     else:
+                        logger.info("Received Spotify OAuth callback")
                         if not code_future.done():
                             code_future.set_result(code)
 
@@ -141,14 +152,22 @@ class SpotifyifyOAuth:
                 writer.close()
                 await writer.wait_closed()
 
+        logger.info(
+            "Waiting for Spotify OAuth callback: host=%s port=%d path=%s",
+            host,
+            port,
+            expected_path,
+        )
         server = await asyncio.start_server(_handler, host=host, port=port)
         try:
             async with server:
                 return await asyncio.wait_for(code_future, timeout=timeout)
         except TimeoutError:
+            logger.warning("Timed out waiting for Spotify OAuth callback")
             return None
 
     async def _capture_code_from_user_prompt(self, state: str) -> str:
+        logger.info("Waiting for Spotify OAuth redirect URL from user input")
         prompt = (
             "Paste the full redirect URL from your browser after Spotify login:\n> "
         )
@@ -168,12 +187,14 @@ class SpotifyifyOAuth:
         return code
 
     async def _request_user_token(self, scope: str | None) -> dict[str, Any]:
+        logger.info("Starting interactive Spotify authorization")
         redirect_uri = self._require_redirect_uri(self.credentials)
         state = secrets.token_urlsafe(24)
         authorize_url = self._build_authorize_url(scope=scope, state=state)
 
         opened = webbrowser.open(authorize_url)
         if not opened:
+            logger.warning("Unable to open a browser for Spotify authorization")
             print("Open this URL to authorize Spotify access:")
             print(authorize_url)
 
@@ -217,6 +238,9 @@ class SpotifyifyOAuth:
         if use_client_auth:
             headers.update(self._client_auth_header())
 
+        logger.debug(
+            "Requesting Spotify OAuth token: grant_type=%s", payload.grant_type
+        )
         try:
             form_data = payload.model_dump(mode="json", exclude_none=True)
             response = await self._http.post(
@@ -228,11 +252,21 @@ class SpotifyifyOAuth:
         except SpotifyAuthError:
             raise
         except Exception as exc:
+            logger.exception(
+                "Spotify OAuth token request failed: grant_type=%s",
+                payload.grant_type,
+            )
             raise SpotifyAuthError(f"Token request failed: {exc}") from exc
 
         if not isinstance(parsed, dict):
+            logger.warning(
+                "Spotify OAuth token request returned an unexpected response shape: "
+                "grant_type=%s",
+                payload.grant_type,
+            )
             raise SpotifyAuthError("Token request failed: unexpected response shape")
 
+        logger.debug("Received Spotify OAuth token: grant_type=%s", payload.grant_type)
         token_info = parsed
         token_info["expires_at"] = int(time.time()) + int(
             token_info.get("expires_in", 0)
@@ -241,6 +275,7 @@ class SpotifyifyOAuth:
 
     def _cached_token(self) -> dict[str, Any] | None:
         if self.credentials.access_token:
+            logger.debug("Using token from credentials")
             token_info = {
                 "access_token": self.credentials.access_token.get_secret_value(),
                 "refresh_token": self.credentials.refresh_token.get_secret_value()
@@ -249,9 +284,11 @@ class SpotifyifyOAuth:
                 "expires_at": self.credentials.token_expires_at or 0,
             }
             return token_info
+        logger.debug("Looking up token in cache handler")
         return self.cache_handler.get_cached_token()
 
     def _save_token(self, token_info: dict[str, Any]) -> None:
+        logger.debug("Saving Spotify OAuth token")
         self.cache_handler.save_token_to_cache(token_info)
         access_token = token_info.get("access_token")
         self.credentials.access_token = (
@@ -273,6 +310,7 @@ class SpotifyifyOAuth:
 
         if token_info and not self._is_token_expired(token_info):
             if self._scope_subset(desired_scope, token_info.get("scope")):
+                logger.debug("Using cached Spotify access token")
                 return token_info["access_token"]
 
         refresh_token = None
@@ -282,6 +320,7 @@ class SpotifyifyOAuth:
             refresh_token = self.credentials.refresh_token.get_secret_value()
 
         if refresh_token:
+            logger.info("Refreshing Spotify access token")
             refreshed = await self._request_token(
                 TokenFormPayload(
                     grant_type="refresh_token", refresh_token=refresh_token
@@ -293,10 +332,12 @@ class SpotifyifyOAuth:
             return refreshed["access_token"]
 
         if require_user:
+            logger.info("Requesting interactive Spotify access token")
             user_token = await self._request_user_token(desired_scope)
             self._save_token(user_token)
             return user_token["access_token"]
 
+        logger.info("Requesting Spotify client credentials token")
         client_token = await self._request_token(
             TokenFormPayload(grant_type="client_credentials")
         )

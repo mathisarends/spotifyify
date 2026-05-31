@@ -66,6 +66,42 @@ class TestScopeSubset(unittest.TestCase):
         self.assertFalse(SpotifyifyOAuth._scope_subset("some-scope", None))
 
 
+class TestLocalCallback(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_code_and_writes_content_length(self):
+        creds = _make_credentials()
+        oauth = SpotifyifyOAuth(creds)
+        reader = unittest.mock.AsyncMock()
+        reader.readline.side_effect = [
+            b"GET /?code=test-code&state=test-state HTTP/1.1\r\n",
+            b"\r\n",
+        ]
+        writer = unittest.mock.MagicMock()
+        writer.drain = unittest.mock.AsyncMock()
+        writer.wait_closed = unittest.mock.AsyncMock()
+        server = unittest.mock.MagicMock()
+        server.__aenter__ = unittest.mock.AsyncMock(return_value=server)
+        server.__aexit__ = unittest.mock.AsyncMock(return_value=None)
+
+        async def start_server(handler, *, host, port):
+            await handler(reader, writer)
+            return server
+
+        with unittest.mock.patch(
+            "spotifyify.oauth2.oauth2.asyncio.start_server",
+            side_effect=start_server,
+        ):
+            code = await oauth._capture_code_from_local_callback(
+                "http://localhost:8080",
+                state="test-state",
+            )
+
+        self.assertEqual(code, "test-code")
+        response = writer.write.call_args.args[0]
+        expected_body = b"Authorization completed. You can close this window."
+        self.assertIn(f"Content-Length: {len(expected_body)}".encode(), response)
+        await oauth.close()
+
+
 class TestNormalizeScope(unittest.TestCase):
     def setUp(self):
         creds = _make_credentials()

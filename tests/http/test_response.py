@@ -39,11 +39,13 @@ class TestParseResponse(unittest.TestCase):
             json_data={"error": {"message": "bad request"}},
         )
 
-        with self.assertRaises(SpotifyAPIError) as ctx:
-            parse_response(response)
+        with self.assertLogs("spotifyify.http.response", level="WARNING") as logs:
+            with self.assertRaises(SpotifyAPIError) as ctx:
+                parse_response(response)
 
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertEqual(ctx.exception.message, "bad request")
+        self.assertIn("status_code=400", logs.output[0])
 
     def test_plain_error_text_raises_api_error(self):
         response = self._make_response(400, text="server error")

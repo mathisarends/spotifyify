@@ -46,4 +46,6 @@ class TestCacheFileHandler(unittest.TestCase):
             path = Path(tmpdir) / ".cache-bad"
             path.write_text("not valid json", encoding="utf-8")
             handler = CacheFileHandler(cache_path=path)
-            self.assertIsNone(handler.get_cached_token())
+            with self.assertLogs("spotifyify.cache_handler", level="WARNING") as logs:
+                self.assertIsNone(handler.get_cached_token())
+            self.assertIn("Unable to read token cache file", logs.output[0])
