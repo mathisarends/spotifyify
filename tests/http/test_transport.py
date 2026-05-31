@@ -1,8 +1,10 @@
 import unittest
+from datetime import UTC
 from unittest.mock import AsyncMock, patch
 
 import httpx
 
+from spotifyify.http.retry_context import current_retry_hook
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
 from spotifyify.http.transport import HttpTransport
 
@@ -83,6 +85,68 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
             )
 
         sleep.assert_awaited_once_with(2.5)
+
+    async def test_request_calls_retry_hook_with_scheduled_retry_details(self):
+        transport = self._make_transport(max_retries=2)
+        failed_response = httpx.Response(429, headers={"Retry-After": "2.5"})
+        transport._client.request.side_effect = [
+            failed_response,
+            httpx.Response(204),
+        ]
+        events = []
+        token = current_retry_hook.set(events.append)
+
+        try:
+            with patch(
+                "spotifyify.http.transport.asyncio.sleep", new_callable=AsyncMock
+            ):
+                await transport.request(
+                    HttpMethod.POST,
+                    "/playlists/test/items",
+                    headers={},
+                    params=None,
+                    json={"uris": []},
+                    content=None,
+                )
+        finally:
+            current_retry_hook.reset(token)
+
+        self.assertEqual(len(events), 1)
+        event = events[0]
+        self.assertEqual(event.method, HttpMethod.POST)
+        self.assertEqual(event.path, "/playlists/test/items")
+        self.assertIs(event.response, failed_response)
+        self.assertEqual(event.status_code, 429)
+        self.assertEqual(event.retry_number, 1)
+        self.assertEqual(event.max_retries, 2)
+        self.assertEqual(event.retry_in_seconds, 2.5)
+        self.assertEqual(event.retry_at.tzinfo, UTC)
+
+    async def test_request_awaits_async_retry_hook(self):
+        transport = self._make_transport()
+        transport._client.request.side_effect = [
+            httpx.Response(503),
+            httpx.Response(200),
+        ]
+        hook = AsyncMock()
+        token = current_retry_hook.set(hook)
+
+        try:
+            with patch(
+                "spotifyify.http.transport.asyncio.sleep", new_callable=AsyncMock
+            ):
+                await transport.request(
+                    HttpMethod.GET,
+                    "/tracks",
+                    headers={},
+                    params=None,
+                    json=None,
+                    content=None,
+                )
+        finally:
+            current_retry_hook.reset(token)
+
+        hook.assert_awaited_once()
 
     async def test_request_does_not_retry_post_server_error(self):
         transport = self._make_transport()

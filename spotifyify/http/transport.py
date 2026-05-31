@@ -1,9 +1,13 @@
 import asyncio
+import inspect
 import logging
 from typing import Any
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from spotifyify.http.retry_context import current_retry_hook
+from spotifyify.http.retry_event import RetryEvent
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
 from spotifyify.http.serialization import SerializedJsonPayload
 
@@ -90,16 +94,29 @@ class HttpTransport:
                 attempt,
                 retry_after=response.headers.get("Retry-After"),
             )
+            retry_event = RetryEvent(
+                method=method,
+                path=path,
+                response=response,
+                retry_number=attempt + 1,
+                max_retries=self._retry_policy.max_retries,
+                retry_in_seconds=retry_delay,
+                retry_at=datetime.now(UTC) + timedelta(seconds=retry_delay),
+            )
             logger.warning(
                 "Retrying HTTP request: method=%s path=%s status_code=%d "
-                "retry_in_seconds=%s attempt=%d/%d",
+                "retry_in_seconds=%s retry=%d/%d",
                 method.value,
                 path,
                 response.status_code,
                 retry_delay,
-                attempt + 1,
-                self._retry_policy.max_retries + 1,
+                retry_event.retry_number,
+                retry_event.max_retries,
             )
+            if (hook := current_retry_hook.get()) is not None:
+                result = hook(retry_event)
+                if inspect.isawaitable(result):
+                    await result
             await asyncio.sleep(retry_delay)
 
         raise RuntimeError("unreachable")

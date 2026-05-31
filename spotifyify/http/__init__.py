@@ -1,4 +1,5 @@
 from spotifyify.http.response import parse_response, validate_response_model
+from spotifyify.http.retry_event import OnRetryHook, RetryEvent
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
 from spotifyify.http.serialization import (
     JsonPayload,
@@ -12,7 +13,9 @@ __all__ = [
     "HttpMethod",
     "HttpTransport",
     "JsonPayload",
+    "OnRetryHook",
     "QueryParams",
+    "RetryEvent",
     "RetryPolicy",
     "dump_params",
     "dump_payload",

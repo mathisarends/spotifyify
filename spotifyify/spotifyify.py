@@ -1,10 +1,13 @@
 from typing import Self
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 
 from spotifyify.cache_handler import CacheFileHandler, CacheHandler
 from spotifyify.client import SpotifyClient
 from spotifyify.credentials import SpotifyCredentials
+from spotifyify.http import OnRetryHook
+from spotifyify.http.retry_context import current_retry_hook
 from spotifyify.oauth2 import SpotifyifyOAuth
 
 from spotifyify.namespaces import (
@@ -70,6 +73,14 @@ class Spotifyify:
     async def close(self) -> None:
         await self._http.close()
         await self._oauth.close()
+
+    @contextmanager
+    def retry_hook(self, hook: OnRetryHook) -> Iterator[None]:
+        token = current_retry_hook.set(hook)
+        try:
+            yield
+        finally:
+            current_retry_hook.reset(token)
 
     @property
     def http(self) -> SpotifyClient:

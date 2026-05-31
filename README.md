@@ -208,6 +208,30 @@ header. Server errors are only retried for idempotent HTTP methods to avoid
 duplicating mutations. Configure the defaults with `max_retries` and
 `retry_backoff_seconds` when constructing `Spotifyify`.
 
+Use a request-context retry hook when retries should be reported to a caller.
+The hook is isolated per async task, so one shared `Spotifyify` instance can be
+used by concurrent conversations. `retry_number` is one-based and `retry_at`
+contains the planned retry time in UTC:
+
+```python
+from spotifyify import RetryEvent
+
+async def on_retry(event: RetryEvent) -> None:
+    await sse_bus.emit(
+        conversation_id,
+        {
+            "status_code": event.status_code,
+            "retry_number": event.retry_number,
+            "max_retries": event.max_retries,
+            "retry_in_seconds": event.retry_in_seconds,
+            "retry_at": event.retry_at.isoformat(),
+        },
+    )
+
+with spotify.retry_hook(on_retry):
+    track = await spotify.tracks.get(track_id)
+```
+
 ## Scopes
 
 Use `SpotifyScope` to declare the OAuth scopes your app requires:

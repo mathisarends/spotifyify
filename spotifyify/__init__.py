@@ -3,6 +3,7 @@ import logging
 from .spotifyify import Spotifyify
 from .credentials import SpotifyCredentials
 from .oauth2 import SpotifyScope
+from .http import OnRetryHook, RetryEvent
 from .schemas import (
     # Core models
     Track,
@@ -67,6 +68,8 @@ __all__ = [
     "Spotifyify",
     "SpotifyCredentials",
     "SpotifyScope",
+    "OnRetryHook",
+    "RetryEvent",
     # Core models
     "Track",
     "Album",
