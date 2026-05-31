@@ -14,8 +14,8 @@ import httpx
 
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError
-from spotifyify.client import parse_response
 from spotifyify.oauth2.views import TokenFormPayload
+from spotifyify.http import parse_response
 
 
 class SpotifyifyOAuth:
