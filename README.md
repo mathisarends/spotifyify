@@ -199,6 +199,14 @@ Spotifyify
 | `unfollow(type, ids)`              | Unfollow artists or users              |
 | `check_following(type, ids)`       | Check if following artists or users    |
 
+## Retries
+
+Spotify API requests automatically retry rate limits (`429`) and temporary server
+errors (`500`, `502`, `503`, `504`). Rate limits honor Spotify's `Retry-After`
+header. Server errors are only retried for idempotent HTTP methods to avoid
+duplicating mutations. Configure the defaults with `max_retries` and
+`retry_backoff_seconds` when constructing `Spotifyify`.
+
 ## Scopes
 
 Use `SpotifyScope` to declare the OAuth scopes your app requires:

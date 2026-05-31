@@ -1,9 +1,10 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+from pydantic import BaseModel
 
-from spotifyify.client import SpotifyClient, QueryParams, RequestPayload, parse_response
+from spotifyify.client import SpotifyClient, QueryParams, parse_response
 from spotifyify.exceptions import SpotifyAPIError
 
 
@@ -88,24 +89,32 @@ class TestDumpPayload(unittest.TestCase):
         self.assertIs(SpotifyClient._dump_payload("hello"), "hello")
 
     def test_pydantic_model(self):
-        payload = RequestPayload(name="test")
+        class Payload(BaseModel):
+            name: str
+
+        payload = Payload(name="test")
         result = SpotifyClient._dump_payload(payload)
         self.assertEqual(result, {"name": "test"})
 
-    def test_invalid_type_raises(self):
-        with self.assertRaises(TypeError):
-            SpotifyClient._dump_payload(42)
-
 
 class TestSpotifyClientLifecycle(unittest.IsolatedAsyncioTestCase):
-    def _make_client(self):
+    def _make_client(self, **kwargs):
         token_provider = AsyncMock()
         token_provider.get_access_token.return_value = "fake-token"
         return SpotifyClient(
             token_provider=token_provider,
             scopes=["user-read-playback-state"],
             base_url="https://api.spotify.com/v1",
+            **kwargs,
         )
+
+    def test_negative_max_retries_raises(self):
+        with self.assertRaises(ValueError):
+            self._make_client(max_retries=-1)
+
+    def test_negative_retry_backoff_raises(self):
+        with self.assertRaises(ValueError):
+            self._make_client(retry_backoff_seconds=-1)
 
     async def test_open_creates_httpx_client(self):
         client = self._make_client()
@@ -129,3 +138,77 @@ class TestSpotifyClientLifecycle(unittest.IsolatedAsyncioTestCase):
         async with client:
             pass
         self.assertIsNone(client._client)
+
+
+class TestSpotifyClientRetries(unittest.IsolatedAsyncioTestCase):
+    def _make_client(self, **kwargs):
+        token_provider = AsyncMock()
+        token_provider.get_access_token.return_value = "fake-token"
+        client = SpotifyClient(
+            token_provider=token_provider,
+            scopes=[],
+            base_url="https://api.spotify.com/v1",
+            **kwargs,
+        )
+        client._client = AsyncMock(spec=httpx.AsyncClient)
+        return client
+
+    async def test_get_retries_server_error_with_exponential_backoff(self):
+        client = self._make_client()
+        client._client.request.side_effect = [
+            httpx.Response(503, json={"error": {"message": "unavailable"}}),
+            httpx.Response(200, json={"tracks": []}),
+        ]
+
+        with patch("spotifyify.client.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            result = await client.get("/playlists/test/tracks")
+
+        self.assertEqual(result, {"tracks": []})
+        self.assertEqual(client._client.request.await_count, 2)
+        sleep.assert_awaited_once_with(1.0)
+
+    async def test_rate_limit_retries_post_and_honors_retry_after(self):
+        client = self._make_client()
+        client._client.request.side_effect = [
+            httpx.Response(
+                429,
+                headers={"Retry-After": "2.5"},
+                json={"error": {"message": "rate limited"}},
+            ),
+            httpx.Response(204),
+        ]
+
+        with patch("spotifyify.client.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            result = await client.post("/playlists/test/tracks", payload={"uris": []})
+
+        self.assertIsNone(result)
+        self.assertEqual(client._client.request.await_count, 2)
+        sleep.assert_awaited_once_with(2.5)
+
+    async def test_post_does_not_retry_server_error(self):
+        client = self._make_client()
+        client._client.request.return_value = httpx.Response(
+            503, json={"error": {"message": "unavailable"}}
+        )
+
+        with patch("spotifyify.client.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            with self.assertRaises(SpotifyAPIError):
+                await client.post("/playlists/test/tracks", payload={"uris": []})
+
+        client._client.request.assert_awaited_once()
+        sleep.assert_not_awaited()
+
+    async def test_retryable_error_is_raised_after_retry_budget_is_exhausted(self):
+        client = self._make_client(max_retries=2, retry_backoff_seconds=0.25)
+        client._client.request.return_value = httpx.Response(
+            503, json={"error": {"message": "unavailable"}}
+        )
+
+        with patch("spotifyify.client.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            with self.assertRaises(SpotifyAPIError):
+                await client.get("/playlists/test/tracks")
+
+        self.assertEqual(client._client.request.await_count, 3)
+        self.assertEqual(
+            [call.args for call in sleep.await_args_list], [(0.25,), (0.5,)]
+        )

@@ -31,6 +31,8 @@ class Spotifyify:
         scopes: Iterable[SpotifyScope] | None = None,
         cache_handler: CacheHandler | None = None,
         timeout: float = 10.0,
+        max_retries: int = 3,
+        retry_backoff_seconds: float = 1.0,
     ) -> None:
         self._credentials = credentials or SpotifyCredentials()
         self._scopes = [scope for scope in (scopes or ())]
@@ -44,6 +46,8 @@ class Spotifyify:
             scopes=self._scopes,
             base_url=self._SPOTIFY_API_BASE_URL,
             timeout=timeout,
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff_seconds,
         )
 
         self._tracks: Tracks | None = None

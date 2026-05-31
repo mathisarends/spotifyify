@@ -1,3 +1,5 @@
+import asyncio
+from enum import StrEnum
 from typing import Any, Protocol, Self
 
 from collections.abc import Iterable
@@ -7,13 +9,38 @@ from pydantic import BaseModel, ConfigDict
 
 from spotifyify.exceptions import SpotifyAPIError
 
+_DEFAULT_MAX_RETRIES = 3
+_DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+_RETRYABLE_SERVER_ERROR_STATUS_CODES = frozenset({500, 502, 503, 504})
+
+
+class _HttpMethod(StrEnum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
+
+
+_IDEMPOTENT_METHODS = frozenset(
+    {
+        _HttpMethod.GET,
+        _HttpMethod.PUT,
+        _HttpMethod.DELETE,
+        _HttpMethod.HEAD,
+        _HttpMethod.OPTIONS,
+    }
+)
+
 
 class QueryParams(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class RequestPayload(BaseModel):
-    model_config = ConfigDict(extra="allow")
+_JsonPayload = BaseModel | dict[str, Any] | list[Any] | str | None
+_SerializedJsonPayload = dict[str, Any] | list[Any] | str | None
 
 
 class AccessTokenProvider(Protocol):
@@ -58,11 +85,19 @@ class SpotifyClient:
         *,
         base_url: str,
         timeout: float = 10.0,
+        max_retries: int = _DEFAULT_MAX_RETRIES,
+        retry_backoff_seconds: float = _DEFAULT_RETRY_BACKOFF_SECONDS,
     ) -> None:
+        if max_retries < 0:
+            raise ValueError("max_retries must be greater than or equal to 0")
+        if retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds must be greater than or equal to 0")
         self._token_provider = token_provider
         self._scopes = list(scopes or [])
         self._base_url = base_url
         self._timeout = timeout
+        self._max_retries = max_retries
+        self._retry_backoff_seconds = retry_backoff_seconds
         self._client: httpx.AsyncClient | None = None
 
     async def open(self) -> None:
@@ -96,29 +131,36 @@ class SpotifyClient:
         )
 
     @staticmethod
-    def _dump_payload(
-        payload: RequestPayload | BaseModel | dict[str, Any] | list[Any] | str | None,
-    ) -> dict[str, Any] | list[Any] | str | None:
-        if payload is None:
-            return None
+    def _dump_payload(payload: _JsonPayload) -> _SerializedJsonPayload:
         if isinstance(payload, BaseModel):
             return payload.model_dump(mode="json", exclude_none=True)
-        if isinstance(payload, (dict, list, str)):
-            return payload
-        raise TypeError("payload must be a Pydantic model, dict, list, str, or None")
+        return payload
 
-    async def request_json(
+    @staticmethod
+    def _should_retry(method: _HttpMethod, status_code: int) -> bool:
+        if status_code == 429:
+            return True
+        return (
+            method in _IDEMPOTENT_METHODS
+            and status_code in _RETRYABLE_SERVER_ERROR_STATUS_CODES
+        )
+
+    def _retry_delay(self, response: httpx.Response, attempt: int) -> float:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after is not None:
+            try:
+                return max(0.0, float(retry_after))
+            except ValueError:
+                pass
+        return self._retry_backoff_seconds * (2**attempt)
+
+    async def _request_json(
         self,
-        method: str,
+        method: _HttpMethod,
         path: str,
         *,
         params: QueryParams | BaseModel | dict[str, Any] | None = None,
-        payload: RequestPayload
-        | BaseModel
-        | dict[str, Any]
-        | list[Any]
-        | str
-        | None = None,
+        payload: _JsonPayload = None,
         content: str | bytes | None = None,
         require_user: bool = True,
         headers: dict[str, str] | None = None,
@@ -136,14 +178,22 @@ class SpotifyClient:
             raise RuntimeError("HTTP client was not initialized")
 
         json_payload = None if content is not None else self._dump_payload(payload)
-        response = await self._client.request(
-            method,
-            path,
-            headers=request_headers,
-            params=self._dump_params(params),
-            json=json_payload,
-            content=content,
-        )
+        request_params = self._dump_params(params)
+        for attempt in range(self._max_retries + 1):
+            response = await self._client.request(
+                method.value,
+                path,
+                headers=request_headers,
+                params=request_params,
+                json=json_payload,
+                content=content,
+            )
+            if attempt == self._max_retries or not self._should_retry(
+                method, response.status_code
+            ):
+                break
+            await asyncio.sleep(self._retry_delay(response, attempt))
+
         parsed = parse_response(response)
 
         if response_model is None or parsed is None:
@@ -161,8 +211,8 @@ class SpotifyClient:
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
     ) -> Any:
-        return await self.request_json(
-            "GET",
+        return await self._request_json(
+            _HttpMethod.GET,
             path,
             params=params,
             require_user=require_user,
@@ -175,19 +225,14 @@ class SpotifyClient:
         path: str,
         *,
         params: QueryParams | BaseModel | dict[str, Any] | None = None,
-        payload: RequestPayload
-        | BaseModel
-        | dict[str, Any]
-        | list[Any]
-        | str
-        | None = None,
+        payload: _JsonPayload = None,
         content: str | bytes | None = None,
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
     ) -> Any:
-        return await self.request_json(
-            "POST",
+        return await self._request_json(
+            _HttpMethod.POST,
             path,
             params=params,
             payload=payload,
@@ -202,19 +247,14 @@ class SpotifyClient:
         path: str,
         *,
         params: QueryParams | BaseModel | dict[str, Any] | None = None,
-        payload: RequestPayload
-        | BaseModel
-        | dict[str, Any]
-        | list[Any]
-        | str
-        | None = None,
+        payload: _JsonPayload = None,
         content: str | bytes | None = None,
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
     ) -> Any:
-        return await self.request_json(
-            "PUT",
+        return await self._request_json(
+            _HttpMethod.PUT,
             path,
             params=params,
             payload=payload,
@@ -229,19 +269,14 @@ class SpotifyClient:
         path: str,
         *,
         params: QueryParams | BaseModel | dict[str, Any] | None = None,
-        payload: RequestPayload
-        | BaseModel
-        | dict[str, Any]
-        | list[Any]
-        | str
-        | None = None,
+        payload: _JsonPayload = None,
         content: str | bytes | None = None,
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
     ) -> Any:
-        return await self.request_json(
-            "PATCH",
+        return await self._request_json(
+            _HttpMethod.PATCH,
             path,
             params=params,
             payload=payload,
@@ -256,19 +291,14 @@ class SpotifyClient:
         path: str,
         *,
         params: QueryParams | BaseModel | dict[str, Any] | None = None,
-        payload: RequestPayload
-        | BaseModel
-        | dict[str, Any]
-        | list[Any]
-        | str
-        | None = None,
+        payload: _JsonPayload = None,
         content: str | bytes | None = None,
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
     ) -> Any:
-        return await self.request_json(
-            "DELETE",
+        return await self._request_json(
+            _HttpMethod.DELETE,
             path,
             params=params,
             payload=payload,
