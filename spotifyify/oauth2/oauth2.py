@@ -138,13 +138,14 @@ class SpotifyifyOAuth:
                             code_future.set_result(code)
 
                 payload = response_body.encode("utf-8")
+                content_length = len(payload)
                 writer.write(
                     (
                         f"{status_line}\r\n"
                         "Content-Type: text/plain; charset=utf-8\r\n"
-                        f"Content-Length: {len()}\r\n"
+                        f"Content-Length: {content_length}\r\n"
                         "Connection: close\r\n\r\n"
-                    ).encode("utf-8")
+                    ).encode()
                     + payload
                 )
                 await writer.drain()
