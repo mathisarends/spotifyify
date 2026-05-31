@@ -120,11 +120,12 @@ Spotifyify
 | `find(query, *, limit, offset)`                                                  | Search for playlists                         |
 | `get(playlist_id, *, market)`                                                    | Get a single playlist                        |
 | `list(*, user_id, limit, offset)`                                                | Current user's (or another user's) playlists |
+| `tracks(playlist_id, *, market, fields, limit, offset, additional_types)`        | Get playlist tracks                          |
 | `create(name, *, public, collaborative, description, user_id)`                   | Create a playlist                            |
 | `update(playlist_id, *, name, public, collaborative, description)`               | Update playlist details                      |
-| `add(playlist_id, uris, *, position)`                                            | Add tracks to a playlist                     |
-| `remove(playlist_id, uris)`                                                      | Remove tracks from a playlist                |
-| `reorder(playlist_id, *, range_start, insert_before, range_length, snapshot_id)` | Reorder tracks                               |
+| `add(playlist_id, uris, *, position)`                                            | Add items to a playlist                      |
+| `remove(playlist_id, uris)`                                                      | Remove items from a playlist                 |
+| `reorder(playlist_id, *, range_start, insert_before, range_length, snapshot_id)` | Reorder items                                |
 | `cover_image(playlist_id)`                                                       | Get playlist cover images                    |
 
 ### Player — `sp.player`

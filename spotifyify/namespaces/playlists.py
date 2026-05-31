@@ -2,8 +2,8 @@ from typing import TYPE_CHECKING, Any
 
 from collections.abc import Iterable
 
-from spotifyify.schemas import Image, PagingPlaylist, Playlist
-from spotifyify.utils import coalesce_items
+from spotifyify.schemas import Image, PagingPlaylist, PagingPlaylistTrack, Playlist
+from spotifyify.utils import coalesce_csv, coalesce_items
 
 if TYPE_CHECKING:
     from spotifyify.spotifyify import Spotifyify
@@ -57,6 +57,31 @@ class Playlists:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get(path, params=params) or {}
         return PagingPlaylist.model_validate(data)
+
+    async def tracks(
+        self,
+        playlist_id: str,
+        *,
+        market: str | None = None,
+        fields: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        additional_types: Iterable[str] | None = None,
+    ) -> PagingPlaylistTrack:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if market:
+            params["market"] = market
+        if fields:
+            params["fields"] = fields
+        if additional_types is not None:
+            params["additional_types"] = coalesce_csv(additional_types)
+        # The legacy read route still exposes public playlists to app-only tokens.
+        data = await self._http.get(
+            f"/playlists/{playlist_id}/tracks",
+            params=params,
+            require_user=False,
+        )
+        return PagingPlaylistTrack.model_validate(data or {})
 
     async def create(
         self,
@@ -116,15 +141,15 @@ class Playlists:
         if position is not None:
             payload["position"] = position
         data = (
-            await self._http.post(f"/playlists/{playlist_id}/tracks", payload=payload)
+            await self._http.post(f"/playlists/{playlist_id}/items", payload=payload)
             or {}
         )
         return data.get("snapshot_id") if isinstance(data, dict) else None
 
     async def remove(self, playlist_id: str, uris: Iterable[str]) -> str | None:
-        payload = {"tracks": [{"uri": uri} for uri in coalesce_items(uris)]}
+        payload = {"items": [{"uri": uri} for uri in coalesce_items(uris)]}
         data = (
-            await self._http.delete(f"/playlists/{playlist_id}/tracks", payload=payload)
+            await self._http.delete(f"/playlists/{playlist_id}/items", payload=payload)
             or {}
         )
         return data.get("snapshot_id") if isinstance(data, dict) else None
@@ -146,7 +171,7 @@ class Playlists:
         if snapshot_id:
             payload["snapshot_id"] = snapshot_id
         data = (
-            await self._http.put(f"/playlists/{playlist_id}/tracks", payload=payload)
+            await self._http.put(f"/playlists/{playlist_id}/items", payload=payload)
             or {}
         )
         return data.get("snapshot_id") if isinstance(data, dict) else None

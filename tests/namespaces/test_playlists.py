@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from tests.conftest import paging, playlist
+from tests.conftest import paging, playlist, track
 from spotifyify.namespaces.playlists import Playlists
-from spotifyify.schemas import Image, PagingPlaylist, Playlist
+from spotifyify.schemas import Image, PagingPlaylist, PagingPlaylistTrack, Playlist
 
 
 class TestPlaylists(unittest.IsolatedAsyncioTestCase):
@@ -40,6 +40,38 @@ class TestPlaylists(unittest.IsolatedAsyncioTestCase):
         await self.playlists.list(user_id="user123")
         call_args = self.http.get.call_args
         self.assertEqual(call_args.args[0], "/users/user123/playlists")
+
+    async def test_tracks(self):
+        self.http.get.return_value = paging(items=[{"item": track()}])
+        result = await self.playlists.tracks("p1")
+        self.assertIsInstance(result, PagingPlaylistTrack)
+        self.http.get.assert_called_once_with(
+            "/playlists/p1/tracks",
+            params={"limit": 20, "offset": 0},
+            require_user=False,
+        )
+
+    async def test_tracks_with_filters(self):
+        self.http.get.return_value = paging()
+        await self.playlists.tracks(
+            "p1",
+            market="DE",
+            fields="items(item(uri))",
+            limit=50,
+            offset=100,
+            additional_types=["track", "episode"],
+        )
+        self.http.get.assert_called_once_with(
+            "/playlists/p1/tracks",
+            params={
+                "limit": 50,
+                "offset": 100,
+                "market": "DE",
+                "fields": "items(item(uri))",
+                "additional_types": "track,episode",
+            },
+            require_user=False,
+        )
 
     async def test_create(self):
         mock_users = AsyncMock()
@@ -78,6 +110,8 @@ class TestPlaylists(unittest.IsolatedAsyncioTestCase):
         self.http.post.return_value = {"snapshot_id": "snap1"}
         result = await self.playlists.add("p1", ["spotify:track:a", "spotify:track:b"])
         self.assertEqual(result, "snap1")
+        call_args = self.http.post.call_args
+        self.assertEqual(call_args.args[0], "/playlists/p1/items")
 
     async def test_add_with_position(self):
         self.http.post.return_value = {"snapshot_id": "snap2"}
@@ -92,8 +126,9 @@ class TestPlaylists(unittest.IsolatedAsyncioTestCase):
         call_args = self.http.delete.call_args
         self.assertEqual(
             call_args.kwargs["payload"],
-            {"tracks": [{"uri": "spotify:track:a"}]},
+            {"items": [{"uri": "spotify:track:a"}]},
         )
+        self.assertEqual(call_args.args[0], "/playlists/p1/items")
 
     async def test_reorder(self):
         self.http.put.return_value = {"snapshot_id": "snap4"}
@@ -101,6 +136,8 @@ class TestPlaylists(unittest.IsolatedAsyncioTestCase):
             "p1", range_start=0, insert_before=3, range_length=2
         )
         self.assertEqual(result, "snap4")
+        call_args = self.http.put.call_args
+        self.assertEqual(call_args.args[0], "/playlists/p1/items")
 
     async def test_cover_image(self):
         self.http.get.return_value = [

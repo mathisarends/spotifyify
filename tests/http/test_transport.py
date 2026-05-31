@@ -73,7 +73,7 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
         ) as sleep:
             await transport.request(
                 HttpMethod.POST,
-                "/playlists/test/tracks",
+                "/playlists/test/items",
                 headers={},
                 params=None,
                 json={"uris": []},
@@ -91,7 +91,7 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
         ) as sleep:
             response = await transport.request(
                 HttpMethod.POST,
-                "/playlists/test/tracks",
+                "/playlists/test/items",
                 headers={},
                 params=None,
                 json={"uris": []},
