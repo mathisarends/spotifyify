@@ -1,6 +1,6 @@
 [project]
 name = "spotifyify"
-version = "0.3.0"
+version = "0.4.0"
 description = "Async wrapper for spotipy with a focus on integration with MCP agents."
 readme = "README.md"
 requires-python = ">=3.13"
