@@ -92,7 +92,7 @@ class Spotifyify:
         on_retry: OnRetryHook | None = None,
     ) -> AsyncIterator[None]:
         """Scope user-specific calls with a supplied token, otherwise use app auth."""
-        ctx_tokens: list[tuple[ContextVar[Any], Token[Any]]] = []
+        ctx_tokens: list[tuple[ContextVar[Any], Token]] = []
         if access_token is not None:
             ctx_tokens.append(
                 (current_access_token, current_access_token.set(access_token))
