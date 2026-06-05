@@ -5,6 +5,7 @@ import httpx
 from pydantic import BaseModel
 
 from spotifyify.client import SpotifyClient
+from spotifyify.http.auth_context import current_access_token
 from spotifyify.http.retry_policy import HttpMethod
 from spotifyify.http.transport import HttpTransport
 
@@ -86,5 +87,26 @@ class TestSpotifyClient(unittest.IsolatedAsyncioTestCase):
             headers={"Authorization": "Bearer fake-token"},
             params=None,
             json={"name": "test"},
+            content=None,
+        )
+
+    async def test_request_uses_context_access_token_without_provider(self):
+        client, token_provider = self._make_client()
+        client._transport.request.return_value = httpx.Response(200, json={"ok": True})
+
+        token = current_access_token.set("user-token")
+        try:
+            result = await client.get("/me", require_user=False)
+        finally:
+            current_access_token.reset(token)
+
+        self.assertEqual(result, {"ok": True})
+        token_provider.get_access_token.assert_not_awaited()
+        client._transport.request.assert_awaited_once_with(
+            HttpMethod.GET,
+            "/me",
+            headers={"Authorization": "Bearer user-token"},
+            params=None,
+            json=None,
             content=None,
         )

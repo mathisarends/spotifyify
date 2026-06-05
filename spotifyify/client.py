@@ -16,6 +16,7 @@ from spotifyify.http import (
     parse_response,
     validate_response_model,
 )
+from spotifyify.http.auth_context import current_access_token
 
 
 class SpotifyClient:
@@ -64,10 +65,12 @@ class SpotifyClient:
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
     ) -> Any:
-        token = await self._token_provider.get_access_token(
-            require_user=require_user,
-            scope=self._scopes,
-        )
+        token = current_access_token.get()
+        if token is None:
+            token = await self._token_provider.get_access_token(
+                require_user=require_user,
+                scope=self._scopes,
+            )
         request_headers = {"Authorization": f"Bearer {token}"}
         if headers:
             request_headers.update(headers)

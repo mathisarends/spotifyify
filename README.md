@@ -50,6 +50,22 @@ If a user-scoped endpoint is called and no user token is available, spotifyify s
 3. Exchanges the code for access and refresh tokens.
 4. Stores tokens in `.spotify_cache` by default (already git-ignored in this project).
 
+### Bring your own user token
+
+Multi-user backends can pass an already minted end-user access token for one request scope. While the context is active, spotifyify sends that token directly and skips its configured OAuth provider, app credentials, cache, refresh, and scope checks. Expired or insufficient tokens surface as Spotify API errors.
+
+The token context is isolated per async task, so one shared `Spotifyify` instance can serve concurrent users:
+
+```python
+async with Spotifyify() as spotify:
+    async with spotify.session(access_token=end_user_access_token):
+        playlist = await spotify.playlists.create("Weekly Mix", public=False)
+        await spotify.playlists.replace(
+            playlist.id,
+            ["spotify:track:...", "spotify:track:..."],
+        )
+```
+
 ## Quick start
 
 ```python
@@ -124,6 +140,7 @@ Spotifyify
 | `create(name, *, public, collaborative, description, user_id)`                   | Create a playlist                            |
 | `update(playlist_id, *, name, public, collaborative, description)`               | Update playlist details                      |
 | `add(playlist_id, uris, *, position)`                                            | Add items to a playlist                      |
+| `replace(playlist_id, uris)`                                                     | Replace all playlist items                   |
 | `remove(playlist_id, uris)`                                                      | Remove items from a playlist                 |
 | `reorder(playlist_id, *, range_start, insert_before, range_length, snapshot_id)` | Reorder items                                |
 | `cover_image(playlist_id)`                                                       | Get playlist cover images                    |
@@ -228,8 +245,15 @@ async def on_retry(event: RetryEvent) -> None:
         },
     )
 
-with spotify.retry_hook(on_retry):
+async with spotify.session(on_retry=on_retry):
     track = await spotify.tracks.get(track_id)
+```
+
+Request-scoped options can be combined without nested context managers:
+
+```python
+async with spotify.session(access_token=end_user_access_token, on_retry=on_retry):
+    me = await spotify.users.me()
 ```
 
 ## Scopes
@@ -258,4 +282,5 @@ See the [`examples/`](./examples) directory for runnable scripts:
 
 - [`examples/search_and_play.py`](./examples/search_and_play.py) — search for tracks and control playback
 - [`examples/manage_playlist.py`](./examples/manage_playlist.py) — create and manage a playlist
+- [`examples/playlists/user_token_playlist.py`](./examples/playlists/user_token_playlist.py) — create playlists with caller-supplied user tokens
 - [`examples/library_stats.py`](./examples/library_stats.py) — explore your top tracks and saved library

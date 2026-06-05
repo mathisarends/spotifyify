@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from spotifyify.spotifyify import Spotifyify
 
 
+_MAX_ITEMS_PER_REQUEST = 100
+
+
 class Playlists:
     def __init__(self, client: Spotifyify) -> None:
         self._client = client
@@ -144,6 +147,22 @@ class Playlists:
             await self._http.post(f"/playlists/{playlist_id}/items", payload=payload)
             or {}
         )
+        return data.get("snapshot_id") if isinstance(data, dict) else None
+
+    async def replace(self, playlist_id: str, uris: Iterable[str]) -> str | None:
+        items = coalesce_items(uris)
+        path = f"/playlists/{playlist_id}/items"
+        data = await self._http.put(
+            path,
+            payload={"uris": items[:_MAX_ITEMS_PER_REQUEST]},
+        )
+
+        for offset in range(_MAX_ITEMS_PER_REQUEST, len(items), _MAX_ITEMS_PER_REQUEST):
+            data = await self._http.post(
+                path,
+                payload={"uris": items[offset : offset + _MAX_ITEMS_PER_REQUEST]},
+            )
+
         return data.get("snapshot_id") if isinstance(data, dict) else None
 
     async def remove(self, playlist_id: str, uris: Iterable[str]) -> str | None:

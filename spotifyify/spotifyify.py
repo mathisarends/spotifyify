@@ -1,12 +1,14 @@
-from typing import Self
+from typing import Any, Self
 
-from collections.abc import Iterable, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Iterable, Iterator
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar, Token
 
 from spotifyify.cache_handler import CacheFileHandler, CacheHandler
 from spotifyify.client import SpotifyClient
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.http import OnRetryHook
+from spotifyify.http.auth_context import current_access_token
 from spotifyify.http.retry_context import current_retry_hook
 from spotifyify.oauth2 import SpotifyifyOAuth
 
@@ -81,6 +83,32 @@ class Spotifyify:
             yield
         finally:
             current_retry_hook.reset(token)
+
+    @asynccontextmanager
+    async def session(
+        self,
+        *,
+        access_token: str | None = None,
+        on_retry: OnRetryHook | None = None,
+    ) -> AsyncIterator[None]:
+        """Scope user-specific calls with a supplied token, otherwise use app auth."""
+        ctx_tokens: list[tuple[ContextVar[Any], Token[Any]]] = []
+        if access_token is not None:
+            ctx_tokens.append(
+                (current_access_token, current_access_token.set(access_token))
+            )
+        if on_retry is not None:
+            ctx_tokens.append((current_retry_hook, current_retry_hook.set(on_retry)))
+        try:
+            yield
+        finally:
+            for context_var, token in reversed(ctx_tokens):
+                context_var.reset(token)
+
+    @asynccontextmanager
+    async def user_token(self, access_token: str) -> AsyncIterator[None]:
+        async with self.session(access_token=access_token):
+            yield
 
     @property
     def http(self) -> SpotifyClient:
