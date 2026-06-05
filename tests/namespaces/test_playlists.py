@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 
 from tests.conftest import paging, playlist, track
 from spotifyify.namespaces.playlists import Playlists
@@ -118,6 +118,50 @@ class TestPlaylists(unittest.IsolatedAsyncioTestCase):
         await self.playlists.add("p1", ["spotify:track:a"], position=3)
         call_args = self.http.post.call_args
         self.assertEqual(call_args.kwargs["payload"]["position"], 3)
+
+    async def test_replace(self):
+        self.http.put.return_value = {"snapshot_id": "snap_replace"}
+        result = await self.playlists.replace(
+            "p1", ["spotify:track:a", "spotify:track:b"]
+        )
+        self.assertEqual(result, "snap_replace")
+        self.http.put.assert_called_once_with(
+            "/playlists/p1/items",
+            payload={"uris": ["spotify:track:a", "spotify:track:b"]},
+        )
+        self.http.post.assert_not_called()
+
+    async def test_replace_empty(self):
+        self.http.put.return_value = {"snapshot_id": "snap_empty"}
+        result = await self.playlists.replace("p1", [])
+        self.assertEqual(result, "snap_empty")
+        self.http.put.assert_called_once_with(
+            "/playlists/p1/items",
+            payload={"uris": []},
+        )
+        self.http.post.assert_not_called()
+
+    async def test_replace_chunks(self):
+        track_uris = [f"spotify:track:{index}" for index in range(205)]
+        self.http.put.return_value = {"snapshot_id": "snap_first"}
+        self.http.post.side_effect = [
+            {"snapshot_id": "snap_second"},
+            {"snapshot_id": "snap_final"},
+        ]
+
+        result = await self.playlists.replace("p1", track_uris)
+
+        self.assertEqual(result, "snap_final")
+        self.http.put.assert_called_once_with(
+            "/playlists/p1/items",
+            payload={"uris": track_uris[:100]},
+        )
+        self.http.post.assert_has_calls(
+            [
+                call("/playlists/p1/items", payload={"uris": track_uris[100:200]}),
+                call("/playlists/p1/items", payload={"uris": track_uris[200:205]}),
+            ]
+        )
 
     async def test_remove(self):
         self.http.delete.return_value = {"snapshot_id": "snap3"}
