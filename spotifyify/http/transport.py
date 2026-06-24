@@ -56,12 +56,13 @@ class HttpTransport:
         if self._client is None:
             raise RuntimeError("HTTP client was not initialized")
 
-        for attempt in range(self._retry_policy.max_retries + 1):
+        retries_used = 0
+        while True:
             logger.debug(
                 "Sending HTTP request: method=%s path=%s attempt=%d/%d",
                 method.value,
                 path,
-                attempt + 1,
+                retries_used + 1,
                 self._retry_policy.max_retries + 1,
             )
             try:
@@ -86,22 +87,22 @@ class HttpTransport:
                 path,
                 response.status_code,
             )
-            if attempt == self._retry_policy.max_retries or not (
-                self._retry_policy.should_retry(method, response.status_code)
-            ):
-                return response
-            retry_delay = self._retry_policy.retry_delay(
-                attempt,
+            retry = self._retry_policy.next_retry(
+                method=method,
+                status_code=response.status_code,
                 retry_after=response.headers.get("Retry-After"),
+                retries_used=retries_used,
             )
+            if retry is None:
+                return response
             retry_event = RetryEvent(
                 method=method,
                 path=path,
                 response=response,
-                retry_number=attempt + 1,
-                max_retries=self._retry_policy.max_retries,
-                retry_in_seconds=retry_delay,
-                retry_at=datetime.now(UTC) + timedelta(seconds=retry_delay),
+                retry_number=retry.retry_number,
+                max_retries=retry.max_retries,
+                retry_in_seconds=retry.delay_seconds,
+                retry_at=datetime.now(UTC) + timedelta(seconds=retry.delay_seconds),
             )
             logger.warning(
                 "Retrying HTTP request: method=%s path=%s status_code=%d "
@@ -109,7 +110,7 @@ class HttpTransport:
                 method.value,
                 path,
                 response.status_code,
-                retry_delay,
+                retry.delay_seconds,
                 retry_event.retry_number,
                 retry_event.max_retries,
             )
@@ -117,6 +118,5 @@ class HttpTransport:
                 result = hook(retry_event)
                 if inspect.isawaitable(result):
                     await result
-            await asyncio.sleep(retry_delay)
-
-        raise RuntimeError("unreachable")
+            retries_used += 1
+            await asyncio.sleep(retry.delay_seconds)

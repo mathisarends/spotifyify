@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import StrEnum
 
 _RETRYABLE_SERVER_ERROR_STATUS_CODES = frozenset({500, 502, 503, 504})
@@ -24,6 +25,13 @@ _IDEMPOTENT_METHODS = frozenset(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class RetryDecision:
+    retry_number: int
+    max_retries: int
+    delay_seconds: float
+
+
 class RetryPolicy:
     def __init__(
         self,
@@ -43,6 +51,25 @@ class RetryPolicy:
         return (
             method in _IDEMPOTENT_METHODS
             and status_code in _RETRYABLE_SERVER_ERROR_STATUS_CODES
+        )
+
+    def next_retry(
+        self,
+        *,
+        method: HttpMethod,
+        status_code: int,
+        retries_used: int,
+        retry_after: str | None = None,
+    ) -> RetryDecision | None:
+        if retries_used >= self.max_retries:
+            return None
+        if not self.should_retry(method, status_code):
+            return None
+
+        return RetryDecision(
+            retry_number=retries_used + 1,
+            max_retries=self.max_retries,
+            delay_seconds=self.retry_delay(retries_used, retry_after=retry_after),
         )
 
     def retry_delay(self, attempt: int, *, retry_after: str | None = None) -> float:

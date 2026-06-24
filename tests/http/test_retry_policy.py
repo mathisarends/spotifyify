@@ -21,6 +21,29 @@ class TestRetryPolicy(unittest.TestCase):
     def test_server_error_is_not_retried_for_post(self):
         self.assertFalse(RetryPolicy().should_retry(HttpMethod.POST, 503))
 
+    def test_next_retry_returns_decision(self):
+        decision = RetryPolicy(max_retries=2, backoff_seconds=0.25).next_retry(
+            method=HttpMethod.GET,
+            status_code=503,
+            retries_used=1,
+        )
+
+        self.assertIsNotNone(decision)
+        if decision is None:
+            self.fail("expected retry decision")
+        self.assertEqual(decision.retry_number, 2)
+        self.assertEqual(decision.max_retries, 2)
+        self.assertEqual(decision.delay_seconds, 0.5)
+
+    def test_next_retry_returns_none_after_retry_budget_is_exhausted(self):
+        decision = RetryPolicy(max_retries=2).next_retry(
+            method=HttpMethod.GET,
+            status_code=503,
+            retries_used=2,
+        )
+
+        self.assertIsNone(decision)
+
     def test_retry_after_is_used(self):
         self.assertEqual(RetryPolicy().retry_delay(2, retry_after="2.5"), 2.5)
 
