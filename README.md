@@ -19,6 +19,13 @@ With [uv](https://github.com/astral-sh/uv):
 uv add spotifyify
 ```
 
+Optional CLI:
+
+```bash
+uv add "spotifyify[cli]"
+spotifyify --help
+```
+
 ## Configuration
 
 Credentials are loaded from environment variables (or a `.env` file via `pydantic-settings`):
@@ -79,6 +86,78 @@ async def main():
             print(f"Now playing: {state.item.name}")
 
 asyncio.run(main())
+```
+
+## CLI
+
+Install the optional Typer-based CLI with:
+
+```bash
+uv add "spotifyify[cli]"
+```
+
+Then call it as `spotifyify`. The CLI mirrors the public namespace API from
+`spotifyify.namespaces` and uses the same environment variables and `.env`
+loading as the Python client.
+
+```bash
+spotifyify tracks search "Daft Punk" --limit 5
+spotifyify albums get 4aawyAB9vmqN3uQ7FjRGTy --json
+spotifyify playlists list --scope playlist-read-private
+```
+
+Commands print compact tables by default. Use `--json` to print the raw
+Pydantic response payload as JSON. Use `--field` / `--fields` to keep only the
+field paths an agent or script needs; the option can be repeated or passed as a
+comma-separated list.
+
+```bash
+spotifyify tracks search "Daft Punk" --limit 3 --field id --field name --field uri
+spotifyify tracks search "Daft Punk" --json --fields items.0.id,items.0.name
+spotifyify player state --json --fields item.name,is_playing,progress_ms
+spotifyify library saved-tracks --json --fields track.id,track.name,added_at
+```
+
+IDs, URIs, scopes, and fields accept repeated values or comma-separated values:
+
+```bash
+spotifyify tracks get-many 4uLU6hMCjMI75M1A2tKUQC,0TnOYISbd1XYRBk9myaseg
+spotifyify playlists add PLAYLIST_ID spotify:track:ID_1 spotify:track:ID_2
+spotifyify playlists list --scope playlist-read-private,user-library-read
+```
+
+Most user-scoped commands set the matching default scope automatically. Override
+or extend scopes with `--scope` when you need a different authorization grant.
+
+### CLI Commands
+
+| Namespace | Commands |
+| --------- | -------- |
+| `tracks` | `search`, `get`, `get-many`, `audio-features`, `recommendations` |
+| `artists` | `search`, `get`, `get-many`, `top-tracks`, `albums`, `related` |
+| `albums` | `search`, `get`, `get-many`, `tracks`, `new-releases` |
+| `playlists` | `search`, `get`, `list`, `tracks`, `create`, `update`, `add`, `replace`, `remove`, `reorder`, `cover-image` |
+| `shows` | `search`, `get`, `get-many`, `episodes` |
+| `episodes` | `search`, `get`, `get-many` |
+| `library` | `saved-tracks`, `saved-albums`, `saved-shows`, `saved-episodes`, `top-tracks`, `top-artists`, `save-*`, `remove-*`, `check-*` for tracks/albums/shows/episodes |
+| `player` | `state`, `play`, `pause`, `skip`, `previous`, `seek`, `repeat`, `shuffle`, `volume`, `queue`, `add-to-queue`, `transfer`, `devices`, `recently-played` |
+| `users` | `me`, `get`, `following`, `follow`, `unfollow`, `check-following` |
+
+Use Typer's built-in help to inspect exact arguments and options:
+
+```bash
+spotifyify --help
+spotifyify playlists create --help
+spotifyify player play --help
+```
+
+Mutating commands print `OK` or a Spotify snapshot ID by default. Add `--json`
+where available for machine-readable output, for example:
+
+```bash
+spotifyify playlists add PLAYLIST_ID spotify:track:TRACK_ID --json
+spotifyify library check-tracks TRACK_ID_1,TRACK_ID_2 --json
+spotifyify users check-following artist ARTIST_ID --json
 ```
 
 ## API design
