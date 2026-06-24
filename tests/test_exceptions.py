@@ -1,11 +1,18 @@
 import unittest
+from datetime import UTC
 
-from spotifyify.exceptions import SpotifyAPIError, SpotifyAuthError, SpotifyifyError
+from spotifyify.exceptions import (
+    SpotifyAPIError,
+    SpotifyAuthError,
+    SpotifyifyError,
+    SpotifyRateLimitError,
+)
 
 
 class TestExceptions(unittest.TestCase):
     def test_hierarchy(self):
         self.assertTrue(issubclass(SpotifyAPIError, SpotifyifyError))
+        self.assertTrue(issubclass(SpotifyRateLimitError, SpotifyAPIError))
         self.assertTrue(issubclass(SpotifyAuthError, SpotifyifyError))
         self.assertTrue(issubclass(SpotifyifyError, Exception))
 
@@ -20,6 +27,19 @@ class TestExceptions(unittest.TestCase):
     def test_api_error_default_details(self):
         err = SpotifyAPIError(500, "Server error")
         self.assertEqual(err.details, {})
+
+    def test_rate_limit_error_attributes(self):
+        err = SpotifyRateLimitError(
+            "rate limited",
+            {"error": {"message": "rate limited"}},
+            retry_after=2.5,
+        )
+
+        self.assertEqual(err.status_code, 429)
+        self.assertEqual(err.message, "rate limited")
+        self.assertEqual(err.retry_after, 2.5)
+        self.assertIsNotNone(err.retry_at)
+        self.assertEqual(err.retry_at.tzinfo, UTC)
 
     def test_auth_error(self):
         err = SpotifyAuthError("bad creds")

@@ -120,6 +120,7 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event.retry_number, 1)
         self.assertEqual(event.max_retries, 2)
         self.assertEqual(event.retry_in_seconds, 2.5)
+        self.assertEqual(event.retry_after, 2.5)
         self.assertEqual(event.retry_at.tzinfo, UTC)
 
     async def test_request_awaits_async_retry_hook(self):

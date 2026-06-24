@@ -21,5 +21,9 @@ class RetryEvent:
     def status_code(self) -> int:
         return self.response.status_code
 
+    @property
+    def retry_after(self) -> float:
+        return self.retry_in_seconds
+
 
 type OnRetryHook = Callable[[RetryEvent], Awaitable[None] | None]

@@ -225,10 +225,11 @@ header. Server errors are only retried for idempotent HTTP methods to avoid
 duplicating mutations. Configure the defaults with `max_retries` and
 `retry_backoff_seconds` when constructing `Spotifyify`.
 
-Use a request-context retry hook when retries should be reported to a caller.
-The hook is isolated per async task, so one shared `Spotifyify` instance can be
-used by concurrent conversations. `retry_number` is one-based and `retry_at`
-contains the planned retry time in UTC:
+Use a request-context retry hook when planned retries should be reported to a
+caller before spotifyify sleeps and sends the request again. The hook is
+isolated per async task, so one shared `Spotifyify` instance can be used by
+concurrent conversations. `retry_number` is one-based and `retry_at` contains
+the planned retry time in UTC:
 
 ```python
 from spotifyify import RetryEvent
@@ -240,13 +241,34 @@ async def on_retry(event: RetryEvent) -> None:
             "status_code": event.status_code,
             "retry_number": event.retry_number,
             "max_retries": event.max_retries,
-            "retry_in_seconds": event.retry_in_seconds,
+            "retry_after": event.retry_after,
             "retry_at": event.retry_at.isoformat(),
         },
     )
 
 async with spotify.session(on_retry=on_retry):
     track = await spotify.tracks.get(track_id)
+```
+
+If all retries are exhausted and Spotify still returns `429`, spotifyify raises
+`SpotifyRateLimitError`. It subclasses `SpotifyAPIError` and exposes
+`retry_after` and `retry_at` from Spotify's final `Retry-After` response header:
+
+```python
+from spotifyify import SpotifyRateLimitError
+
+try:
+    track = await spotify.tracks.get(track_id)
+except SpotifyRateLimitError as exc:
+    await sse_bus.emit(
+        conversation_id,
+        {
+            "status_code": exc.status_code,
+            "retry_after": exc.retry_after,
+            "retry_at": exc.retry_at.isoformat() if exc.retry_at else None,
+            "message": exc.message,
+        },
+    )
 ```
 
 Request-scoped options can be combined without nested context managers:

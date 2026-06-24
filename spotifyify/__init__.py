@@ -2,6 +2,7 @@ import logging
 
 from .spotifyify import Spotifyify
 from .credentials import SpotifyCredentials
+from .exceptions import SpotifyAPIError, SpotifyAuthError, SpotifyRateLimitError
 from .oauth2 import SpotifyScope
 from .http import OnRetryHook, RetryEvent
 from .schemas import (
@@ -70,6 +71,9 @@ __all__ = [
     "SpotifyScope",
     "OnRetryHook",
     "RetryEvent",
+    "SpotifyAPIError",
+    "SpotifyAuthError",
+    "SpotifyRateLimitError",
     # Core models
     "Track",
     "Album",

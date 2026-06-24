@@ -4,16 +4,24 @@ from unittest.mock import MagicMock
 import httpx
 from pydantic import BaseModel
 
-from spotifyify.exceptions import SpotifyAPIError
+from spotifyify.exceptions import SpotifyAPIError, SpotifyRateLimitError
 from spotifyify.http.response import parse_response, validate_response_model
 
 
 class TestParseResponse(unittest.TestCase):
-    def _make_response(self, status_code, json_data=None, content=b"", text=""):
+    def _make_response(
+        self,
+        status_code,
+        json_data=None,
+        content=b"",
+        text="",
+        headers=None,
+    ):
         response = MagicMock(spec=httpx.Response)
         response.status_code = status_code
         response.content = content
         response.text = text
+        response.headers = headers or {}
         if json_data is not None:
             response.json.return_value = json_data
             response.content = b'{"data": true}'
@@ -62,6 +70,33 @@ class TestParseResponse(unittest.TestCase):
             parse_response(response)
 
         self.assertEqual(ctx.exception.message, "simple string")
+
+    def test_rate_limit_error_exposes_retry_after_details(self):
+        response = self._make_response(
+            429,
+            json_data={"error": {"message": "rate limited"}},
+            headers={"Retry-After": "2.5"},
+        )
+
+        with self.assertRaises(SpotifyRateLimitError) as ctx:
+            parse_response(response)
+
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertEqual(ctx.exception.message, "rate limited")
+        self.assertEqual(ctx.exception.retry_after, 2.5)
+        self.assertIsNotNone(ctx.exception.retry_at)
+
+    def test_rate_limit_error_allows_missing_retry_after(self):
+        response = self._make_response(
+            429,
+            json_data={"error": {"message": "rate limited"}},
+        )
+
+        with self.assertRaises(SpotifyRateLimitError) as ctx:
+            parse_response(response)
+
+        self.assertIsNone(ctx.exception.retry_after)
+        self.assertIsNone(ctx.exception.retry_at)
 
 
 class TestValidateResponseModel(unittest.TestCase):

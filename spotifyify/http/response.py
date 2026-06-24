@@ -4,10 +4,19 @@ from typing import Any
 import httpx
 from pydantic import BaseModel
 
-from spotifyify.exceptions import SpotifyAPIError
+from spotifyify.exceptions import SpotifyAPIError, SpotifyRateLimitError
 
 JsonResponse = dict[str, Any] | list[Any] | None
 logger = logging.getLogger(__name__)
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    if value is None:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        return None
 
 
 def parse_response(response: httpx.Response) -> JsonResponse:
@@ -31,6 +40,12 @@ def parse_response(response: httpx.Response) -> JsonResponse:
             response.status_code,
             message,
         )
+        if response.status_code == 429:
+            raise SpotifyRateLimitError(
+                message,
+                data if isinstance(data, dict) else None,
+                retry_after=_parse_retry_after(response.headers.get("Retry-After")),
+            )
         raise SpotifyAPIError(
             response.status_code,
             message,

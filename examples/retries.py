@@ -15,8 +15,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 
-from spotifyify import RetryEvent, Spotifyify
-from spotifyify.exceptions import SpotifyAPIError
+from spotifyify import RetryEvent, SpotifyAPIError, SpotifyRateLimitError, Spotifyify
 
 
 DEFAULT_TRACK_ID = "4uLU6hMCjMI75M1A2tKUQC"
@@ -86,7 +85,7 @@ async def main() -> None:
                 status=event.status_code,
                 retry=event.retry_number,
                 max_retries=event.max_retries,
-                sleep=event.retry_in_seconds,
+                sleep=event.retry_after,
                 retry_after=retry_after,
                 retry_at=event.retry_at.isoformat(),
                 path=event.path,
@@ -98,11 +97,22 @@ async def main() -> None:
         async with semaphore:
             try:
                 await sp.tracks.get(args.track_id)
-            except SpotifyAPIError as exc:
+            except SpotifyRateLimitError as exc:
                 async with stats_lock:
                     stats.failed += 1
-                    if exc.status_code == 429:
-                        stats.final_rate_limits += 1
+                    stats.final_rate_limits += 1
+                print(
+                    "[final 429] retry_after={retry_after} retry_at={retry_at} "
+                    "message={message}".format(
+                        retry_after=exc.retry_after,
+                        retry_at=exc.retry_at.isoformat() if exc.retry_at else None,
+                        message=exc.message,
+                    ),
+                    flush=True,
+                )
+            except SpotifyAPIError:
+                async with stats_lock:
+                    stats.failed += 1
             else:
                 async with stats_lock:
                     stats.completed += 1
