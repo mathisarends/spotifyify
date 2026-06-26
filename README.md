@@ -126,8 +126,34 @@ spotifyify playlists add PLAYLIST_ID spotify:track:ID_1 spotify:track:ID_2
 spotifyify playlists list --scope playlist-read-private,user-library-read
 ```
 
+Common options are shared across namespaces where the underlying Spotify API
+supports them:
+
+| Option | Description |
+| ------ | ----------- |
+| `--json` | Print the raw Pydantic response payload as JSON instead of a compact table |
+| `--field`, `--fields`, `-f` | Include only selected field paths; repeat it or pass comma-separated paths |
+| `--scope`, `-s` | Request OAuth scopes; repeat it or pass comma-separated scopes |
+| `--limit`, `-l` | Number of items to fetch, capped at Spotify's per-endpoint limits |
+| `--offset`, `-o` | Result offset for paginated endpoints |
+| `--market`, `-m` | ISO 3166-1 alpha-2 market code |
+| `--device-id` | Target Spotify Connect device for playback commands |
+
 Most user-scoped commands set the matching default scope automatically. Override
 or extend scopes with `--scope` when you need a different authorization grant.
+When a command needs user authorization and no token is configured yet, the CLI
+uses the same interactive Authorization Code login and token cache as the Python
+client.
+
+Search and read commands render the most useful columns by default. Mutating
+commands print `OK` or a Spotify snapshot ID by default. Add `--json` where
+available for machine-readable output, for example:
+
+```bash
+spotifyify playlists add PLAYLIST_ID spotify:track:TRACK_ID --json
+spotifyify library check-tracks TRACK_ID_1,TRACK_ID_2 --json
+spotifyify users check-following artist ARTIST_ID --json
+```
 
 ### CLI Commands
 
@@ -149,15 +175,6 @@ Use Typer's built-in help to inspect exact arguments and options:
 spotifyify --help
 spotifyify playlists create --help
 spotifyify player play --help
-```
-
-Mutating commands print `OK` or a Spotify snapshot ID by default. Add `--json`
-where available for machine-readable output, for example:
-
-```bash
-spotifyify playlists add PLAYLIST_ID spotify:track:TRACK_ID --json
-spotifyify library check-tracks TRACK_ID_1,TRACK_ID_2 --json
-spotifyify users check-following artist ARTIST_ID --json
 ```
 
 ## API design
