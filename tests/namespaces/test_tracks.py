@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 from tests.conftest import paging, track
 from spotifyify.namespaces.tracks import Tracks
-from spotifyify.schemas import AudioFeatures, PagingTrack, Recommendations, Track
+from spotifyify.schemas import PagingTrack, Track
 
 
 class TestTracks(unittest.IsolatedAsyncioTestCase):
@@ -63,26 +63,3 @@ class TestTracks(unittest.IsolatedAsyncioTestCase):
         self.http.get.return_value = {"tracks": [track(id="a"), None]}
         result = await self.tracks.get_many(["a", "b"])
         self.assertEqual(len(result), 1)
-
-    async def test_audio_features(self):
-        self.http.get.return_value = {
-            "audio_features": [{"id": "a", "danceability": 0.8, "energy": 0.6}]
-        }
-        result = await self.tracks.audio_features(["a"])
-        self.assertEqual(len(result), 1)
-        self.assertIsInstance(result[0], AudioFeatures)
-
-    async def test_recommendations(self):
-        self.http.get.return_value = {"tracks": [], "seeds": []}
-        result = await self.tracks.recommendations(seed_genres=["pop"])
-        self.assertIsInstance(result, Recommendations)
-        call_kwargs = self.http.get.call_args
-        self.assertEqual(call_kwargs.kwargs["params"]["seed_genres"], "pop")
-
-    async def test_recommendations_no_seeds(self):
-        self.http.get.return_value = {"tracks": [], "seeds": []}
-        await self.tracks.recommendations()
-        call_kwargs = self.http.get.call_args
-        self.assertNotIn("seed_artists", call_kwargs.kwargs["params"])
-        self.assertNotIn("seed_tracks", call_kwargs.kwargs["params"])
-        self.assertNotIn("seed_genres", call_kwargs.kwargs["params"])

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import paging, show, simplified_show
+from tests.conftest import episode, paging, show, simplified_show
 from spotifyify.namespaces.shows import Shows
 from spotifyify.schemas import (
     PagingSimplifiedEpisode,
@@ -43,3 +43,29 @@ class TestShows(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(result, PagingSimplifiedEpisode)
         call_kwargs = self.http.get.call_args
         self.assertEqual(call_kwargs.kwargs["params"]["market"], "US")
+
+    async def test_episodes_tolerates_null_items(self):
+        """Spotify may return null entries inside the episodes list."""
+        self.http.get.return_value = paging(items=[episode(type="episode"), None])
+        result = await self.shows.episodes("s1")
+        self.assertEqual(len(result.items), 2)
+        self.assertIsNone(result.items[1])
+
+    async def test_episodes_tolerates_null_audio_preview_url(self):
+        """audio_preview_url is deprecated and now commonly null."""
+        self.http.get.return_value = paging(
+            items=[episode(type="episode", audio_preview_url=None)]
+        )
+        result = await self.shows.episodes("s1")
+        self.assertIsNone(result.items[0].audio_preview_url)
+
+    async def test_get_tolerates_null_episode_data(self):
+        """shows get embeds an episodes paging that may carry null/preview gaps."""
+        self.http.get.return_value = show(
+            episodes=paging(
+                items=[episode(type="episode", audio_preview_url=None), None]
+            )
+        )
+        result = await self.shows.get("s1")
+        self.assertIsInstance(result, Show)
+        self.assertIsNone(result.episodes.items[1])

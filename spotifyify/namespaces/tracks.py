@@ -4,9 +4,7 @@ from collections.abc import Iterable
 
 from spotifyify.client import SpotifyClient
 from spotifyify.schemas import (
-    AudioFeatures,
     PagingTrack,
-    Recommendations,
     Track,
 )
 from spotifyify.utils import coalesce_csv
@@ -56,40 +54,3 @@ class Tracks:
         data = await self._http.get("/tracks", params=params, require_user=False)
         tracks = data.get("tracks", []) if isinstance(data, dict) else []
         return [Track.model_validate(item) for item in tracks if item]
-
-    async def audio_features(self, track_ids: Iterable[str]) -> list[AudioFeatures]:
-        data = await self._http.get(
-            "/audio-features",
-            params={"ids": coalesce_csv(track_ids)},
-            require_user=False,
-        )
-        features = data.get("audio_features", []) if isinstance(data, dict) else []
-        return [AudioFeatures.model_validate(item) for item in features if item]
-
-    async def recommendations(
-        self,
-        *,
-        seed_artists: Iterable[str] = (),
-        seed_tracks: Iterable[str] = (),
-        seed_genres: Iterable[str] = (),
-        limit: int = 20,
-        market: str | None = None,
-    ) -> Recommendations:
-        params: dict[str, Any] = {"limit": limit}
-        if seed_artists:
-            params["seed_artists"] = coalesce_csv(seed_artists)
-        if seed_tracks:
-            params["seed_tracks"] = coalesce_csv(seed_tracks)
-        if seed_genres:
-            params["seed_genres"] = coalesce_csv(seed_genres)
-        if market:
-            params["market"] = market
-        data = (
-            await self._http.get(
-                "/recommendations",
-                params=params,
-                require_user=False,
-            )
-            or {}
-        )
-        return Recommendations.model_validate(data)

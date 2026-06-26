@@ -16,7 +16,6 @@ from .schemas import (
     Device,
     PlaybackState,
     PlayerQueue,
-    AudioFeatures,
     AudioAnalysis,
     User,
     PublicUser,
@@ -41,7 +40,6 @@ from .schemas import (
     SavedEpisode,
     # Compound models
     PlayHistory,
-    Recommendations,
     # Paging bases
     Paging,
     CursorPaging,
@@ -84,7 +82,6 @@ __all__ = [
     "Device",
     "PlaybackState",
     "PlayerQueue",
-    "AudioFeatures",
     "AudioAnalysis",
     "User",
     "PublicUser",
@@ -109,7 +106,6 @@ __all__ = [
     "SavedEpisode",
     # Compound models
     "PlayHistory",
-    "Recommendations",
     # Paging bases
     "Paging",
     "CursorPaging",

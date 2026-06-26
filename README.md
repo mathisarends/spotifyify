@@ -121,7 +121,7 @@ spotifyify library saved-tracks --json --fields track.id,track.name,added_at
 IDs, URIs, scopes, and fields accept repeated values or comma-separated values:
 
 ```bash
-spotifyify tracks get-many 4uLU6hMCjMI75M1A2tKUQC,0TnOYISbd1XYRBk9myaseg
+spotifyify tracks get-many 4uLU6hMCjMI75M1A2tKUQC,0DiWol3AO6WpXZgp0goxAV
 spotifyify playlists add PLAYLIST_ID spotify:track:ID_1 spotify:track:ID_2
 spotifyify playlists list --scope playlist-read-private,user-library-read
 ```
@@ -159,7 +159,7 @@ spotifyify users check-following artist ARTIST_ID --json
 
 | Namespace | Commands |
 | --------- | -------- |
-| `tracks` | `search`, `get`, `get-many`, `audio-features`, `recommendations` |
+| `tracks` | `search`, `get`, `get-many` |
 | `artists` | `search`, `get`, `get-many`, `top-tracks`, `albums`, `related` |
 | `albums` | `search`, `get`, `get-many`, `tracks`, `new-releases` |
 | `playlists` | `search`, `get`, `list`, `tracks`, `create`, `update`, `add`, `replace`, `remove`, `reorder`, `cover-image` |
@@ -183,7 +183,7 @@ The `Spotifyify` class is the entry point. It exposes all Spotify resources as l
 
 ```
 Spotifyify
-├── .tracks      # Tracks, search, audio features, recommendations
+├── .tracks      # Tracks, search
 ├── .artists     # Artists, top tracks, discography, related artists
 ├── .albums      # Albums, new releases
 ├── .playlists   # Playlists, CRUD, track management
@@ -201,8 +201,6 @@ Spotifyify
 | `find(query, *, limit, offset, market)`                                     | Search for tracks         |
 | `get(track_id, *, market)`                                                  | Get a single track        |
 | `get_many(track_ids, *, market)`                                            | Get up to 50 tracks       |
-| `audio_features(track_ids)`                                                 | Audio features for tracks |
-| `recommendations(*, seed_artists, seed_tracks, seed_genres, limit, market)` | Get recommendations       |
 
 ### Artists — `sp.artists`
 
