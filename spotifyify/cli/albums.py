@@ -1,134 +1,99 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
-from ._core import _coalesce_scopes, _split_values
-from ._options import (
+from spotifyify.cli.core import (
+    BATCH_ALBUMS,
+    default_market,
+    gather_batches,
+    split_values,
+    spotify_client,
+)
+from spotifyify.cli.options import (
     DEFAULT_LIMIT,
     FieldsOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    ScopeOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
-app = typer.Typer(help="Work with Spotify albums.")
+app = typer.Typer(
+    help="Work with Spotify albums.",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
+
+COLUMNS = ("id", "name", "artists", "uri")
 
 
 @app.command("search")
-def search_albums(
+@async_command
+async def search_albums(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.find(
-            query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.albums.find(query, limit=limit, market=default_market())
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
     )
 
 
 @app.command("get")
-def get_album(
-    album_id: Annotated[str, typer.Argument(help="Spotify album ID.")],
-    market: MarketOption = None,
-    json_output: JsonOption = False,
-    fields: FieldsOption = None,
-    scope: ScopeOption = None,
-) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.get(album_id, market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
-        result,
-        json_output=json_output,
-        fields=fields,
-        columns=("id", "name", "artists", "uri"),
-    )
-
-
-@app.command("get-many")
-def get_many_albums(
+@async_command
+async def get_albums(
     album_ids: IdsArgument,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.get_many(
-            _split_values(album_ids), market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    """Fetch one or many albums in a single call."""
+    ids = split_values(album_ids)
+    market = default_market()
+    async with spotify_client() as spotify:
+        result = await gather_batches(
+            lambda chunk: spotify.albums.get_many(chunk, market=market),
+            ids,
+            BATCH_ALBUMS,
+        )
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
     )
 
 
 @app.command("tracks")
-def album_tracks(
+@async_command
+async def album_tracks(
     album_id: Annotated[str, typer.Argument(help="Spotify album ID.")],
     limit: LimitOption = 50,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.tracks(
-            album_id, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.albums.tracks(
+            album_id, limit=limit, market=default_market()
+        )
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
     )
 
 
 @app.command("new-releases")
-def new_releases(
+@async_command
+async def new_releases(
     country: Annotated[str | None, typer.Option("--country", "-c")] = None,
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.new_releases(
-            country=country, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.albums.new_releases(country=country, limit=limit)
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
     )

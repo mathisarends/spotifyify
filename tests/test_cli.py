@@ -1,10 +1,13 @@
+import json
 import pathlib
 import tomllib
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from spotifyify import SpotifyScope
 from spotifyify import cli
+from spotifyify.schemas import PlaybackState
+from tests.cli_harness import CliTestCase
 
 
 class TestCli(unittest.TestCase):
@@ -27,26 +30,9 @@ class TestCli(unittest.TestCase):
 
         self.assertEqual(str(raised.exception), cli.INSTALL_MESSAGE)
 
-    def test_parse_scopes_accepts_repeated_and_csv_values(self):
-        result = cli._parse_scopes(
-            [
-                "user-read-playback-state,playlist-read-private",
-                "custom-scope",
-            ]
-        )
-
-        self.assertEqual(
-            result,
-            [
-                SpotifyScope.USER_READ_PLAYBACK_STATE,
-                SpotifyScope.PLAYLIST_READ_PRIVATE,
-                "custom-scope",
-            ],
-        )
-
     def test_split_values_accepts_repeated_and_csv_values(self):
         self.assertEqual(
-            cli._split_values(["a,b", "c d"]),
+            cli.split_values(["a,b", "c d"]),
             ["a", "b", "c", "d"],
         )
 
@@ -63,21 +49,10 @@ class TestCli(unittest.TestCase):
         }
 
         self.assertEqual(
-            cli._filter_fields(payload["items"], ["id", "album.name"]),
+            cli.filter_fields(payload["items"], ["id", "album.name"]),
             [{"id": "track_id", "album.name": "Album"}],
         )
-        self.assertEqual(cli._get_path(payload, "items.0.name"), "Track")
-
-    def test_table_formats_headers_and_rows(self):
-        table = cli._table(("ID", "Name"), [["1", "Track"], ["22", "Other"]])
-
-        self.assertEqual(
-            table,
-            "ID  Name \n--  -----\n1   Track\n22  Other",
-        )
-
-    def test_table_handles_empty_results(self):
-        self.assertEqual(cli._table(("ID",), []), "No results.")
+        self.assertEqual(cli.get_path(payload, "items.0.name"), "Track")
 
     def test_typer_app_registers_all_namespace_groups_when_available(self):
         if cli.typer is None:
@@ -101,3 +76,407 @@ class TestCli(unittest.TestCase):
                 "users",
             },
         )
+
+
+class TestOutputContract(unittest.TestCase):
+    """The CLI always emits JSON, driven only by the declared columns."""
+
+    def test_rows_keep_declared_column_order_and_flatten_nested_objects(self):
+        payload = {
+            "items": [
+                {
+                    "id": "t1",
+                    "name": "Track",
+                    "artists": [{"name": "A"}, {"name": "B"}],
+                    "album": {"name": "Album"},
+                    "duration_ms": 1000,
+                }
+            ]
+        }
+
+        rows = cli.rows(payload, ("id", "name", "artists", "album.name", "duration_ms"))
+
+        self.assertEqual(
+            list(rows[0]),
+            ["id", "name", "artists", "album.name", "duration_ms"],
+        )
+        self.assertEqual(rows[0]["artists"], ["A", "B"])
+        self.assertEqual(rows[0]["album.name"], "Album")
+        # Numbers stay numbers rather than being stringified.
+        self.assertEqual(rows[0]["duration_ms"], 1000)
+
+    def test_cells_never_contain_control_characters(self):
+        rows = cli.rows([{"name": "a\tb\nc\x1b[31m"}], ("name",))
+
+        self.assertNotIn("\t", cli.cell(rows[0]["name"]))
+        self.assertNotIn("\n", cli.cell(rows[0]["name"]))
+        self.assertNotIn("\x1b", cli.cell(rows[0]["name"]))
+
+
+class TestStableOrdering(unittest.TestCase):
+    def test_sort_is_stable_so_ties_keep_api_order(self):
+        items = [
+            {"name": "same", "id": "first"},
+            {"name": "same", "id": "second"},
+            {"name": "same", "id": "third"},
+        ]
+
+        ordered = cli.sort_items(items, ["name"])
+
+        self.assertEqual([item["id"] for item in ordered], ["first", "second", "third"])
+
+    def test_sort_handles_missing_values_without_raising(self):
+        items = [{"n": 2}, {"n": None}, {"n": 1}, {}]
+
+        ordered = cli.sort_items(items, ["n"])
+
+        # Numbers first in order, absent values last.
+        self.assertEqual([item.get("n") for item in ordered], [1, 2, None, None])
+
+    def test_descending_sort_uses_a_leading_dash(self):
+        items = [{"n": 1}, {"n": 3}, {"n": 2}]
+
+        ordered = cli.sort_items(items, ["-n"])
+
+        self.assertEqual([item["n"] for item in ordered], [3, 2, 1])
+
+    def test_sort_applies_inside_a_paging_envelope(self):
+        payload = {"total": 2, "items": [{"n": 2}, {"n": 1}]}
+
+        result = cli.apply_sort(payload, ["n"])
+
+        self.assertEqual(result["items"], [{"n": 1}, {"n": 2}])
+        self.assertEqual(result["total"], 2)
+
+
+class TestPlaybackSummary(unittest.TestCase):
+    def test_summary_of_no_playback_is_stopped(self):
+        summary = cli.playback_summary(None)
+
+        self.assertEqual(summary["state"], "stopped")
+        self.assertEqual(summary["artists"], [])
+
+    def test_summary_reports_state_track_artists_and_device(self):
+        state = PlaybackState.model_validate(
+            {
+                "is_playing": True,
+                "device": {"name": "Wohnzimmer"},
+                "item": {
+                    "type": "track",
+                    "name": "HAMPELMANN",
+                    "artists": [{"name": "Ikkimel"}],
+                },
+            }
+        )
+
+        summary = cli.playback_summary(state)
+
+        self.assertEqual(summary["state"], "playing")
+        self.assertEqual(summary["track"], "HAMPELMANN")
+        self.assertEqual(summary["artists"], ["Ikkimel"])
+        self.assertEqual(summary["device"], "Wohnzimmer")
+
+    def test_paused_playback_is_reported_as_paused(self):
+        state = PlaybackState.model_validate({"is_playing": False})
+
+        self.assertEqual(cli.playback_summary(state)["state"], "paused")
+
+
+class TestBatching(unittest.TestCase):
+    def test_ids_are_chunked_to_the_endpoint_limit(self):
+        from spotifyify.cli.core import _chunked
+
+        self.assertEqual(_chunked(["a", "b", "c"], 2), [["a", "b"], ["c"]])
+        self.assertEqual(_chunked([], 2), [])
+
+
+class TestCommandNaming(unittest.TestCase):
+    def setUp(self):
+        if cli.typer is None:
+            self.skipTest("typer is optional")
+        import click
+
+        self.root = cli.typer.main.get_command(cli.app)
+        self.ctx = click.Context(self.root)
+
+    def _resolves(self, name):
+        return self.root.get_command(self.ctx, name)
+
+    def test_resource_groups_use_plural_names(self):
+        resource_groups = (
+            "albums",
+            "artists",
+            "episodes",
+            "playlists",
+            "shows",
+            "tracks",
+            "users",
+        )
+        for name in resource_groups:
+            self.assertIsNotNone(self._resolves(name))
+
+    def test_singular_group_names_do_not_resolve(self):
+        self.assertIsNone(self._resolves("artist"))
+        self.assertIsNone(self._resolves("track"))
+
+    def test_unknown_names_still_fail(self):
+        self.assertIsNone(self._resolves("definitely-not-a-command"))
+
+    def test_get_is_the_only_bulk_fetch_command_name(self):
+        import click
+
+        artists = self._resolves("artists")
+        context = click.Context(artists)
+
+        self.assertIsNotNone(artists.get_command(context, "get"))
+        self.assertIsNone(artists.get_command(context, "get-many"))
+
+
+class TestEndToEnd(CliTestCase):
+    def _run(self, args, namespaces, env=None):
+        return self.run_cli(args, namespaces, env=env)
+
+    def test_search_prints_declared_columns_as_json_by_default(self):
+        async def find(query, **kwargs):
+            return {
+                "items": [
+                    {
+                        "id": "t1",
+                        "name": "WHO'S THAT",
+                        "artists": [{"name": "Ikkimel"}],
+                        "album": {"name": "WHO'S THAT"},
+                        "uri": "spotify:track:t1",
+                        "available_markets": ["DE"] * 100,
+                    }
+                ]
+            }
+
+        result = self._run(
+            ["tracks", "search", "Ikkimel"],
+            {"tracks": SimpleNamespace(find=find)},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        rows = json.loads(result.output)
+        self.assertEqual(list(rows[0]), ["id", "name", "artists", "album.name", "uri"])
+        # The noisy payload fields never reach the caller.
+        self.assertNotIn("available_markets", result.output)
+
+    def test_raw_returns_the_untouched_payload(self):
+        async def find(query, **kwargs):
+            return {"items": [{"id": "t1", "available_markets": ["DE"]}], "total": 1}
+
+        result = self._run(
+            ["tracks", "search", "x"],
+            {"tracks": SimpleNamespace(find=find)},
+            env={"SPOTIFYIFY_RAW": "1"},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("available_markets", result.output)
+        self.assertEqual(json.loads(result.output)["total"], 1)
+
+    def test_player_state_raw_returns_the_unprojected_playback_payload(self):
+        async def state(**kwargs):
+            return PlaybackState.model_validate(
+                {
+                    "is_playing": True,
+                    "device": {"name": "Wohnzimmer"},
+                    "item": {
+                        "type": "track",
+                        "name": "HAMPELMANN",
+                        "artists": [{"name": "Ikkimel"}],
+                    },
+                }
+            )
+
+        result = self._run(
+            ["player", "state"],
+            {"player": SimpleNamespace(state=state)},
+            env={"SPOTIFYIFY_RAW": "1"},
+        )
+
+        payload = json.loads(result.output)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(payload["is_playing"])
+        self.assertEqual(payload["item"]["name"], "HAMPELMANN")
+        self.assertNotIn("state", payload)
+
+    def test_a_playback_mutation_prints_the_resulting_state(self):
+        played = {}
+
+        async def play(**kwargs):
+            played.update(kwargs)
+
+        async def state(**kwargs):
+            return PlaybackState.model_validate(
+                {
+                    "is_playing": True,
+                    "device": {"name": "Wohnzimmer"},
+                    "item": {
+                        "type": "track",
+                        "name": "HAMPELMANN",
+                        "artists": [{"name": "Ikkimel"}],
+                    },
+                }
+            )
+
+        result = self._run(
+            ["player", "play", "--uri", "spotify:track:t1"],
+            {"player": SimpleNamespace(play=play, state=state)},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        rows = json.loads(result.output)
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "state": "playing",
+                    "track": "HAMPELMANN",
+                    "artists": ["Ikkimel"],
+                    "device": "Wohnzimmer",
+                }
+            ],
+        )
+        self.assertEqual(played["uris"], ["spotify:track:t1"])
+
+    def test_get_accepts_many_ids_in_one_call(self):
+        calls = []
+
+        async def get_many(ids, **kwargs):
+            calls.append(list(ids))
+            return [{"id": item_id, "name": item_id} for item_id in ids]
+
+        result = self._run(
+            ["tracks", "get", "a,b", "c"],
+            {"tracks": SimpleNamespace(get_many=get_many)},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(calls, [["a", "b", "c"]])
+        self.assertEqual(len(json.loads(result.output)), 3)
+
+    def test_top_level_play_resolves_then_plays(self):
+        played = {}
+
+        async def find(query, **kwargs):
+            find.query = query
+            return SimpleNamespace(items=[SimpleNamespace(uri="spotify:track:t1")])
+
+        async def play(**kwargs):
+            played.update(kwargs)
+
+        async def state(**kwargs):
+            return PlaybackState.model_validate(
+                {
+                    "is_playing": True,
+                    "device": {"name": "Wohnzimmer"},
+                    "item": {
+                        "type": "track",
+                        "name": "WHO'S THAT",
+                        "artists": [{"name": "Ikkimel"}],
+                    },
+                }
+            )
+
+        result = self._run(
+            ["play", "--artist", "Ikkimel", "--track", "WHO'S THAT"],
+            {
+                "tracks": SimpleNamespace(find=find),
+                "player": SimpleNamespace(play=play, state=state),
+            },
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(find.query, 'track:"WHO\'S THAT" artist:"Ikkimel"')
+        self.assertEqual(played["uris"], ["spotify:track:t1"])
+        self.assertEqual(json.loads(result.output)[0]["track"], "WHO'S THAT")
+
+    def test_play_waits_for_the_requested_track_not_the_previous_one(self):
+        # Spotify applies playback asynchronously, so the first read can still
+        # describe whatever was playing before.
+        states = [
+            {
+                "is_playing": True,
+                "device": {"name": "Wohnzimmer"},
+                "item": {
+                    "type": "track",
+                    "name": "Amber Dusk",
+                    "uri": "spotify:track:old",
+                    "artists": [{"name": "Caelestis Nati"}],
+                },
+            },
+            {
+                "is_playing": True,
+                "device": {"name": "Wohnzimmer"},
+                "item": {
+                    "type": "track",
+                    "name": "HAMPELMANN",
+                    "uri": "spotify:track:new",
+                    "artists": [{"name": "Ikkimel"}],
+                },
+            },
+        ]
+
+        async def play(**kwargs):
+            pass
+
+        async def state(**kwargs):
+            return PlaybackState.model_validate(states.pop(0) if states else states)
+
+        result = self._run(
+            ["player", "play", "--uri", "spotify:track:new"],
+            {"player": SimpleNamespace(play=play, state=state)},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(json.loads(result.output)[0]["track"], "HAMPELMANN")
+
+    def test_no_wait_reports_immediately(self):
+        reads = []
+
+        async def play(**kwargs):
+            pass
+
+        async def state(**kwargs):
+            reads.append(1)
+            return PlaybackState.model_validate(
+                {"is_playing": True, "item": {"type": "track", "name": "Old"}}
+            )
+
+        result = self._run(
+            ["player", "play", "--uri", "spotify:track:new", "--no-wait"],
+            {"player": SimpleNamespace(play=play, state=state)},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(len(reads), 1)
+
+    def test_top_level_play_needs_something_to_search_for(self):
+        result = self._run(["play"], {})
+
+        self.assertNotEqual(result.exit_code, 0)
+
+    def test_unknown_command_fails_normally(self):
+        result = self.runner.invoke(cli.app, ["artists", "lookup"])
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("No such command", result.output)
+        self.assertNotIn("Available:", result.output)
+
+    def test_output_carries_no_ansi_escapes(self):
+        async def find(query, **kwargs):
+            return {"items": [{"id": "t1", "name": "Track"}]}
+
+        result = self._run(
+            ["tracks", "search", "x"],
+            {"tracks": SimpleNamespace(find=find)},
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertNotIn("\x1b", result.output)
+
+
+if __name__ == "__main__":
+    unittest.main()

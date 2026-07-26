@@ -55,7 +55,18 @@ def parse_response(response: httpx.Response) -> JsonResponse:
     if not response.content:
         return None
 
-    return response.json()
+    try:
+        return response.json()
+    except ValueError:
+        # Some playback endpoints answer 200 with an opaque, non-JSON body and
+        # no content type. There is nothing structured to hand back, but it is
+        # a success and must not surface as a decoding error.
+        logger.debug(
+            "Ignoring non-JSON success body: status_code=%d content_type=%s",
+            response.status_code,
+            response.headers.get("Content-Type"),
+        )
+        return None
 
 
 def validate_response_model(

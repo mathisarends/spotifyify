@@ -1,239 +1,359 @@
-from __future__ import annotations
-
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
-from spotifyify import SpotifyScope
+from spotifyify import Spotifyify, SpotifyScope
+from spotifyify.exceptions import SpotifyAPIError
+from spotifyify.schemas import Device
 
-from ._core import _coalesce_scopes, _parse_json_object, _print_success, _split_values
-from ._options import (
-    DeviceOption,
+from spotifyify.cli.core import (
+    PLAYBACK_COLUMNS,
+    default_device_id,
+    default_market,
+    is_raw_output,
+    merge_scopes,
+    parse_json_object,
+    playback_summary,
+    settled_playback,
+    sort_items,
+    split_values,
+    is_fresh_track,
+    is_paused,
+    is_playing,
+    plays_uri,
+    spotify_client,
+)
+from spotifyify.cli.options import (
     FieldsOption,
-    JsonOption,
     LimitOption,
-    ScopeOption,
-    _handle,
-    _render,
+    UrisArgument,
+    WaitOption,
+    async_command,
+    print_result,
 )
 
-app = typer.Typer(help="Control and inspect Spotify playback.")
+app = typer.Typer(
+    help="Control and inspect Spotify playback.",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
+
+READ_SCOPES = [SpotifyScope.USER_READ_PLAYBACK_STATE]
+MODIFY_SCOPES = [SpotifyScope.USER_MODIFY_PLAYBACK_STATE]
+# Playback mutations report the state they produced, so they need the read
+# scope too — otherwise the caller pays a second round trip to learn what
+# actually happened.
+CONTROL_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
+
+
+def _select_fallback_device(devices: list[Device]) -> Device | None:
+    """Choose a controllable device reproducibly, preferring computers."""
+    candidates = [
+        device for device in devices if device.id and not device.is_restricted
+    ]
+    if not candidates:
+        return None
+    return min(
+        candidates,
+        key=lambda device: (
+            not bool(device.is_active),
+            (device.type or "").casefold() != "computer",
+            (device.name or "").casefold(),
+            device.id or "",
+        ),
+    )
+
+
+async def _play_with_device_fallback(
+    spotify: Spotifyify,
+    *,
+    device_id: str | None,
+    context_uri: str | None = None,
+    uris: list[str] | None = None,
+    offset: dict[str, Any] | None = None,
+    position_ms: int | None = None,
+) -> None:
+    """Play normally, discovering a target only when Spotify has no active one."""
+    playback = {
+        "context_uri": context_uri,
+        "uris": uris,
+        "offset": offset,
+        "position_ms": position_ms,
+    }
+    try:
+        await spotify.player.play(device_id=device_id, **playback)
+    except SpotifyAPIError as error:
+        if device_id is not None or "no active device" not in error.message.casefold():
+            raise
+
+        fallback = _select_fallback_device(await spotify.player.devices())
+        if fallback is None:
+            raise
+        await spotify.player.play(device_id=fallback.id, **playback)
 
 
 @app.command("state")
-def player_state(
-    market: Annotated[
-        str | None,
-        typer.Option("--market", "-m", help="ISO 3166-1 alpha-2 market code."),
-    ] = None,
-    json_output: JsonOption = False,
+@async_command
+async def player_state(
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.player.state(market=market),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_READ_PLAYBACK_STATE.value],
-    )
-    _render(
-        result,
-        json_output=json_output,
+    async with spotify_client(READ_SCOPES) as spotify:
+        state = await spotify.player.state(market=default_market())
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
         fields=fields,
-        columns=("item.id", "item.name", "is_playing", "progress_ms"),
+        project=playback_summary,
     )
 
 
 @app.command("play")
-def player_play(
-    device_id: DeviceOption = None,
+@async_command
+async def player_play(
     context_uri: Annotated[str | None, typer.Option("--context-uri")] = None,
     uri: Annotated[list[str] | None, typer.Option("--uri")] = None,
     offset: Annotated[str | None, typer.Option("--offset-json")] = None,
     position_ms: Annotated[int | None, typer.Option("--position-ms", min=0)] = None,
-    scope: ScopeOption = None,
+    wait: WaitOption = True,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.play(
-            device_id=device_id,
+    uris = split_values(uri) or None
+    if uris:
+        # Wait for the requested track, not merely for "something is playing".
+        until = plays_uri(uris[0])
+    elif context_uri:
+        until = is_fresh_track
+    else:
+        until = is_playing
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await _play_with_device_fallback(
+            spotify,
+            device_id=default_device_id(),
             context_uri=context_uri,
-            uris=_split_values(uri) or None,
-            offset=_parse_json_object(offset, "--offset-json"),
+            uris=uris,
+            offset=parse_json_object(offset, "--offset-json"),
             position_ms=position_ms,
-        ),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+        )
+        state = await settled_playback(spotify, until=until, wait=wait)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("pause")
-def player_pause(device_id: DeviceOption = None, scope: ScopeOption = None) -> None:
-    _handle(
-        lambda spotify: spotify.player.pause(device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+@async_command
+async def player_pause(
+    wait: WaitOption = True,
+    fields: FieldsOption = None,
+) -> None:
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.pause(device_id=default_device_id())
+        state = await settled_playback(spotify, until=is_paused, wait=wait)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("skip")
-def player_skip(device_id: DeviceOption = None, scope: ScopeOption = None) -> None:
-    _handle(
-        lambda spotify: spotify.player.skip(device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+@async_command
+async def player_skip(
+    wait: WaitOption = True,
+    fields: FieldsOption = None,
+) -> None:
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.skip(device_id=default_device_id())
+        state = await settled_playback(spotify, until=is_fresh_track, wait=wait)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("previous")
-def player_previous(device_id: DeviceOption = None, scope: ScopeOption = None) -> None:
-    _handle(
-        lambda spotify: spotify.player.previous(device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+@async_command
+async def player_previous(
+    wait: WaitOption = True,
+    fields: FieldsOption = None,
+) -> None:
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.previous(device_id=default_device_id())
+        state = await settled_playback(spotify, until=is_fresh_track, wait=wait)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("seek")
-def player_seek(
+@async_command
+async def player_seek(
     position_ms: Annotated[int, typer.Argument(min=0)],
-    device_id: DeviceOption = None,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.seek(position_ms, device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.seek(position_ms, device_id=default_device_id())
+        state = await settled_playback(spotify)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("repeat")
-def player_repeat(
+@async_command
+async def player_repeat(
     state: Annotated[str, typer.Argument(help="track, context, or off")],
-    device_id: DeviceOption = None,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.repeat(state, device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.repeat(state, device_id=default_device_id())
+        playback = await settled_playback(spotify)
+    print_result(
+        playback,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("shuffle")
-def player_shuffle(
+@async_command
+async def player_shuffle(
     state: Annotated[bool, typer.Argument()],
-    device_id: DeviceOption = None,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.shuffle(state, device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.shuffle(state, device_id=default_device_id())
+        playback = await settled_playback(spotify)
+    print_result(
+        playback,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("volume")
-def player_volume(
+@async_command
+async def player_volume(
     volume_percent: Annotated[int, typer.Argument(min=0, max=100)],
-    device_id: DeviceOption = None,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.volume(volume_percent, device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.volume(volume_percent, device_id=default_device_id())
+        state = await settled_playback(spotify)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("queue")
-def player_queue(
-    json_output: JsonOption = False,
+@async_command
+async def player_queue(
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.player.queue(),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_READ_PLAYBACK_STATE.value],
-    )
-    _render(
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.player.queue()
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("id", "name", "artists", "uri"),
+        fields=fields,
     )
 
 
 @app.command("add-to-queue")
-def add_to_queue(
-    uri: Annotated[str, typer.Argument(help="Track or episode URI.")],
-    device_id: DeviceOption = None,
-    scope: ScopeOption = None,
+@async_command
+async def add_to_queue(
+    uris: UrisArgument,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.add_to_queue(uri, device_id=device_id),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+    """Queue one or many tracks or episodes in a single call."""
+    queued = split_values(uris)
+    device_id = default_device_id()
+
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        # Spotify has no bulk queue endpoint and the queue is ordered, so these
+        # must stay sequential.
+        for uri in queued:
+            await spotify.player.add_to_queue(uri, device_id=device_id)
+        state = await settled_playback(spotify)
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("transfer")
-def transfer_playback(
+@async_command
+async def transfer_playback(
     device_id: Annotated[str, typer.Argument(help="Spotify device ID.")],
     play: Annotated[bool, typer.Option("--play/--no-play")] = False,
-    scope: ScopeOption = None,
+    wait: WaitOption = True,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.player.transfer(device_id, play=play),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_MODIFY_PLAYBACK_STATE.value],
+    async with spotify_client(CONTROL_SCOPES) as spotify:
+        await spotify.player.transfer(device_id, play=play)
+        state = await settled_playback(
+            spotify,
+            until=is_playing if play else None,
+            wait=wait,
+        )
+    print_result(
+        state,
+        columns=PLAYBACK_COLUMNS,
+        fields=fields,
+        project=playback_summary,
     )
-    _print_success()
 
 
 @app.command("devices")
-def player_devices(
-    json_output: JsonOption = False,
+@async_command
+async def player_devices(
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.player.devices(),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_READ_PLAYBACK_STATE.value],
-    )
-    _render(
-        result,
-        json_output=json_output,
-        fields=fields,
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.player.devices()
+    # Spotify returns devices in no defined order; sort so repeated calls and
+    # any caching built on top of them stay reproducible.
+    display_result = result if is_raw_output() else sort_items(result or [], ("id",))
+    print_result(
+        display_result,
         columns=("id", "name", "type", "is_active", "volume_percent"),
+        fields=fields,
     )
 
 
 @app.command("recently-played")
-def recently_played(
+@async_command
+async def recently_played(
     limit: LimitOption = 20,
     after: Annotated[int | None, typer.Option("--after")] = None,
     before: Annotated[int | None, typer.Option("--before")] = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.player.recently_played(
+    async with spotify_client([SpotifyScope.USER_READ_RECENTLY_PLAYED]) as spotify:
+        result = await spotify.player.recently_played(
             limit=limit, after=after, before=before
-        ),
-        scopes=_coalesce_scopes(scope)
-        or [SpotifyScope.USER_READ_RECENTLY_PLAYED.value],
-    )
-    _render(
+        )
+    print_result(
         result,
-        json_output=json_output,
+        columns=("track.id", "track.name", "track.artists", "played_at"),
         fields=fields,
-        columns=("track.id", "track.name", "played_at"),
     )

@@ -1,109 +1,84 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
-from ._core import _coalesce_scopes, _split_values
-from ._options import (
+from spotifyify.cli.core import (
+    BATCH_SHOWS,
+    default_market,
+    gather_batches,
+    split_values,
+    spotify_client,
+)
+from spotifyify.cli.options import (
     DEFAULT_LIMIT,
     FieldsOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    ScopeOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
-app = typer.Typer(help="Work with Spotify shows.")
+app = typer.Typer(
+    help="Work with Spotify shows.",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
+
+COLUMNS = ("id", "name", "publisher", "uri")
+EPISODE_COLUMNS = ("id", "name", "release_date", "uri")
 
 
 @app.command("search")
-def search_shows(
+@async_command
+async def search_shows(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.shows.find(
-            query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.shows.find(query, limit=limit, market=default_market())
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "publisher", "uri"),
     )
 
 
 @app.command("get")
-def get_show(
-    show_id: Annotated[str, typer.Argument(help="Spotify show ID.")],
-    market: MarketOption = None,
-    json_output: JsonOption = False,
-    fields: FieldsOption = None,
-    scope: ScopeOption = None,
-) -> None:
-    result = _handle(
-        lambda spotify: spotify.shows.get(show_id, market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
-        result,
-        json_output=json_output,
-        fields=fields,
-        columns=("id", "name", "publisher", "uri"),
-    )
-
-
-@app.command("get-many")
-def get_many_shows(
+@async_command
+async def get_shows(
     show_ids: IdsArgument,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.shows.get_many(_split_values(show_ids), market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    """Fetch one or many shows in a single call."""
+    ids = split_values(show_ids)
+    market = default_market()
+    async with spotify_client() as spotify:
+        result = await gather_batches(
+            lambda chunk: spotify.shows.get_many(chunk, market=market),
+            ids,
+            BATCH_SHOWS,
+        )
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "publisher", "uri"),
     )
 
 
 @app.command("episodes")
-def show_episodes(
+@async_command
+async def show_episodes(
     show_id: Annotated[str, typer.Argument(help="Spotify show ID.")],
-    market: MarketOption = None,
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.shows.episodes(
-            show_id, market=market, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.shows.episodes(
+            show_id, market=default_market(), limit=limit
+        )
+    print_result(
         result,
-        json_output=json_output,
+        columns=EPISODE_COLUMNS,
         fields=fields,
-        columns=("id", "name", "release_date", "uri"),
     )

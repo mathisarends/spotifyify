@@ -9,7 +9,7 @@ from spotifyify.schemas import (
     PagingArtist,
     Track,
 )
-from spotifyify.utils import coalesce_csv
+from spotifyify.utils import coalesce_csv, deprecated
 
 
 class Artists:
@@ -79,6 +79,10 @@ class Artists:
         )
         return PagingArtistDiscographyAlbum.model_validate(data)
 
+    @deprecated(
+        "Spotify retired the Related Artists endpoint for most apps in "
+        "November 2024; this call will likely fail with a 404."
+    )
     async def related(self, artist_id: str) -> list[Artist]:
         data = (
             await self._http.get(

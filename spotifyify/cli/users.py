@@ -1,129 +1,153 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
 from spotifyify import SpotifyScope
 
-from ._core import (
-    _coalesce_scopes,
-    _print_json,
-    _print_success,
-    _print_table,
-    _split_values,
+from spotifyify.cli.core import (
+    BATCH_FOLLOW,
+    merge_scopes,
+    sequential_batches,
+    split_values,
+    spotify_client,
 )
-from ._options import (
+from spotifyify.cli.options import (
     FieldsOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    ScopeOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
-app = typer.Typer(help="Work with Spotify users and following.")
+app = typer.Typer(
+    help="Work with Spotify users and following.",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
+
+COLUMNS = ("id", "display_name", "uri")
+FOLLOWING_COLUMNS = ("id", "following")
+
+READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ]
+MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY]
+# follow/unfollow report the resulting state, so they read it back too.
+WRITE_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 
 
 @app.command("me")
-def users_me(
-    json_output: JsonOption = False,
+@async_command
+async def users_me(
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(lambda spotify: spotify.users.me(), scopes=_coalesce_scopes(scope))
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.users.me()
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "display_name", "uri"),
     )
 
 
 @app.command("get")
-def users_get(
+@async_command
+async def users_get(
     user_id: Annotated[str, typer.Argument(help="Spotify user ID.")],
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.users.get(user_id), scopes=_coalesce_scopes(scope)
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.users.get(user_id)
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "display_name", "uri"),
     )
 
 
 @app.command("following")
-def users_following(
+@async_command
+async def users_following(
     type: Annotated[str, typer.Option("--type")] = "artist",
     limit: LimitOption = 20,
     after: Annotated[str | None, typer.Option("--after")] = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.users.following(type=type, limit=limit, after=after),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_LIBRARY_READ.value],
-    )
-    _render(
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.users.following(type=type, limit=limit, after=after)
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("id", "name", "uri"),
+        fields=fields,
     )
 
 
 @app.command("follow")
-def users_follow(
+@async_command
+async def users_follow(
     type: Annotated[str, typer.Argument(help="artist or user")],
     ids: IdsArgument,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.users.follow(type, _split_values(ids)),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_LIBRARY_MODIFY.value],
+    item_ids = split_values(ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(
+            lambda chunk: spotify.users.follow(type, chunk),
+            item_ids,
+            BATCH_FOLLOW,
+        )
+        following = await spotify.users.check_following(type, item_ids)
+    result = [
+        {"id": item_id, "following": is_following}
+        for item_id, is_following in zip(item_ids, following, strict=False)
+    ]
+    print_result(
+        result,
+        columns=FOLLOWING_COLUMNS,
+        fields=fields,
     )
-    _print_success()
 
 
 @app.command("unfollow")
-def users_unfollow(
+@async_command
+async def users_unfollow(
     type: Annotated[str, typer.Argument(help="artist or user")],
     ids: IdsArgument,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _handle(
-        lambda spotify: spotify.users.unfollow(type, _split_values(ids)),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_LIBRARY_MODIFY.value],
+    item_ids = split_values(ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(
+            lambda chunk: spotify.users.unfollow(type, chunk),
+            item_ids,
+            BATCH_FOLLOW,
+        )
+        following = await spotify.users.check_following(type, item_ids)
+    result = [
+        {"id": item_id, "following": is_following}
+        for item_id, is_following in zip(item_ids, following, strict=False)
+    ]
+    print_result(
+        result,
+        columns=FOLLOWING_COLUMNS,
+        fields=fields,
     )
-    _print_success()
 
 
 @app.command("check-following")
-def users_check_following(
+@async_command
+async def users_check_following(
     type: Annotated[str, typer.Argument(help="artist or user")],
     ids: IdsArgument,
-    json_output: JsonOption = False,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    item_ids = _split_values(ids)
-    result = _handle(
-        lambda spotify: spotify.users.check_following(type, item_ids),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_LIBRARY_READ.value],
-    )
+    item_ids = split_values(ids)
+    async with spotify_client(READ_SCOPES) as spotify:
+        following_values = await spotify.users.check_following(type, item_ids)
     payload = [
         {"id": item_id, "following": following}
-        for item_id, following in zip(item_ids, result, strict=False)
+        for item_id, following in zip(item_ids, following_values, strict=False)
     ]
-    (
-        _print_json(payload)
-        if json_output
-        else _print_table(payload, ("id", "following"))
+    print_result(
+        payload,
+        columns=FOLLOWING_COLUMNS,
+        fields=fields,
     )

@@ -1,87 +1,65 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
-from ._core import _coalesce_scopes, _split_values
-from ._options import (
+from spotifyify.cli.core import (
+    BATCH_TRACKS,
+    default_market,
+    gather_batches,
+    split_values,
+    spotify_client,
+)
+from spotifyify.cli.options import (
     DEFAULT_LIMIT,
     FieldsOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    ScopeOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
-app = typer.Typer(help="Work with Spotify tracks.")
+app = typer.Typer(
+    help="Work with Spotify tracks.",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
+
+COLUMNS = ("id", "name", "artists", "album.name", "uri")
 
 
 @app.command("search")
-def search_tracks(
+@async_command
+async def search_tracks(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.tracks.find(
-            query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client() as spotify:
+        result = await spotify.tracks.find(query, limit=limit, market=default_market())
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "artists", "album.name", "uri"),
     )
 
 
 @app.command("get")
-def get_track(
-    track_id: Annotated[str, typer.Argument(help="Spotify track ID.")],
-    market: MarketOption = None,
-    json_output: JsonOption = False,
-    fields: FieldsOption = None,
-    scope: ScopeOption = None,
-) -> None:
-    result = _handle(
-        lambda spotify: spotify.tracks.get(track_id, market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
-        result,
-        json_output=json_output,
-        fields=fields,
-        columns=("id", "name", "artists", "album.name", "uri"),
-    )
-
-
-@app.command("get-many")
-def get_many_tracks(
+@async_command
+async def get_tracks(
     track_ids: IdsArgument,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.tracks.get_many(
-            _split_values(track_ids), market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    """Fetch one or many tracks in a single call."""
+    ids = split_values(track_ids)
+    market = default_market()
+    async with spotify_client() as spotify:
+        result = await gather_batches(
+            lambda chunk: spotify.tracks.get_many(chunk, market=market),
+            ids,
+            BATCH_TRACKS,
+        )
+    print_result(
         result,
-        json_output=json_output,
+        columns=COLUMNS,
         fields=fields,
-        columns=("id", "name", "artists", "album.name", "uri"),
     )

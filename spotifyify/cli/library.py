@@ -1,329 +1,381 @@
-from __future__ import annotations
-
-from collections.abc import Awaitable, Callable, Sequence
 from typing import Annotated
 
 import typer
 
-from spotifyify import Spotifyify, SpotifyScope
+from spotifyify import SpotifyScope
 
-from ._core import (
-    Jsonable,
-    _coalesce_scopes,
-    _print_json,
-    _print_success,
-    _print_table,
-    _split_values,
+from spotifyify.cli.core import (
+    BATCH_ALBUMS,
+    BATCH_EPISODES,
+    BATCH_SHOWS,
+    BATCH_TRACKS,
+    default_market,
+    merge_scopes,
+    sequential_batches,
+    split_values,
+    spotify_client,
 )
-from ._options import (
+from spotifyify.cli.options import (
     FieldsOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    ScopeOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
-app = typer.Typer(help="Work with the current user's library.")
+app = typer.Typer(
+    help="Work with the current user's library.",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
 
+SAVED_COLUMNS = ("id", "saved")
 
-def _saved_scope(scope: Sequence[str] | None) -> Sequence[str]:
-    return _coalesce_scopes(scope) or [SpotifyScope.USER_LIBRARY_READ.value]
-
-
-def _modify_library_scope(scope: Sequence[str] | None) -> Sequence[str]:
-    return _coalesce_scopes(scope) or [SpotifyScope.USER_LIBRARY_MODIFY.value]
-
-
-def _library_action(
-    ids: Sequence[str],
-    *,
-    action: Callable[[Spotifyify, list[str]], Awaitable[Jsonable]],
-    scope: Sequence[str] | None,
-) -> None:
-    _handle(
-        lambda spotify: action(spotify, _split_values(ids)),
-        scopes=_modify_library_scope(scope),
-    )
-    _print_success()
-
-
-def _library_check(
-    ids: Sequence[str],
-    *,
-    action: Callable[[Spotifyify, list[str]], Awaitable[list[bool]]],
-    scope: Sequence[str] | None,
-    json_output: bool,
-) -> None:
-    item_ids = _split_values(ids)
-    result = _handle(
-        lambda spotify: action(spotify, item_ids), scopes=_saved_scope(scope)
-    )
-    payload = [
-        {"id": item_id, "saved": saved}
-        for item_id, saved in zip(item_ids, result, strict=False)
-    ]
-    _print_json(payload) if json_output else _print_table(payload, ("id", "saved"))
+READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ]
+MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY]
+# Save/remove report the resulting saved state, so they read it back too.
+WRITE_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 
 
 @app.command("saved-tracks")
-def saved_tracks(
+@async_command
+async def saved_tracks(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.library.saved_tracks(
-            limit=limit, offset=offset, market=market
-        ),
-        scopes=_saved_scope(scope),
-    )
-    _render(
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.library.saved_tracks(
+            limit=limit, market=default_market()
+        )
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("track.id", "track.name", "track.artists", "added_at"),
+        fields=fields,
     )
 
 
 @app.command("saved-albums")
-def saved_albums(
+@async_command
+async def saved_albums(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.library.saved_albums(
-            limit=limit, offset=offset, market=market
-        ),
-        scopes=_saved_scope(scope),
-    )
-    _render(
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.library.saved_albums(
+            limit=limit, market=default_market()
+        )
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("album.id", "album.name", "album.artists", "added_at"),
+        fields=fields,
     )
 
 
 @app.command("saved-shows")
-def saved_shows(
+@async_command
+async def saved_shows(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.library.saved_shows(limit=limit, offset=offset),
-        scopes=_saved_scope(scope),
-    )
-    _render(
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.library.saved_shows(limit=limit)
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("show.id", "show.name", "show.publisher", "added_at"),
+        fields=fields,
     )
 
 
 @app.command("saved-episodes")
-def saved_episodes(
+@async_command
+async def saved_episodes(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.library.saved_episodes(limit=limit, offset=offset),
-        scopes=_saved_scope(scope),
-    )
-    _render(
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.library.saved_episodes(limit=limit)
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("episode.id", "episode.name", "added_at"),
+        fields=fields,
     )
 
 
 @app.command("top-tracks")
-def library_top_tracks(
+@async_command
+async def library_top_tracks(
     time_range: Annotated[str, typer.Option("--time-range")] = "medium_term",
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.library.top_tracks(
-            time_range=time_range, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_TOP_READ.value],
-    )
-    _render(
+    async with spotify_client([SpotifyScope.USER_TOP_READ]) as spotify:
+        result = await spotify.library.top_tracks(time_range=time_range, limit=limit)
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("id", "name", "artists", "uri"),
+        fields=fields,
     )
 
 
 @app.command("top-artists")
-def library_top_artists(
+@async_command
+async def library_top_artists(
     time_range: Annotated[str, typer.Option("--time-range")] = "medium_term",
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    json_output: JsonOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.library.top_artists(
-            time_range=time_range, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.USER_TOP_READ.value],
-    )
-    _render(
+    async with spotify_client([SpotifyScope.USER_TOP_READ]) as spotify:
+        result = await spotify.library.top_artists(time_range=time_range, limit=limit)
+    print_result(
         result,
-        json_output=json_output,
-        fields=fields,
         columns=("id", "name", "uri"),
+        fields=fields,
     )
 
 
 @app.command("save-tracks")
-def save_tracks(track_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        track_ids,
-        action=lambda spotify, ids: spotify.library.save_tracks(ids),
-        scope=scope,
+@async_command
+async def save_tracks(
+    track_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(track_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.save_tracks, ids, BATCH_TRACKS)
+        saved = await spotify.library.check_tracks(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("remove-tracks")
-def remove_tracks(track_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        track_ids,
-        action=lambda spotify, ids: spotify.library.remove_tracks(ids),
-        scope=scope,
+@async_command
+async def remove_tracks(
+    track_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(track_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.remove_tracks, ids, BATCH_TRACKS)
+        saved = await spotify.library.check_tracks(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("check-tracks")
-def check_tracks(
+@async_command
+async def check_tracks(
     track_ids: IdsArgument,
-    json_output: JsonOption = False,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _library_check(
-        track_ids,
-        action=lambda spotify, ids: spotify.library.check_tracks(ids),
-        scope=scope,
-        json_output=json_output,
+    ids = split_values(track_ids)
+    async with spotify_client(READ_SCOPES) as spotify:
+        saved = await spotify.library.check_tracks(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("save-albums")
-def save_albums(album_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        album_ids,
-        action=lambda spotify, ids: spotify.library.save_albums(ids),
-        scope=scope,
+@async_command
+async def save_albums(
+    album_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(album_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.save_albums, ids, BATCH_ALBUMS)
+        saved = await spotify.library.check_albums(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("remove-albums")
-def remove_albums(album_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        album_ids,
-        action=lambda spotify, ids: spotify.library.remove_albums(ids),
-        scope=scope,
+@async_command
+async def remove_albums(
+    album_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(album_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.remove_albums, ids, BATCH_ALBUMS)
+        saved = await spotify.library.check_albums(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("check-albums")
-def check_albums(
+@async_command
+async def check_albums(
     album_ids: IdsArgument,
-    json_output: JsonOption = False,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _library_check(
-        album_ids,
-        action=lambda spotify, ids: spotify.library.check_albums(ids),
-        scope=scope,
-        json_output=json_output,
+    ids = split_values(album_ids)
+    async with spotify_client(READ_SCOPES) as spotify:
+        saved = await spotify.library.check_albums(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("save-shows")
-def save_shows(show_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        show_ids,
-        action=lambda spotify, ids: spotify.library.save_shows(ids),
-        scope=scope,
+@async_command
+async def save_shows(
+    show_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(show_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.save_shows, ids, BATCH_SHOWS)
+        saved = await spotify.library.check_shows(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("remove-shows")
-def remove_shows(show_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        show_ids,
-        action=lambda spotify, ids: spotify.library.remove_shows(ids),
-        scope=scope,
+@async_command
+async def remove_shows(
+    show_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(show_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.remove_shows, ids, BATCH_SHOWS)
+        saved = await spotify.library.check_shows(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("check-shows")
-def check_shows(
+@async_command
+async def check_shows(
     show_ids: IdsArgument,
-    json_output: JsonOption = False,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _library_check(
-        show_ids,
-        action=lambda spotify, ids: spotify.library.check_shows(ids),
-        scope=scope,
-        json_output=json_output,
+    ids = split_values(show_ids)
+    async with spotify_client(READ_SCOPES) as spotify:
+        saved = await spotify.library.check_shows(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("save-episodes")
-def save_episodes(episode_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        episode_ids,
-        action=lambda spotify, ids: spotify.library.save_episodes(ids),
-        scope=scope,
+@async_command
+async def save_episodes(
+    episode_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(episode_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.save_episodes, ids, BATCH_EPISODES)
+        saved = await spotify.library.check_episodes(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("remove-episodes")
-def remove_episodes(episode_ids: IdsArgument, scope: ScopeOption = None) -> None:
-    _library_action(
-        episode_ids,
-        action=lambda spotify, ids: spotify.library.remove_episodes(ids),
-        scope=scope,
+@async_command
+async def remove_episodes(
+    episode_ids: IdsArgument,
+    fields: FieldsOption = None,
+) -> None:
+    ids = split_values(episode_ids)
+    async with spotify_client(WRITE_SCOPES) as spotify:
+        await sequential_batches(spotify.library.remove_episodes, ids, BATCH_EPISODES)
+        saved = await spotify.library.check_episodes(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
 
 
 @app.command("check-episodes")
-def check_episodes(
+@async_command
+async def check_episodes(
     episode_ids: IdsArgument,
-    json_output: JsonOption = False,
-    scope: ScopeOption = None,
+    fields: FieldsOption = None,
 ) -> None:
-    _library_check(
-        episode_ids,
-        action=lambda spotify, ids: spotify.library.check_episodes(ids),
-        scope=scope,
-        json_output=json_output,
+    ids = split_values(episode_ids)
+    async with spotify_client(READ_SCOPES) as spotify:
+        saved = await spotify.library.check_episodes(ids)
+    result = [
+        {"id": item_id, "saved": is_saved}
+        for item_id, is_saved in zip(ids, saved, strict=False)
+    ]
+    print_result(
+        result,
+        columns=SAVED_COLUMNS,
+        fields=fields,
     )
