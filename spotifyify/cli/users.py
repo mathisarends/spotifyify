@@ -4,14 +4,14 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from .core import (
+from spotifyify.cli.core import (
     BATCH_FOLLOW,
     merge_scopes,
     sequential_batches,
     split_values,
     spotify_client,
 )
-from .options import (
+from spotifyify.cli.options import (
     FieldsOption,
     IdsArgument,
     LimitOption,

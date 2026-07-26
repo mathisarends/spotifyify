@@ -4,8 +4,8 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from .core import default_market, split_values, spotify_client
-from .options import (
+from spotifyify.cli.core import default_market, split_values, spotify_client
+from spotifyify.cli.options import (
     DEFAULT_LIMIT,
     FieldsOption,
     LimitOption,

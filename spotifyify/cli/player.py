@@ -6,7 +6,7 @@ from spotifyify import Spotifyify, SpotifyScope
 from spotifyify.exceptions import SpotifyAPIError
 from spotifyify.schemas import Device
 
-from .core import (
+from spotifyify.cli.core import (
     PLAYBACK_COLUMNS,
     default_device_id,
     default_market,
@@ -23,7 +23,7 @@ from .core import (
     plays_uri,
     spotify_client,
 )
-from .options import (
+from spotifyify.cli.options import (
     FieldsOption,
     LimitOption,
     UrisArgument,

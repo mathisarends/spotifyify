@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 import typer
 
-from .core import (
+from spotifyify.cli.core import (
     PLAYBACK_COLUMNS,
     default_device_id,
     default_market,
@@ -12,13 +12,13 @@ from .core import (
     plays_uri,
     spotify_client,
 )
-from .options import (
+from spotifyify.cli.options import (
     FieldsOption,
     WaitOption,
     async_command,
     print_result,
 )
-from .player import CONTROL_SCOPES, _play_with_device_fallback
+from spotifyify.cli.player import CONTROL_SCOPES, _play_with_device_fallback
 
 EXIT_NO_MATCH = 4
 

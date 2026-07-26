@@ -2,14 +2,14 @@ from typing import Annotated
 
 import typer
 
-from .core import (
+from spotifyify.cli.core import (
     BATCH_SHOWS,
     default_market,
     gather_batches,
     split_values,
     spotify_client,
 )
-from .options import (
+from spotifyify.cli.options import (
     DEFAULT_LIMIT,
     FieldsOption,
     IdsArgument,

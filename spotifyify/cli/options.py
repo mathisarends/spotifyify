@@ -8,7 +8,7 @@ import typer
 
 from spotifyify import SpotifyAPIError, SpotifyAuthError
 
-from .core import (
+from spotifyify.cli.core import (
     Jsonable,
     as_jsonable,
     is_raw_output,

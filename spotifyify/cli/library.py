@@ -4,7 +4,7 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from .core import (
+from spotifyify.cli.core import (
     BATCH_ALBUMS,
     BATCH_EPISODES,
     BATCH_SHOWS,
@@ -15,7 +15,7 @@ from .core import (
     split_values,
     spotify_client,
 )
-from .options import (
+from spotifyify.cli.options import (
     FieldsOption,
     IdsArgument,
     LimitOption,
