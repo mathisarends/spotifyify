@@ -4,14 +4,14 @@ from typing import Annotated, Any
 
 import typer
 
-from spotifyify import Spotifyify
-
 from ._core import (
     PLAYBACK_COLUMNS,
     _coalesce_scopes,
+    _playback_summary,
     _settled_playback,
     is_fresh_track,
     plays_uri,
+    spotify_client,
 )
 from ._options import (
     DeviceOption,
@@ -21,8 +21,8 @@ from ._options import (
     RawOption,
     ScopeOption,
     WaitOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 from .player import CONTROL_SCOPES, _play_with_device_fallback
 
@@ -62,7 +62,8 @@ def register(app: typer.Typer) -> None:
     """Attach the top-level resolve-and-play command."""
 
     @app.command("play")
-    def play(
+    @async_command
+    async def play(
         words: Annotated[
             list[str] | None,
             typer.Argument(help="Free-text search terms, added to the query as-is."),
@@ -107,7 +108,7 @@ def register(app: typer.Typer) -> None:
         wants_track = bool(track or words)
         wants_album = bool(album) and not wants_track
 
-        async def command(spotify: Spotifyify) -> Any:
+        async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
             if wants_track:
                 hit = _first(await spotify.tracks.find(query, limit=1, market=market))
                 uris, context_uri = ([hit.uri] if hit else None), None
@@ -128,14 +129,14 @@ def register(app: typer.Typer) -> None:
             # Wait for the thing we resolved, so the reported state is not the
             # track that happened to be playing already.
             until = plays_uri(uris[0]) if uris else is_fresh_track
-            return await _settled_playback(spotify, until=until, wait=wait)
+            state = await _settled_playback(spotify, until=until, wait=wait)
 
-        result = _handle(command, scopes=_coalesce_scopes(scope) or CONTROL_SCOPES)
-        _render(
-            result,
+        print_result(
+            state,
             columns=PLAYBACK_COLUMNS,
             fmt=fmt,
             json_output=json_output,
             raw=raw,
             fields=fields,
+            project=_playback_summary,
         )

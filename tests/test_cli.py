@@ -389,6 +389,31 @@ class TestEndToEnd(unittest.TestCase):
         self.assertIn("available_markets", result.output)
         self.assertEqual(json.loads(result.output)["total"], 1)
 
+    def test_player_state_raw_returns_the_unprojected_playback_payload(self):
+        async def state(**kwargs):
+            return PlaybackState.model_validate(
+                {
+                    "is_playing": True,
+                    "device": {"name": "Wohnzimmer"},
+                    "item": {
+                        "type": "track",
+                        "name": "HAMPELMANN",
+                        "artists": [{"name": "Ikkimel"}],
+                    },
+                }
+            )
+
+        result = self._run(
+            ["player", "state", "--raw"],
+            {"player": SimpleNamespace(state=state)},
+        )
+
+        payload = json.loads(result.output)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(payload["is_playing"])
+        self.assertEqual(payload["item"]["name"], "HAMPELMANN")
+        self.assertNotIn("state", payload)
+
     def test_a_playback_mutation_prints_the_resulting_state(self):
         played = {}
 

@@ -5,7 +5,13 @@ from typing import Annotated
 import typer
 
 from ._aliases import AliasGroup
-from ._core import BATCH_ALBUMS, _coalesce_scopes, _gather_batches, _split_values
+from ._core import (
+    BATCH_ALBUMS,
+    _coalesce_scopes,
+    _gather_batches,
+    _split_values,
+    spotify_client,
+)
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -19,8 +25,8 @@ from ._options import (
     ScopeOption,
     SortOption,
     WhereOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
 app = typer.Typer(
@@ -34,7 +40,8 @@ COLUMNS = ("id", "name", "artists", "uri")
 
 
 @app.command("search")
-def search_albums(
+@async_command
+async def search_albums(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
@@ -47,13 +54,11 @@ def search_albums(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.find(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.albums.find(
             query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -66,7 +71,8 @@ def search_albums(
 
 
 @app.command("get")
-def get_albums(
+@async_command
+async def get_albums(
     album_ids: IdsArgument,
     market: MarketOption = None,
     fmt: FormatOption = None,
@@ -79,15 +85,13 @@ def get_albums(
 ) -> None:
     """Fetch one or many albums in a single call."""
     ids = _split_values(album_ids)
-    result = _handle(
-        lambda spotify: _gather_batches(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await _gather_batches(
             lambda chunk: spotify.albums.get_many(chunk, market=market),
             ids,
             BATCH_ALBUMS,
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -100,7 +104,8 @@ def get_albums(
 
 
 @app.command("tracks")
-def album_tracks(
+@async_command
+async def album_tracks(
     album_id: Annotated[str, typer.Argument(help="Spotify album ID.")],
     limit: LimitOption = 50,
     offset: OffsetOption = 0,
@@ -113,13 +118,11 @@ def album_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.tracks(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.albums.tracks(
             album_id, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -132,7 +135,8 @@ def album_tracks(
 
 
 @app.command("new-releases")
-def new_releases(
+@async_command
+async def new_releases(
     country: Annotated[str | None, typer.Option("--country", "-c")] = None,
     limit: LimitOption = 20,
     offset: OffsetOption = 0,
@@ -144,13 +148,11 @@ def new_releases(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.new_releases(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.albums.new_releases(
             country=country, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,

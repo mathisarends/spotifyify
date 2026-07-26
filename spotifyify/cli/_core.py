@@ -4,7 +4,8 @@ import asyncio
 import json
 import os
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from contextlib import asynccontextmanager
 from typing import Any
 
 from pydantic import BaseModel
@@ -18,8 +19,6 @@ except ImportError:  # pragma: no cover - exercised by installed package users.
 
 
 Jsonable = BaseModel | list[Any] | dict[str, Any] | str | int | float | bool | None
-AsyncCommand = Callable[[Spotifyify], Awaitable[Jsonable]]
-
 DEFAULT_LIMIT = 10
 INSTALL_MESSAGE = "Install the CLI dependencies with: uv add spotifyify[cli]"
 
@@ -316,9 +315,11 @@ def _print_table(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> N
     _echo(_table(headers, cells))
 
 
-async def _run(command: AsyncCommand, *, scopes: Sequence[str]) -> Jsonable:
+@asynccontextmanager
+async def spotify_client(scopes: Sequence[str]) -> AsyncIterator[Spotifyify]:
+    """Open the async Spotify client used by one explicit CLI command."""
     async with Spotifyify(scopes=_parse_scopes(scopes)) as spotify:
-        return await command(spotify)
+        yield spotify
 
 
 # --------------------------------------------------------------------------- #
@@ -447,7 +448,7 @@ async def _settled_playback(
     *,
     until: Predicate | None = None,
     wait: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """Read playback back after a mutation, briefly waiting for it to take effect.
 
     Spotify applies playback commands asynchronously, so an immediate read can
@@ -462,4 +463,4 @@ async def _settled_playback(
             break
         if attempt < attempts - 1:
             await asyncio.sleep(SETTLE_DELAY_SECONDS)
-    return _playback_summary(state)
+    return state

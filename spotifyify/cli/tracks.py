@@ -5,7 +5,13 @@ from typing import Annotated
 import typer
 
 from ._aliases import AliasGroup
-from ._core import BATCH_TRACKS, _coalesce_scopes, _gather_batches, _split_values
+from ._core import (
+    BATCH_TRACKS,
+    _coalesce_scopes,
+    _gather_batches,
+    _split_values,
+    spotify_client,
+)
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -19,8 +25,8 @@ from ._options import (
     ScopeOption,
     SortOption,
     WhereOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
 app = typer.Typer(
@@ -34,7 +40,8 @@ COLUMNS = ("id", "name", "artists", "album.name", "uri")
 
 
 @app.command("search")
-def search_tracks(
+@async_command
+async def search_tracks(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
@@ -47,13 +54,11 @@ def search_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.tracks.find(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.tracks.find(
             query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -66,7 +71,8 @@ def search_tracks(
 
 
 @app.command("get")
-def get_tracks(
+@async_command
+async def get_tracks(
     track_ids: IdsArgument,
     market: MarketOption = None,
     fmt: FormatOption = None,
@@ -79,15 +85,13 @@ def get_tracks(
 ) -> None:
     """Fetch one or many tracks in a single call."""
     ids = _split_values(track_ids)
-    result = _handle(
-        lambda spotify: _gather_batches(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await _gather_batches(
             lambda chunk: spotify.tracks.get_many(chunk, market=market),
             ids,
             BATCH_TRACKS,
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,

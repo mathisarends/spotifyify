@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
-from typing import Annotated
+from functools import wraps
+from typing import Annotated, Any, Callable, ParamSpec
+from collections.abc import Awaitable
 
 import typer
 
@@ -11,15 +13,14 @@ from spotifyify import SpotifyAPIError, SpotifyAuthError
 from ._core import (
     FORMAT_JSON,
     FORMATS,
-    AsyncCommand,
     Jsonable,
+    _as_jsonable,
     _apply_sort,
     _apply_where,
     _print_json,
     _print_table,
     _resolve_format,
     _rows,
-    _run,
     _split_values,
 )
 
@@ -110,18 +111,27 @@ UrisArgument = Annotated[
 ]
 
 
-def _handle(command: AsyncCommand, *, scopes: Sequence[str]) -> Jsonable:
-    try:
-        return asyncio.run(_run(command, scopes=scopes))
-    except SpotifyAuthError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(EXIT_AUTH_ERROR) from exc
-    except SpotifyAPIError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(EXIT_API_ERROR) from exc
+P = ParamSpec("P")
 
 
-def _render(
+def async_command(command: Callable[P, Awaitable[None]]) -> Callable[P, None]:
+    """Bridge one async command into Typer and translate expected API failures."""
+
+    @wraps(command)
+    def run(*args: P.args, **kwargs: P.kwargs) -> None:
+        try:
+            asyncio.run(command(*args, **kwargs))
+        except SpotifyAuthError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(EXIT_AUTH_ERROR) from exc
+        except SpotifyAPIError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(EXIT_API_ERROR) from exc
+
+    return run
+
+
+def print_result(
     result: Jsonable,
     *,
     columns: Sequence[str],
@@ -131,6 +141,7 @@ def _render(
     fields: Sequence[str] | None = None,
     sort: Sequence[str] | None = None,
     where: Sequence[str] | None = None,
+    project: Callable[[Any], Any] | None = None,
 ) -> None:
     """Emit the command's declared columns, in order, in the chosen format.
 
@@ -138,10 +149,11 @@ def _render(
     changes the encoding and nothing else. --raw opts out into the untouched
     Spotify payload.
     """
-    payload = _apply_sort(_apply_where(result, where), _split_values(sort))
     if raw:
-        _print_json(payload)
+        _print_json(_as_jsonable(result))
         return
+    payload = project(result) if project is not None else result
+    payload = _apply_sort(_apply_where(payload, where), _split_values(sort))
     selected_columns = _split_values(fields) or list(columns)
     rows = _rows(payload, selected_columns)
     if _resolve_format(fmt, json_output=json_output) == FORMAT_JSON:

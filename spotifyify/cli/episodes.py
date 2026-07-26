@@ -5,7 +5,13 @@ from typing import Annotated
 import typer
 
 from ._aliases import AliasGroup
-from ._core import BATCH_EPISODES, _coalesce_scopes, _gather_batches, _split_values
+from ._core import (
+    BATCH_EPISODES,
+    _coalesce_scopes,
+    _gather_batches,
+    _split_values,
+    spotify_client,
+)
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -19,8 +25,8 @@ from ._options import (
     ScopeOption,
     SortOption,
     WhereOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
 app = typer.Typer(
@@ -35,7 +41,8 @@ COLUMNS = ("id", "name", "show.name", "uri")
 
 
 @app.command("search")
-def search_episodes(
+@async_command
+async def search_episodes(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
@@ -48,13 +55,11 @@ def search_episodes(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.episodes.find(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.episodes.find(
             query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=SEARCH_COLUMNS,
         fmt=fmt,
@@ -67,7 +72,8 @@ def search_episodes(
 
 
 @app.command("get")
-def get_episodes(
+@async_command
+async def get_episodes(
     episode_ids: IdsArgument,
     market: MarketOption = None,
     fmt: FormatOption = None,
@@ -80,15 +86,13 @@ def get_episodes(
 ) -> None:
     """Fetch one or many episodes in a single call."""
     ids = _split_values(episode_ids)
-    result = _handle(
-        lambda spotify: _gather_batches(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await _gather_batches(
             lambda chunk: spotify.episodes.get_many(chunk, market=market),
             ids,
             BATCH_EPISODES,
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,

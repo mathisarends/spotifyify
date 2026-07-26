@@ -5,7 +5,13 @@ from typing import Annotated
 import typer
 
 from ._aliases import AliasGroup
-from ._core import BATCH_ARTISTS, _coalesce_scopes, _gather_batches, _split_values
+from ._core import (
+    BATCH_ARTISTS,
+    _coalesce_scopes,
+    _gather_batches,
+    _split_values,
+    spotify_client,
+)
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -19,8 +25,8 @@ from ._options import (
     ScopeOption,
     SortOption,
     WhereOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
 app = typer.Typer(
@@ -36,7 +42,8 @@ ALBUM_COLUMNS = ("id", "name", "album_type", "uri")
 
 
 @app.command("search")
-def search_artists(
+@async_command
+async def search_artists(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
@@ -48,11 +55,9 @@ def search_artists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.artists.find(query, limit=limit, offset=offset),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.artists.find(query, limit=limit, offset=offset)
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -65,7 +70,8 @@ def search_artists(
 
 
 @app.command("get")
-def get_artists(
+@async_command
+async def get_artists(
     artist_ids: IdsArgument,
     fmt: FormatOption = None,
     json_output: JsonOption = False,
@@ -77,11 +83,9 @@ def get_artists(
 ) -> None:
     """Fetch one or many artists in a single call."""
     ids = _split_values(artist_ids)
-    result = _handle(
-        lambda spotify: _gather_batches(spotify.artists.get_many, ids, BATCH_ARTISTS),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await _gather_batches(spotify.artists.get_many, ids, BATCH_ARTISTS)
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -94,7 +98,8 @@ def get_artists(
 
 
 @app.command("top-tracks")
-def artist_top_tracks(
+@async_command
+async def artist_top_tracks(
     artist_id: Annotated[str, typer.Argument(help="Spotify artist ID.")],
     market: Annotated[str, typer.Option("--market", "-m")] = "US",
     fmt: FormatOption = None,
@@ -105,11 +110,9 @@ def artist_top_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.artists.top_tracks(artist_id, market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.artists.top_tracks(artist_id, market=market)
+    print_result(
         result,
         columns=TRACK_COLUMNS,
         fmt=fmt,
@@ -122,7 +125,8 @@ def artist_top_tracks(
 
 
 @app.command("albums")
-def artist_albums(
+@async_command
+async def artist_albums(
     artist_id: Annotated[str, typer.Argument(help="Spotify artist ID.")],
     include_groups: Annotated[
         str | None,
@@ -139,17 +143,15 @@ def artist_albums(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.artists.albums(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.artists.albums(
             artist_id,
             include_groups=include_groups,
             market=market,
             limit=limit,
             offset=offset,
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=ALBUM_COLUMNS,
         fmt=fmt,
@@ -162,7 +164,8 @@ def artist_albums(
 
 
 @app.command("related")
-def related_artists(
+@async_command
+async def related_artists(
     artist_id: Annotated[str, typer.Argument(help="Spotify artist ID.")],
     fmt: FormatOption = None,
     json_output: JsonOption = False,
@@ -172,11 +175,9 @@ def related_artists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.artists.related(artist_id),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.artists.related(artist_id)
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,

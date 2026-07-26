@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 
-from spotifyify import Spotifyify, SpotifyScope
+from spotifyify import SpotifyScope
 
 from ._aliases import AliasGroup
-from ._core import _coalesce_scopes, _split_values
+from ._core import _coalesce_scopes, _split_values, spotify_client
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -21,8 +21,8 @@ from ._options import (
     SortOption,
     UrisArgument,
     WhereOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
 app = typer.Typer(
@@ -41,41 +41,9 @@ _MODIFY_SCOPES = [
 ]
 
 
-def _mutate_items(
-    action,
-    *,
-    playlist_id: str,
-    scope,
-    fmt: str | None,
-    json_output: bool,
-    raw: bool,
-    fields,
-) -> None:
-    """Run a playlist mutation and report the resulting snapshot and length."""
-
-    async def command(spotify: Spotifyify) -> Any:
-        snapshot_id = await action(spotify)
-        playlist = await spotify.playlists.get(playlist_id)
-        return {
-            "playlist_id": playlist_id,
-            "snapshot_id": snapshot_id,
-            "total": getattr(getattr(playlist, "tracks", None), "total", None),
-            "name": getattr(playlist, "name", None),
-        }
-
-    result = _handle(command, scopes=_coalesce_scopes(scope) or _MODIFY_SCOPES)
-    _render(
-        result,
-        columns=SNAPSHOT_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
-        fields=fields,
-    )
-
-
 @app.command("search")
-def search_playlists(
+@async_command
+async def search_playlists(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
@@ -87,11 +55,9 @@ def search_playlists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.playlists.find(query, limit=limit, offset=offset),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.playlists.find(query, limit=limit, offset=offset)
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -104,7 +70,8 @@ def search_playlists(
 
 
 @app.command("get")
-def get_playlist(
+@async_command
+async def get_playlist(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     market: MarketOption = None,
     fmt: FormatOption = None,
@@ -113,11 +80,9 @@ def get_playlist(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.playlists.get(playlist_id, market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.playlists.get(playlist_id, market=market)
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -128,7 +93,8 @@ def get_playlist(
 
 
 @app.command("list")
-def list_playlists(
+@async_command
+async def list_playlists(
     user_id: Annotated[str | None, typer.Option("--user-id", "-u")] = None,
     limit: LimitOption = 20,
     offset: OffsetOption = 0,
@@ -140,13 +106,13 @@ def list_playlists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.playlists.list(
+    async with spotify_client(
+        _coalesce_scopes(scope) or [SpotifyScope.PLAYLIST_READ_PRIVATE.value]
+    ) as spotify:
+        result = await spotify.playlists.list(
             user_id=user_id, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope) or [SpotifyScope.PLAYLIST_READ_PRIVATE.value],
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -159,7 +125,8 @@ def list_playlists(
 
 
 @app.command("tracks")
-def playlist_tracks(
+@async_command
+async def playlist_tracks(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     market: MarketOption = None,
     fields_query: Annotated[
@@ -182,18 +149,16 @@ def playlist_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.playlists.tracks(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.playlists.tracks(
             playlist_id,
             market=market,
             fields=fields_query,
             limit=limit,
             offset=offset,
             additional_types=_split_values(additional_types) or None,
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=("track.id", "track.name", "track.artists", "added_at"),
         fmt=fmt,
@@ -206,7 +171,8 @@ def playlist_tracks(
 
 
 @app.command("create")
-def create_playlist(
+@async_command
+async def create_playlist(
     name: Annotated[str, typer.Argument(help="Playlist name.")],
     public: Annotated[bool, typer.Option("--public/--private")] = False,
     collaborative: Annotated[
@@ -220,17 +186,15 @@ def create_playlist(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.playlists.create(
+    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+        result = await spotify.playlists.create(
             name,
             public=public,
             collaborative=collaborative,
             description=description,
             user_id=user_id,
-        ),
-        scopes=_coalesce_scopes(scope) or _MODIFY_SCOPES,
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -241,7 +205,8 @@ def create_playlist(
 
 
 @app.command("update")
-def update_playlist(
+@async_command
+async def update_playlist(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     name: Annotated[str | None, typer.Option("--name")] = None,
     public: Annotated[bool | None, typer.Option("--public/--private")] = None,
@@ -255,7 +220,7 @@ def update_playlist(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async def command(spotify: Spotifyify) -> Any:
+    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
         await spotify.playlists.update(
             playlist_id,
             name=name,
@@ -263,10 +228,8 @@ def update_playlist(
             collaborative=collaborative,
             description=description,
         )
-        return await spotify.playlists.get(playlist_id)
-
-    result = _handle(command, scopes=_coalesce_scopes(scope) or _MODIFY_SCOPES)
-    _render(
+        result = await spotify.playlists.get(playlist_id)
+    print_result(
         result,
         columns=("id", "name", "public", "collaborative", "description"),
         fmt=fmt,
@@ -277,7 +240,8 @@ def update_playlist(
 
 
 @app.command("add")
-def add_playlist_items(
+@async_command
+async def add_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     uris: UrisArgument,
     position: Annotated[int | None, typer.Option("--position")] = None,
@@ -288,12 +252,20 @@ def add_playlist_items(
     scope: ScopeOption = None,
 ) -> None:
     """Add one or many URIs in a single call."""
-    _mutate_items(
-        lambda spotify: spotify.playlists.add(
+    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+        snapshot_id = await spotify.playlists.add(
             playlist_id, _split_values(uris), position=position
-        ),
-        playlist_id=playlist_id,
-        scope=scope,
+        )
+        playlist = await spotify.playlists.get(playlist_id)
+    result = {
+        "playlist_id": playlist_id,
+        "snapshot_id": snapshot_id,
+        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "name": getattr(playlist, "name", None),
+    }
+    print_result(
+        result,
+        columns=SNAPSHOT_COLUMNS,
         fmt=fmt,
         json_output=json_output,
         raw=raw,
@@ -302,7 +274,8 @@ def add_playlist_items(
 
 
 @app.command("replace")
-def replace_playlist_items(
+@async_command
+async def replace_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     uris: UrisArgument,
     fmt: FormatOption = None,
@@ -311,10 +284,18 @@ def replace_playlist_items(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    _mutate_items(
-        lambda spotify: spotify.playlists.replace(playlist_id, _split_values(uris)),
-        playlist_id=playlist_id,
-        scope=scope,
+    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+        snapshot_id = await spotify.playlists.replace(playlist_id, _split_values(uris))
+        playlist = await spotify.playlists.get(playlist_id)
+    result = {
+        "playlist_id": playlist_id,
+        "snapshot_id": snapshot_id,
+        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "name": getattr(playlist, "name", None),
+    }
+    print_result(
+        result,
+        columns=SNAPSHOT_COLUMNS,
         fmt=fmt,
         json_output=json_output,
         raw=raw,
@@ -323,7 +304,8 @@ def replace_playlist_items(
 
 
 @app.command("remove")
-def remove_playlist_items(
+@async_command
+async def remove_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     uris: UrisArgument,
     fmt: FormatOption = None,
@@ -332,10 +314,18 @@ def remove_playlist_items(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    _mutate_items(
-        lambda spotify: spotify.playlists.remove(playlist_id, _split_values(uris)),
-        playlist_id=playlist_id,
-        scope=scope,
+    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+        snapshot_id = await spotify.playlists.remove(playlist_id, _split_values(uris))
+        playlist = await spotify.playlists.get(playlist_id)
+    result = {
+        "playlist_id": playlist_id,
+        "snapshot_id": snapshot_id,
+        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "name": getattr(playlist, "name", None),
+    }
+    print_result(
+        result,
+        columns=SNAPSHOT_COLUMNS,
         fmt=fmt,
         json_output=json_output,
         raw=raw,
@@ -344,7 +334,8 @@ def remove_playlist_items(
 
 
 @app.command("reorder")
-def reorder_playlist_items(
+@async_command
+async def reorder_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     range_start: Annotated[int, typer.Option("--range-start", min=0)],
     insert_before: Annotated[int, typer.Option("--insert-before", min=0)],
@@ -356,16 +347,24 @@ def reorder_playlist_items(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    _mutate_items(
-        lambda spotify: spotify.playlists.reorder(
+    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+        new_snapshot_id = await spotify.playlists.reorder(
             playlist_id,
             range_start=range_start,
             insert_before=insert_before,
             range_length=range_length,
             snapshot_id=snapshot_id,
-        ),
-        playlist_id=playlist_id,
-        scope=scope,
+        )
+        playlist = await spotify.playlists.get(playlist_id)
+    result = {
+        "playlist_id": playlist_id,
+        "snapshot_id": new_snapshot_id,
+        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "name": getattr(playlist, "name", None),
+    }
+    print_result(
+        result,
+        columns=SNAPSHOT_COLUMNS,
         fmt=fmt,
         json_output=json_output,
         raw=raw,
@@ -374,7 +373,8 @@ def reorder_playlist_items(
 
 
 @app.command("cover-image")
-def playlist_cover_image(
+@async_command
+async def playlist_cover_image(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     fmt: FormatOption = None,
     json_output: JsonOption = False,
@@ -383,11 +383,9 @@ def playlist_cover_image(
     sort: SortOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.playlists.cover_image(playlist_id),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.playlists.cover_image(playlist_id)
+    print_result(
         result,
         columns=("url", "width", "height"),
         fmt=fmt,

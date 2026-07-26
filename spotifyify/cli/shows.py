@@ -5,7 +5,13 @@ from typing import Annotated
 import typer
 
 from ._aliases import AliasGroup
-from ._core import BATCH_SHOWS, _coalesce_scopes, _gather_batches, _split_values
+from ._core import (
+    BATCH_SHOWS,
+    _coalesce_scopes,
+    _gather_batches,
+    _split_values,
+    spotify_client,
+)
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -19,8 +25,8 @@ from ._options import (
     ScopeOption,
     SortOption,
     WhereOption,
-    _handle,
-    _render,
+    async_command,
+    print_result,
 )
 
 app = typer.Typer(
@@ -35,7 +41,8 @@ EPISODE_COLUMNS = ("id", "name", "release_date", "uri")
 
 
 @app.command("search")
-def search_shows(
+@async_command
+async def search_shows(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
@@ -48,13 +55,11 @@ def search_shows(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.shows.find(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.shows.find(
             query, limit=limit, offset=offset, market=market
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -67,7 +72,8 @@ def search_shows(
 
 
 @app.command("get")
-def get_shows(
+@async_command
+async def get_shows(
     show_ids: IdsArgument,
     market: MarketOption = None,
     fmt: FormatOption = None,
@@ -80,15 +86,13 @@ def get_shows(
 ) -> None:
     """Fetch one or many shows in a single call."""
     ids = _split_values(show_ids)
-    result = _handle(
-        lambda spotify: _gather_batches(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await _gather_batches(
             lambda chunk: spotify.shows.get_many(chunk, market=market),
             ids,
             BATCH_SHOWS,
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=COLUMNS,
         fmt=fmt,
@@ -101,7 +105,8 @@ def get_shows(
 
 
 @app.command("episodes")
-def show_episodes(
+@async_command
+async def show_episodes(
     show_id: Annotated[str, typer.Argument(help="Spotify show ID.")],
     market: MarketOption = None,
     limit: LimitOption = 20,
@@ -114,13 +119,11 @@ def show_episodes(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    result = _handle(
-        lambda spotify: spotify.shows.episodes(
+    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+        result = await spotify.shows.episodes(
             show_id, market=market, limit=limit, offset=offset
-        ),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
+        )
+    print_result(
         result,
         columns=EPISODE_COLUMNS,
         fmt=fmt,
