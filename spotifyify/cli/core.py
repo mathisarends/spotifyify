@@ -22,10 +22,12 @@ Jsonable = BaseModel | list[Any] | dict[str, Any] | str | int | float | bool | N
 DEFAULT_LIMIT = 10
 INSTALL_MESSAGE = "Install the CLI dependencies with: uv add spotifyify[cli]"
 
-FORMAT_JSON = "json"
-FORMAT_TABLE = "table"
-FORMATS = (FORMAT_JSON, FORMAT_TABLE)
-FORMAT_ENV_VAR = "SPOTIFYIFY_FORMAT"
+RAW_ENV_VAR = "SPOTIFYIFY_RAW"
+MARKET_ENV_VAR = "SPOTIFYIFY_MARKET"
+DEVICE_ENV_VAR = "SPOTIFYIFY_DEVICE_ID"
+
+_market_override: str | None = None
+_device_override: str | None = None
 
 # Table cells are single-line by construction, so anything that could forge a
 # row boundary or smuggle escape sequences is folded into a single space.
@@ -51,18 +53,8 @@ def _split_values(values: Sequence[str] | None) -> list[str]:
     return items
 
 
-def _parse_scopes(scope_values: Sequence[str] | None) -> list[SpotifyScope | str]:
-    scopes: list[SpotifyScope | str] = []
-    for value in _split_values(scope_values):
-        try:
-            scopes.append(SpotifyScope(value))
-        except ValueError:
-            scopes.append(value)
-    return scopes
-
-
-def _merge_scopes(*scope_groups: Sequence[str]) -> list[str]:
-    merged: list[str] = []
+def _merge_scopes(*scope_groups: Sequence[SpotifyScope]) -> list[SpotifyScope]:
+    merged: list[SpotifyScope] = []
     for group in scope_groups:
         merged.extend(scope for scope in group if scope not in merged)
     return merged
@@ -221,77 +213,30 @@ def _apply_sort(value: Any, specs: Sequence[str]) -> Any:
     )
 
 
-def _parse_where(specs: Sequence[str] | None) -> list[tuple[str, str]]:
-    predicates: list[tuple[str, str]] = []
-    for spec in specs or ():
-        path, separator, expected = spec.partition("=")
-        if not separator or not path:
-            message = f"--where must look like PATH=VALUE, got {spec!r}"
-            if typer is None:
-                raise ValueError(message)
-            raise typer.BadParameter(message)
-        predicates.append((path, expected.casefold()))
-    return predicates
+def _set_default_market(value: str | None) -> None:
+    """Record the --market value from the root command, for this process only."""
+    global _market_override
+    _market_override = value
 
 
-def _matches(item: Any, predicates: Sequence[tuple[str, str]]) -> bool:
-    return all(
-        expected in _cell(_get_path(item, path)).casefold()
-        for path, expected in predicates
-    )
+def _set_default_device_id(value: str | None) -> None:
+    """Record the --device-id value from the root command, for this process only."""
+    global _device_override
+    _device_override = value
 
 
-def _apply_where(value: Any, specs: Sequence[str] | None) -> Any:
-    """Drop rows the caller does not want before they reach the output."""
-    predicates = _parse_where(specs)
-    if not predicates:
-        return value
-    return _replace_collection(
-        _as_jsonable(value),
-        lambda items: [item for item in items if _matches(item, predicates)],
-    )
+def _default_market() -> str | None:
+    """Root --market flag, then the environment, then no market at all."""
+    return _market_override or os.environ.get(MARKET_ENV_VAR) or None
 
 
-def _resolve_format(fmt: str | None, *, json_output: bool = False) -> str:
-    """Explicit --format wins, then --json, then the environment, then JSON.
-
-    Deliberately not switched on isatty(): the shape of a command's output
-    depends only on its arguments and environment, so piping through `tee` or
-    capturing stdout cannot silently change it.
-    """
-    if fmt:
-        value = fmt.strip().lower()
-        if value not in FORMATS:
-            message = f"--format must be one of: {', '.join(FORMATS)}"
-            if typer is None:
-                raise ValueError(message)
-            raise typer.BadParameter(message)
-        return value
-    if json_output:
-        return FORMAT_JSON
-    from_env = (os.environ.get(FORMAT_ENV_VAR) or "").strip().lower()
-    if from_env in FORMATS:
-        return from_env
-    return FORMAT_JSON
+def _default_device_id() -> str | None:
+    """Root --device-id flag, then the environment, then no device at all."""
+    return _device_override or os.environ.get(DEVICE_ENV_VAR) or None
 
 
-def _table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
-    if not rows:
-        return "No results."
-
-    widths = [
-        max(len(header), *(len(row[index]) for row in rows))
-        for index, header in enumerate(headers)
-    ]
-    rendered = [
-        "  ".join(header.ljust(widths[index]) for index, header in enumerate(headers))
-    ]
-    rendered.append("  ".join("-" * width for width in widths))
-    rendered.extend(
-        "  ".join(value.ljust(widths[index]) for index, value in enumerate(row))
-        for row in rows
-    )
-    return "\n".join(rendered)
+def _is_raw_output() -> bool:
+    return os.environ.get(RAW_ENV_VAR) == "1"
 
 
 def _echo(text: str) -> None:
@@ -305,18 +250,12 @@ def _print_json(value: Any) -> None:
     _echo(json.dumps(_as_jsonable(value), indent=2, ensure_ascii=False))
 
 
-def _print_table(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> None:
-    headers = [column.replace(".", " ").title() for column in columns]
-    cells = [[_cell(row.get(column)) for column in columns] for row in rows]
-    _echo(_table(headers, cells))
-
-
 @asynccontextmanager
 async def spotify_client(
-    scopes: Sequence[str] | None,
+    scopes: Sequence[SpotifyScope] = (),
 ) -> AsyncGenerator[Spotifyify, None]:
     """Open the async Spotify client used by one explicit CLI command."""
-    async with Spotifyify(scopes=_parse_scopes(scopes)) as spotify:
+    async with Spotifyify(scopes=scopes) as spotify:
         yield spotify
 
 

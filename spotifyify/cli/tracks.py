@@ -4,25 +4,18 @@ from typing import Annotated
 
 import typer
 
-from ._core import (
+from .core import (
     BATCH_TRACKS,
+    _default_market,
     _gather_batches,
     _split_values,
     spotify_client,
 )
-from ._options import (
+from .options import (
     DEFAULT_LIMIT,
     FieldsOption,
-    FormatOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    RawOption,
-    ScopeOption,
-    SortOption,
-    WhereOption,
     async_command,
     print_result,
 )
@@ -41,29 +34,14 @@ COLUMNS = ("id", "name", "artists", "album.name", "uri")
 async def search_tracks(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
-        result = await spotify.tracks.find(
-            query, limit=limit, offset=offset, market=market
-        )
+    async with spotify_client() as spotify:
+        result = await spotify.tracks.find(query, limit=limit, market=_default_market())
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -71,18 +49,12 @@ async def search_tracks(
 @async_command
 async def get_tracks(
     track_ids: IdsArgument,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     """Fetch one or many tracks in a single call."""
     ids = _split_values(track_ids)
-    async with spotify_client(scope) as spotify:
+    market = _default_market()
+    async with spotify_client() as spotify:
         result = await _gather_batches(
             lambda chunk: spotify.tracks.get_many(chunk, market=market),
             ids,
@@ -91,10 +63,5 @@ async def get_tracks(
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )

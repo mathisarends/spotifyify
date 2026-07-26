@@ -1,46 +1,39 @@
 from __future__ import annotations
 
 import sys
+from typing import Annotated
 
 try:
     import typer
 except ImportError:  # pragma: no cover - exercised by installed package users.
     typer = None
 
-from ._core import (
-    FORMATS,
+from .core import (
     INSTALL_MESSAGE,
     _apply_sort,
-    _apply_where,
     _cell,
     _filter_fields,
     _get_path,
-    _parse_scopes,
     _playback_summary,
-    _resolve_format,
     _rows,
+    _set_default_device_id,
+    _set_default_market,
     _sort_items,
     _split_values,
-    _table,
 )
 
 __all__ = [
-    "FORMATS",
     "INSTALL_MESSAGE",
     "main",
     "typer",
     "_apply_sort",
-    "_apply_where",
     "_cell",
     "_filter_fields",
     "_get_path",
-    "_parse_scopes",
     "_playback_summary",
-    "_resolve_format",
     "_rows",
     "_sort_items",
     "_split_values",
-    "_table",
 ]
 
 
@@ -100,6 +93,30 @@ if typer is not None:
     app.add_typer(player.app, name="player")
     app.add_typer(users.app, name="users")
     quick.register(app)
+
+    @app.callback(invoke_without_command=True)
+    def _root(
+        market: Annotated[
+            str | None,
+            typer.Option(
+                "--market",
+                "-m",
+                help="Default ISO 3166-1 alpha-2 market code for every command "
+                "in this invocation. Falls back to SPOTIFYIFY_MARKET.",
+            ),
+        ] = None,
+        device_id: Annotated[
+            str | None,
+            typer.Option(
+                "--device-id",
+                help="Default Spotify Connect device for every playback command "
+                "in this invocation. Falls back to SPOTIFYIFY_DEVICE_ID.",
+            ),
+        ] = None,
+    ) -> None:
+        _set_default_market(market)
+        _set_default_device_id(device_id)
+
 
 if __name__ == "__main__":
     main()

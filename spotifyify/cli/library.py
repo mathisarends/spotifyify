@@ -6,28 +6,21 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from ._core import (
+from .core import (
     BATCH_ALBUMS,
     BATCH_EPISODES,
     BATCH_SHOWS,
     BATCH_TRACKS,
+    _default_market,
     _merge_scopes,
     _sequential_batches,
     _split_values,
     spotify_client,
 )
-from ._options import (
+from .options import (
     FieldsOption,
-    FormatOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    RawOption,
-    ScopeOption,
-    SortOption,
-    WhereOption,
     async_command,
     print_result,
 )
@@ -40,8 +33,8 @@ app = typer.Typer(
 
 SAVED_COLUMNS = ("id", "saved")
 
-READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ.value]
-MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY.value]
+READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ]
+MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY]
 # Save/remove report the resulting saved state, so they read it back too.
 WRITE_SCOPES = _merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 
@@ -50,29 +43,16 @@ WRITE_SCOPES = _merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 @async_command
 async def saved_tracks(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or READ_SCOPES) as spotify:
+    async with spotify_client(READ_SCOPES) as spotify:
         result = await spotify.library.saved_tracks(
-            limit=limit, offset=offset, market=market
+            limit=limit, market=_default_market()
         )
     print_result(
         result,
         columns=("track.id", "track.name", "track.artists", "added_at"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -80,29 +60,16 @@ async def saved_tracks(
 @async_command
 async def saved_albums(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or READ_SCOPES) as spotify:
+    async with spotify_client(READ_SCOPES) as spotify:
         result = await spotify.library.saved_albums(
-            limit=limit, offset=offset, market=market
+            limit=limit, market=_default_market()
         )
     print_result(
         result,
         columns=("album.id", "album.name", "album.artists", "added_at"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -110,26 +77,14 @@ async def saved_albums(
 @async_command
 async def saved_shows(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or READ_SCOPES) as spotify:
-        result = await spotify.library.saved_shows(limit=limit, offset=offset)
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.library.saved_shows(limit=limit)
     print_result(
         result,
         columns=("show.id", "show.name", "show.publisher", "added_at"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -137,26 +92,14 @@ async def saved_shows(
 @async_command
 async def saved_episodes(
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or READ_SCOPES) as spotify:
-        result = await spotify.library.saved_episodes(limit=limit, offset=offset)
+    async with spotify_client(READ_SCOPES) as spotify:
+        result = await spotify.library.saved_episodes(limit=limit)
     print_result(
         result,
         columns=("episode.id", "episode.name", "added_at"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -165,28 +108,14 @@ async def saved_episodes(
 async def library_top_tracks(
     time_range: Annotated[str, typer.Option("--time-range")] = "medium_term",
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or [SpotifyScope.USER_TOP_READ.value]) as spotify:
-        result = await spotify.library.top_tracks(
-            time_range=time_range, limit=limit, offset=offset
-        )
+    async with spotify_client([SpotifyScope.USER_TOP_READ]) as spotify:
+        result = await spotify.library.top_tracks(time_range=time_range, limit=limit)
     print_result(
         result,
         columns=("id", "name", "artists", "uri"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -195,28 +124,14 @@ async def library_top_tracks(
 async def library_top_artists(
     time_range: Annotated[str, typer.Option("--time-range")] = "medium_term",
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or [SpotifyScope.USER_TOP_READ.value]) as spotify:
-        result = await spotify.library.top_artists(
-            time_range=time_range, limit=limit, offset=offset
-        )
+    async with spotify_client([SpotifyScope.USER_TOP_READ]) as spotify:
+        result = await spotify.library.top_artists(time_range=time_range, limit=limit)
     print_result(
         result,
         columns=("id", "name", "uri"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -224,14 +139,10 @@ async def library_top_artists(
 @async_command
 async def save_tracks(
     track_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(track_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_tracks, ids, BATCH_TRACKS)
         saved = await spotify.library.check_tracks(ids)
     result = [
@@ -241,9 +152,6 @@ async def save_tracks(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -252,14 +160,10 @@ async def save_tracks(
 @async_command
 async def remove_tracks(
     track_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(track_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_tracks, ids, BATCH_TRACKS)
         saved = await spotify.library.check_tracks(ids)
     result = [
@@ -269,9 +173,6 @@ async def remove_tracks(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -280,14 +181,10 @@ async def remove_tracks(
 @async_command
 async def check_tracks(
     track_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(track_ids)
-    async with spotify_client(scope or READ_SCOPES) as spotify:
+    async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_tracks(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -296,9 +193,6 @@ async def check_tracks(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -307,14 +201,10 @@ async def check_tracks(
 @async_command
 async def save_albums(
     album_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(album_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_albums, ids, BATCH_ALBUMS)
         saved = await spotify.library.check_albums(ids)
     result = [
@@ -324,9 +214,6 @@ async def save_albums(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -335,14 +222,10 @@ async def save_albums(
 @async_command
 async def remove_albums(
     album_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(album_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_albums, ids, BATCH_ALBUMS)
         saved = await spotify.library.check_albums(ids)
     result = [
@@ -352,9 +235,6 @@ async def remove_albums(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -363,14 +243,10 @@ async def remove_albums(
 @async_command
 async def check_albums(
     album_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(album_ids)
-    async with spotify_client(scope or READ_SCOPES) as spotify:
+    async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_albums(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -379,9 +255,6 @@ async def check_albums(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -390,14 +263,10 @@ async def check_albums(
 @async_command
 async def save_shows(
     show_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(show_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_shows, ids, BATCH_SHOWS)
         saved = await spotify.library.check_shows(ids)
     result = [
@@ -407,9 +276,6 @@ async def save_shows(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -418,14 +284,10 @@ async def save_shows(
 @async_command
 async def remove_shows(
     show_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(show_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_shows, ids, BATCH_SHOWS)
         saved = await spotify.library.check_shows(ids)
     result = [
@@ -435,9 +297,6 @@ async def remove_shows(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -446,14 +305,10 @@ async def remove_shows(
 @async_command
 async def check_shows(
     show_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(show_ids)
-    async with spotify_client(scope or READ_SCOPES) as spotify:
+    async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_shows(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -462,9 +317,6 @@ async def check_shows(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -473,14 +325,10 @@ async def check_shows(
 @async_command
 async def save_episodes(
     episode_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(episode_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_episodes, ids, BATCH_EPISODES)
         saved = await spotify.library.check_episodes(ids)
     result = [
@@ -490,9 +338,6 @@ async def save_episodes(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -501,14 +346,10 @@ async def save_episodes(
 @async_command
 async def remove_episodes(
     episode_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(episode_ids)
-    async with spotify_client(scope or WRITE_SCOPES) as spotify:
+    async with spotify_client(WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_episodes, ids, BATCH_EPISODES)
         saved = await spotify.library.check_episodes(ids)
     result = [
@@ -518,9 +359,6 @@ async def remove_episodes(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -529,14 +367,10 @@ async def remove_episodes(
 @async_command
 async def check_episodes(
     episode_ids: IdsArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(episode_ids)
-    async with spotify_client(scope or READ_SCOPES) as spotify:
+    async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_episodes(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -545,8 +379,5 @@ async def check_episodes(
     print_result(
         result,
         columns=SAVED_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )

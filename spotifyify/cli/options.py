@@ -10,16 +10,11 @@ import typer
 
 from spotifyify import SpotifyAPIError, SpotifyAuthError
 
-from ._core import (
-    FORMAT_JSON,
-    FORMATS,
+from .core import (
     Jsonable,
     _as_jsonable,
-    _apply_sort,
-    _apply_where,
+    _is_raw_output,
     _print_json,
-    _print_table,
-    _resolve_format,
     _rows,
     _split_values,
 )
@@ -29,32 +24,6 @@ DEFAULT_LIMIT = 10
 EXIT_API_ERROR = 1
 EXIT_AUTH_ERROR = 3
 
-ScopeOption = Annotated[
-    list[str] | None,
-    typer.Option(
-        "--scope",
-        "-s",
-        help="OAuth scope. Can be repeated or comma-separated.",
-    ),
-]
-FormatOption = Annotated[
-    str | None,
-    typer.Option(
-        "--format",
-        help=f"Output format: {'|'.join(FORMATS)}. Defaults to json.",
-    ),
-]
-JsonOption = Annotated[
-    bool,
-    typer.Option("--json", help="Shorthand for --format json."),
-]
-RawOption = Annotated[
-    bool,
-    typer.Option(
-        "--raw",
-        help="Emit the untouched Spotify payload instead of the declared columns.",
-    ),
-]
 FieldsOption = Annotated[
     list[str] | None,
     typer.Option(
@@ -64,35 +33,9 @@ FieldsOption = Annotated[
         help="Field path to include. Can be repeated or comma-separated.",
     ),
 ]
-SortOption = Annotated[
-    list[str] | None,
-    typer.Option(
-        "--sort",
-        help="Field path to sort by; prefix with '-' for descending. Stable, repeatable.",
-    ),
-]
-WhereOption = Annotated[
-    list[str] | None,
-    typer.Option(
-        "--where",
-        help="Keep rows where PATH contains VALUE (case-insensitive). Repeatable, AND-ed.",
-    ),
-]
 LimitOption = Annotated[
     int,
     typer.Option("--limit", "-l", min=1, max=50, help="Number of items to fetch."),
-]
-OffsetOption = Annotated[
-    int,
-    typer.Option("--offset", "-o", min=0, help="Result offset."),
-]
-MarketOption = Annotated[
-    str | None,
-    typer.Option("--market", "-m", help="ISO 3166-1 alpha-2 market code."),
-]
-DeviceOption = Annotated[
-    str | None,
-    typer.Option("--device-id", help="Spotify device ID."),
 ]
 WaitOption = Annotated[
     bool,
@@ -135,28 +78,17 @@ def print_result(
     result: Jsonable,
     *,
     columns: Sequence[str],
-    fmt: str | None = None,
-    json_output: bool = False,
-    raw: bool = False,
     fields: Sequence[str] | None = None,
-    sort: Sequence[str] | None = None,
-    where: Sequence[str] | None = None,
     project: Callable[[Any], Any] | None = None,
 ) -> None:
-    """Emit the command's declared columns, in order, in the chosen format.
+    """Emit the command's declared columns, in order, as JSON.
 
-    Both formats project the same fixed set of fields, so switching format
-    changes the encoding and nothing else. --raw opts out into the untouched
-    Spotify payload.
+    SPOTIFYIFY_RAW=1 opts out into the untouched Spotify payload, for
+    debugging fields that are not part of any command's declared columns.
     """
-    if raw:
+    if _is_raw_output():
         _print_json(_as_jsonable(result))
         return
     payload = project(result) if project is not None else result
-    payload = _apply_sort(_apply_where(payload, where), _split_values(sort))
     selected_columns = _split_values(fields) or list(columns)
-    rows = _rows(payload, selected_columns)
-    if _resolve_format(fmt, json_output=json_output) == FORMAT_JSON:
-        _print_json(rows)
-        return
-    _print_table(rows, selected_columns)
+    _print_json(_rows(payload, selected_columns))

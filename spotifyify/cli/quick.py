@@ -4,21 +4,18 @@ from typing import Annotated, Any
 
 import typer
 
-from ._core import (
+from .core import (
     PLAYBACK_COLUMNS,
+    _default_device_id,
+    _default_market,
     _playback_summary,
     _settled_playback,
     is_fresh_track,
     plays_uri,
     spotify_client,
 )
-from ._options import (
-    DeviceOption,
+from .options import (
     FieldsOption,
-    FormatOption,
-    JsonOption,
-    RawOption,
-    ScopeOption,
     WaitOption,
     async_command,
     print_result,
@@ -76,16 +73,8 @@ def register(app: typer.Typer) -> None:
         album: Annotated[
             str | None, typer.Option("--album", help="Album name to match.")
         ] = None,
-        market: Annotated[
-            str | None, typer.Option("--market", "-m", help="ISO 3166-1 alpha-2 code.")
-        ] = None,
-        device_id: DeviceOption = None,
         wait: WaitOption = True,
-        fmt: FormatOption = None,
-        json_output: JsonOption = False,
-        raw: RawOption = False,
         fields: FieldsOption = None,
-        scope: ScopeOption = None,
     ) -> None:
         """Find something and play it in one call.
 
@@ -106,8 +95,9 @@ def register(app: typer.Typer) -> None:
         # Otherwise the broadest given filter becomes the playback context.
         wants_track = bool(track or words)
         wants_album = bool(album) and not wants_track
+        market = _default_market()
 
-        async with spotify_client(scope or CONTROL_SCOPES) as spotify:
+        async with spotify_client(CONTROL_SCOPES) as spotify:
             if wants_track:
                 hit = _first(await spotify.tracks.find(query, limit=1, market=market))
                 uris, context_uri = ([hit.uri] if hit else None), None
@@ -123,7 +113,10 @@ def register(app: typer.Typer) -> None:
                 raise typer.Exit(EXIT_NO_MATCH)
 
             await _play_with_device_fallback(
-                spotify, device_id=device_id, uris=uris, context_uri=context_uri
+                spotify,
+                device_id=_default_device_id(),
+                uris=uris,
+                context_uri=context_uri,
             )
             # Wait for the thing we resolved, so the reported state is not the
             # track that happened to be playing already.
@@ -133,9 +126,6 @@ def register(app: typer.Typer) -> None:
         print_result(
             state,
             columns=PLAYBACK_COLUMNS,
-            fmt=fmt,
-            json_output=json_output,
-            raw=raw,
             fields=fields,
             project=_playback_summary,
         )

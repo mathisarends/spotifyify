@@ -4,25 +4,18 @@ from typing import Annotated
 
 import typer
 
-from ._core import (
+from .core import (
     BATCH_ALBUMS,
+    _default_market,
     _gather_batches,
     _split_values,
     spotify_client,
 )
-from ._options import (
+from .options import (
     DEFAULT_LIMIT,
     FieldsOption,
-    FormatOption,
     IdsArgument,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    RawOption,
-    ScopeOption,
-    SortOption,
-    WhereOption,
     async_command,
     print_result,
 )
@@ -41,29 +34,14 @@ COLUMNS = ("id", "name", "artists", "uri")
 async def search_albums(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
-        result = await spotify.albums.find(
-            query, limit=limit, offset=offset, market=market
-        )
+    async with spotify_client() as spotify:
+        result = await spotify.albums.find(query, limit=limit, market=_default_market())
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -71,18 +49,12 @@ async def search_albums(
 @async_command
 async def get_albums(
     album_ids: IdsArgument,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     """Fetch one or many albums in a single call."""
     ids = _split_values(album_ids)
-    async with spotify_client(scope) as spotify:
+    market = _default_market()
+    async with spotify_client() as spotify:
         result = await _gather_batches(
             lambda chunk: spotify.albums.get_many(chunk, market=market),
             ids,
@@ -91,12 +63,7 @@ async def get_albums(
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -105,29 +72,16 @@ async def get_albums(
 async def album_tracks(
     album_id: Annotated[str, typer.Argument(help="Spotify album ID.")],
     limit: LimitOption = 50,
-    offset: OffsetOption = 0,
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
+    async with spotify_client() as spotify:
         result = await spotify.albums.tracks(
-            album_id, limit=limit, offset=offset, market=market
+            album_id, limit=limit, market=_default_market()
         )
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -136,26 +90,12 @@ async def album_tracks(
 async def new_releases(
     country: Annotated[str | None, typer.Option("--country", "-c")] = None,
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
-        result = await spotify.albums.new_releases(
-            country=country, limit=limit, offset=offset
-        )
+    async with spotify_client() as spotify:
+        result = await spotify.albums.new_releases(country=country, limit=limit)
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )

@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from spotifyify import SpotifyScope, cli
+from spotifyify import cli
 from spotifyify.schemas import PlaybackState
 
 
@@ -28,23 +28,6 @@ class TestCli(unittest.TestCase):
                 cli.main()
 
         self.assertEqual(str(raised.exception), cli.INSTALL_MESSAGE)
-
-    def test_parse_scopes_accepts_repeated_and_csv_values(self):
-        result = cli._parse_scopes(
-            [
-                "user-read-playback-state,playlist-read-private",
-                "custom-scope",
-            ]
-        )
-
-        self.assertEqual(
-            result,
-            [
-                SpotifyScope.USER_READ_PLAYBACK_STATE,
-                SpotifyScope.PLAYLIST_READ_PRIVATE,
-                "custom-scope",
-            ],
-        )
 
     def test_split_values_accepts_repeated_and_csv_values(self):
         self.assertEqual(
@@ -69,17 +52,6 @@ class TestCli(unittest.TestCase):
             [{"id": "track_id", "album.name": "Album"}],
         )
         self.assertEqual(cli._get_path(payload, "items.0.name"), "Track")
-
-    def test_table_formats_headers_and_rows(self):
-        table = cli._table(("ID", "Name"), [["1", "Track"], ["22", "Other"]])
-
-        self.assertEqual(
-            table,
-            "ID  Name \n--  -----\n1   Track\n22  Other",
-        )
-
-    def test_table_handles_empty_results(self):
-        self.assertEqual(cli._table(("ID",), []), "No results.")
 
     def test_typer_app_registers_all_namespace_groups_when_available(self):
         if cli.typer is None:
@@ -106,32 +78,7 @@ class TestCli(unittest.TestCase):
 
 
 class TestOutputContract(unittest.TestCase):
-    """The format a command emits depends only on arguments and environment."""
-
-    def test_json_is_the_default_format(self):
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(cli._resolve_format(None), "json")
-
-    def test_explicit_format_wins_over_everything(self):
-        with patch.dict("os.environ", {"SPOTIFYIFY_FORMAT": "json"}, clear=True):
-            self.assertEqual(
-                cli._resolve_format("table", json_output=True),
-                "table",
-            )
-
-    def test_environment_overrides_the_default(self):
-        with patch.dict("os.environ", {"SPOTIFYIFY_FORMAT": "table"}, clear=True):
-            self.assertEqual(cli._resolve_format(None), "table")
-
-    def test_json_flag_is_shorthand_for_json_format(self):
-        with patch.dict("os.environ", {"SPOTIFYIFY_FORMAT": "table"}, clear=True):
-            self.assertEqual(cli._resolve_format(None, json_output=True), "json")
-
-    def test_unknown_format_is_rejected(self):
-        with self.assertRaises(Exception) as raised:
-            cli._resolve_format("yaml")
-
-        self.assertIn("--format", str(raised.exception))
+    """The CLI always emits JSON, driven only by the declared columns."""
 
     def test_rows_keep_declared_column_order_and_flatten_nested_objects(self):
         payload = {
@@ -203,28 +150,6 @@ class TestStableOrdering(unittest.TestCase):
         self.assertEqual(result["total"], 2)
 
 
-class TestWhereFilter(unittest.TestCase):
-    def test_where_keeps_matching_rows_case_insensitively(self):
-        payload = {"items": [{"name": "Alpha"}, {"name": "Beta"}]}
-
-        result = cli._apply_where(payload, ["name=alp"])
-
-        self.assertEqual(result["items"], [{"name": "Alpha"}])
-
-    def test_where_predicates_are_combined_with_and(self):
-        payload = {"items": [{"a": "x", "b": "y"}, {"a": "x", "b": "z"}]}
-
-        result = cli._apply_where(payload, ["a=x", "b=z"])
-
-        self.assertEqual(result["items"], [{"a": "x", "b": "z"}])
-
-    def test_where_rejects_a_missing_separator(self):
-        with self.assertRaises(Exception) as raised:
-            cli._apply_where([{"a": 1}], ["nope"])
-
-        self.assertIn("PATH=VALUE", str(raised.exception))
-
-
 class TestPlaybackSummary(unittest.TestCase):
     def test_summary_of_no_playback_is_stopped(self):
         summary = cli._playback_summary(None)
@@ -260,7 +185,7 @@ class TestPlaybackSummary(unittest.TestCase):
 
 class TestBatching(unittest.TestCase):
     def test_ids_are_chunked_to_the_endpoint_limit(self):
-        from spotifyify.cli._core import _chunked
+        from spotifyify.cli.core import _chunked
 
         self.assertEqual(_chunked(["a", "b", "c"], 2), [["a", "b"], ["c"]])
         self.assertEqual(_chunked([], 2), [])
@@ -333,10 +258,10 @@ class TestEndToEnd(unittest.TestCase):
 
         self.runner = CliRunner()
 
-    def _run(self, args, namespaces):
+    def _run(self, args, namespaces, env=None):
         FakeSpotifyify.namespaces = namespaces
-        with patch("spotifyify.cli._core.Spotifyify", FakeSpotifyify):
-            return self.runner.invoke(cli.app, args)
+        with patch("spotifyify.cli.core.Spotifyify", FakeSpotifyify):
+            return self.runner.invoke(cli.app, args, env=env)
 
     def test_search_prints_declared_columns_as_json_by_default(self):
         async def find(query, **kwargs):
@@ -369,8 +294,9 @@ class TestEndToEnd(unittest.TestCase):
             return {"items": [{"id": "t1", "available_markets": ["DE"]}], "total": 1}
 
         result = self._run(
-            ["tracks", "search", "x", "--raw"],
+            ["tracks", "search", "x"],
             {"tracks": SimpleNamespace(find=find)},
+            env={"SPOTIFYIFY_RAW": "1"},
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -392,8 +318,9 @@ class TestEndToEnd(unittest.TestCase):
             )
 
         result = self._run(
-            ["player", "state", "--raw"],
+            ["player", "state"],
             {"player": SimpleNamespace(state=state)},
+            env={"SPOTIFYIFY_RAW": "1"},
         )
 
         payload = json.loads(result.output)
@@ -525,7 +452,7 @@ class TestEndToEnd(unittest.TestCase):
         async def state(**kwargs):
             return PlaybackState.model_validate(states.pop(0) if states else states)
 
-        with patch("spotifyify.cli._core.SETTLE_DELAY_SECONDS", 0):
+        with patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0):
             result = self._run(
                 ["player", "play", "--uri", "spotify:track:new"],
                 {"player": SimpleNamespace(play=play, state=state)},
@@ -571,7 +498,7 @@ class TestEndToEnd(unittest.TestCase):
             return {"items": [{"id": "t1", "name": "Track"}]}
 
         result = self._run(
-            ["tracks", "search", "x", "--format", "table"],
+            ["tracks", "search", "x"],
             {"tracks": SimpleNamespace(find=find)},
         )
 

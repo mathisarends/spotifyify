@@ -6,20 +6,12 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from ._core import _split_values, spotify_client
-from ._options import (
+from .core import _default_market, _split_values, spotify_client
+from .options import (
     DEFAULT_LIMIT,
     FieldsOption,
-    FormatOption,
-    JsonOption,
     LimitOption,
-    MarketOption,
-    OffsetOption,
-    RawOption,
-    ScopeOption,
-    SortOption,
     UrisArgument,
-    WhereOption,
     async_command,
     print_result,
 )
@@ -34,8 +26,8 @@ COLUMNS = ("id", "name", "owner", "uri")
 SNAPSHOT_COLUMNS = ("playlist_id", "snapshot_id", "total")
 
 _MODIFY_SCOPES = [
-    SpotifyScope.PLAYLIST_MODIFY_PUBLIC.value,
-    SpotifyScope.PLAYLIST_MODIFY_PRIVATE.value,
+    SpotifyScope.PLAYLIST_MODIFY_PUBLIC,
+    SpotifyScope.PLAYLIST_MODIFY_PRIVATE,
 ]
 
 
@@ -44,26 +36,14 @@ _MODIFY_SCOPES = [
 async def search_playlists(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
-        result = await spotify.playlists.find(query, limit=limit, offset=offset)
+    async with spotify_client() as spotify:
+        result = await spotify.playlists.find(query, limit=limit)
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -71,21 +51,13 @@ async def search_playlists(
 @async_command
 async def get_playlist(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
-    market: MarketOption = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
-        result = await spotify.playlists.get(playlist_id, market=market)
+    async with spotify_client() as spotify:
+        result = await spotify.playlists.get(playlist_id, market=_default_market())
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -95,30 +67,14 @@ async def get_playlist(
 async def list_playlists(
     user_id: Annotated[str | None, typer.Option("--user-id", "-u")] = None,
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(
-        scope or [SpotifyScope.PLAYLIST_READ_PRIVATE.value]
-    ) as spotify:
-        result = await spotify.playlists.list(
-            user_id=user_id, limit=limit, offset=offset
-        )
+    async with spotify_client([SpotifyScope.PLAYLIST_READ_PRIVATE]) as spotify:
+        result = await spotify.playlists.list(user_id=user_id, limit=limit)
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -126,7 +82,6 @@ async def list_playlists(
 @async_command
 async def playlist_tracks(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
-    market: MarketOption = None,
     fields_query: Annotated[
         str | None,
         typer.Option(
@@ -135,36 +90,23 @@ async def playlist_tracks(
         ),
     ] = None,
     limit: LimitOption = 20,
-    offset: OffsetOption = 0,
     additional_types: Annotated[
         list[str] | None, typer.Option("--additional-type")
     ] = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    where: WhereOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
+    async with spotify_client() as spotify:
         result = await spotify.playlists.tracks(
             playlist_id,
-            market=market,
+            market=_default_market(),
             fields=fields_query,
             limit=limit,
-            offset=offset,
             additional_types=_split_values(additional_types) or None,
         )
     print_result(
         result,
         columns=("track.id", "track.name", "track.artists", "added_at"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
-        where=where,
     )
 
 
@@ -178,13 +120,9 @@ async def create_playlist(
     ] = False,
     description: Annotated[str, typer.Option("--description", "-d")] = "",
     user_id: Annotated[str | None, typer.Option("--user-id", "-u")] = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(_MODIFY_SCOPES) as spotify:
         result = await spotify.playlists.create(
             name,
             public=public,
@@ -195,9 +133,6 @@ async def create_playlist(
     print_result(
         result,
         columns=COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -212,13 +147,9 @@ async def update_playlist(
         bool | None, typer.Option("--collaborative/--not-collaborative")
     ] = None,
     description: Annotated[str | None, typer.Option("--description", "-d")] = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(_MODIFY_SCOPES) as spotify:
         await spotify.playlists.update(
             playlist_id,
             name=name,
@@ -230,9 +161,6 @@ async def update_playlist(
     print_result(
         result,
         columns=("id", "name", "public", "collaborative", "description"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -243,14 +171,10 @@ async def add_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     uris: UrisArgument,
     position: Annotated[int | None, typer.Option("--position")] = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
     """Add one or many URIs in a single call."""
-    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(_MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.add(
             playlist_id, _split_values(uris), position=position
         )
@@ -264,9 +188,6 @@ async def add_playlist_items(
     print_result(
         result,
         columns=SNAPSHOT_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -276,13 +197,9 @@ async def add_playlist_items(
 async def replace_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     uris: UrisArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(_MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.replace(playlist_id, _split_values(uris))
         playlist = await spotify.playlists.get(playlist_id)
     result = {
@@ -294,9 +211,6 @@ async def replace_playlist_items(
     print_result(
         result,
         columns=SNAPSHOT_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -306,13 +220,9 @@ async def replace_playlist_items(
 async def remove_playlist_items(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
     uris: UrisArgument,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(_MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.remove(playlist_id, _split_values(uris))
         playlist = await spotify.playlists.get(playlist_id)
     result = {
@@ -324,9 +234,6 @@ async def remove_playlist_items(
     print_result(
         result,
         columns=SNAPSHOT_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -339,13 +246,9 @@ async def reorder_playlist_items(
     insert_before: Annotated[int, typer.Option("--insert-before", min=0)],
     range_length: Annotated[int, typer.Option("--range-length", min=1)] = 1,
     snapshot_id: Annotated[str | None, typer.Option("--snapshot-id")] = None,
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(_MODIFY_SCOPES) as spotify:
         new_snapshot_id = await spotify.playlists.reorder(
             playlist_id,
             range_start=range_start,
@@ -363,9 +266,6 @@ async def reorder_playlist_items(
     print_result(
         result,
         columns=SNAPSHOT_COLUMNS,
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
     )
 
@@ -374,21 +274,12 @@ async def reorder_playlist_items(
 @async_command
 async def playlist_cover_image(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
-    fmt: FormatOption = None,
-    json_output: JsonOption = False,
-    raw: RawOption = False,
     fields: FieldsOption = None,
-    sort: SortOption = None,
-    scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(scope) as spotify:
+    async with spotify_client() as spotify:
         result = await spotify.playlists.cover_image(playlist_id)
     print_result(
         result,
         columns=("url", "width", "height"),
-        fmt=fmt,
-        json_output=json_output,
-        raw=raw,
         fields=fields,
-        sort=sort,
     )

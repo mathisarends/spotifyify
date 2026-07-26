@@ -334,19 +334,17 @@ spotifyify --help
 
 ### Output contract
 
-Every command writes JSON to stdout and nothing else. The format depends only on
-arguments and environment — never on whether stdout is a terminal — so piping
-through `tee` or capturing the output cannot change its shape.
+Every command writes JSON to stdout and nothing else, regardless of whether
+stdout is a terminal — so piping through `tee` or capturing the output cannot
+change its shape.
 
 | | |
 | --- | --- |
-| Format | JSON by default; `--format table` for aligned text, `--format json` to be explicit |
+| Format | Always JSON |
 | Shape | A JSON array of row objects whose keys are the command's declared columns, in a fixed order |
 | Encoding | UTF-8, no ANSI escapes, no pager, no prompts |
 | Errors | Plain text on stderr |
 | Exit codes | `0` ok, `1` API error, `2` usage error, `3` auth error, `4` no match |
-
-Set `SPOTIFYIFY_FORMAT=table` to change the default for an interactive shell.
 
 ```bash
 spotifyify tracks search "Ikkimel" --limit 2
@@ -364,9 +362,8 @@ spotifyify tracks search "Ikkimel" --limit 2
 ]
 ```
 
-Both formats project the same fields, so `--format` changes the encoding and
-nothing else. `--raw` opts out into the untouched Spotify payload when you need
-paging metadata or a field that is not a declared column.
+Set `SPOTIFYIFY_RAW=1` to get the untouched Spotify payload instead, for
+debugging paging metadata or a field that is not a declared column.
 
 ### Command discovery
 
@@ -388,7 +385,7 @@ The CLI mirrors the public namespace API from `spotifyify.namespaces`:
 ```bash
 spotifyify tracks search "Daft Punk" --limit 5
 spotifyify albums get 4aawyAB9vmqN3uQ7FjRGTy
-spotifyify playlists list --scope playlist-read-private
+spotifyify playlists list
 ```
 
 To find something and play it without a separate lookup:
@@ -419,24 +416,19 @@ pass `--no-wait` to skip that and read immediately. Library and follow mutations
 report the resulting saved/following state, and playlist mutations report the new
 snapshot and length.
 
-### Filtering and ordering
+### Filtering
 
 ```bash
 spotifyify tracks search "Daft Punk" --limit 3 --field id,name,uri
-spotifyify library saved-tracks --sort track.name
-spotifyify library top-tracks --limit 50 --where "artists=Ikkimel"
 spotifyify playlists tracks PLAYLIST_ID --spotify-fields "items(track(id,name))"
 ```
 
 | Option | Effect |
 | --- | --- |
 | `--field`, `-f` | Replace the declared columns with the given field paths |
-| `--sort` | Stable re-sort by field path; prefix `-` for descending, repeat for tiebreakers |
-| `--where` | Keep rows whose field path contains a value, case-insensitively |
 | `--spotify-fields` | Server-side filter applied by Spotify before it sends the response |
 
-Rows otherwise keep the order Spotify returned them in. `--sort` is stable, so
-ties keep that order and repeated calls are reproducible.
+Rows otherwise keep the order Spotify returned them in.
 
 ### Batching
 
@@ -456,24 +448,32 @@ spotifyify library save-tracks ID_1,ID_2,ID_3
 
 | Option | Description |
 | ------ | ----------- |
-| `--format` | `json` (default) or `table` |
-| `--json` | Shorthand for `--format json` |
-| `--raw` | Emit the untouched Spotify payload |
 | `--field`, `--fields`, `-f` | Include only selected field paths |
-| `--sort` | Stable sort by field path |
-| `--where` | Keep only matching rows |
-| `--scope`, `-s` | Request OAuth scopes |
 | `--limit`, `-l` | Number of items to fetch, capped at Spotify's per-endpoint limits |
-| `--offset`, `-o` | Result offset for paginated endpoints |
-| `--market`, `-m` | ISO 3166-1 alpha-2 market code |
-| `--device-id` | Target Spotify Connect device for playback commands |
 | `--wait` / `--no-wait` | Whether playback mutations wait for the change to take effect |
 
-Most user-scoped commands set the matching default scope automatically. Override
-or extend scopes with `--scope` when you need a different authorization grant.
-When a command needs user authorization and no token is configured yet, the CLI
-uses the same interactive Authorization Code login and token cache as the Python
-client.
+Each command already requests the OAuth scopes it needs — there is no way to
+override that per call. When a command needs user authorization and no token
+is configured yet, the CLI uses the same interactive Authorization Code login
+and token cache as the Python client.
+
+### Global options
+
+`--market` and `--device-id` apply to the whole invocation, so they go before
+the group name rather than on the individual command:
+
+```bash
+spotifyify --market DE tracks search "Daft Punk"
+spotifyify --device-id kitchen player play --uri spotify:track:TRACK_ID
+```
+
+| Option | Description | Env var fallback |
+| ------ | ----------- | ----------------- |
+| `--market`, `-m` | ISO 3166-1 alpha-2 market code | `SPOTIFYIFY_MARKET` |
+| `--device-id` | Target Spotify Connect device for playback commands | `SPOTIFYIFY_DEVICE_ID` |
+
+A flag always wins over its env var. Neither is required — omit both and
+Spotify falls back to its own default market and active device.
 
 ### Command overview
 
