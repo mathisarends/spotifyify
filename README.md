@@ -332,57 +332,142 @@ uv tool install --from . "spotifyify[cli]"
 spotifyify --help
 ```
 
+### Output contract
+
+Every command writes JSON to stdout and nothing else. The format depends only on
+arguments and environment — never on whether stdout is a terminal — so piping
+through `tee` or capturing the output cannot change its shape.
+
+| | |
+| --- | --- |
+| Format | JSON by default; `--format table` for aligned text, `--format json` to be explicit |
+| Shape | A JSON array of row objects whose keys are the command's declared columns, in a fixed order |
+| Encoding | UTF-8, no ANSI escapes, no pager, no prompts |
+| Errors | Plain text on stderr |
+| Exit codes | `0` ok, `1` API error, `2` usage error, `3` auth error, `4` no match |
+
+Set `SPOTIFYIFY_FORMAT=table` to change the default for an interactive shell.
+
+```bash
+spotifyify tracks search "Ikkimel" --limit 2
+```
+
+```json
+[
+  {
+    "id": "4H0ly29pj5g6vMKum5kkhu",
+    "name": "WHO'S THAT",
+    "artists": ["Ikkimel"],
+    "album.name": "WHO'S THAT",
+    "uri": "spotify:track:4H0ly29pj5g6vMKum5kkhu"
+  }
+]
+```
+
+Both formats project the same fields, so `--format` changes the encoding and
+nothing else. `--raw` opts out into the untouched Spotify payload when you need
+paging metadata or a field that is not a declared column.
+
+### One-shot discoverability
+
+`--agent-help` dumps the entire command tree and this output contract in a single
+call, small enough to paste into a system prompt:
+
+```bash
+spotifyify --agent-help
+```
+
+Group names also tolerate the singular form, so `spotifyify artist get ID` works
+as well as `artists`. Unknown names list the alternatives in the error itself
+rather than requiring a `--help` round trip.
+
 ### Everyday usage
 
 The CLI mirrors the public namespace API from `spotifyify.namespaces`:
 
 ```bash
 spotifyify tracks search "Daft Punk" --limit 5
-spotifyify albums get 4aawyAB9vmqN3uQ7FjRGTy --json
+spotifyify albums get 4aawyAB9vmqN3uQ7FjRGTy
 spotifyify playlists list --scope playlist-read-private
 ```
 
-Search and read commands print compact tables by default. Mutating commands
-print `OK` or a Spotify snapshot ID. Use `--json` when scripts or agents need
-machine-readable output:
+To find something and play it without a separate lookup:
 
 ```bash
-spotifyify playlists add PLAYLIST_ID spotify:track:TRACK_ID --json
-spotifyify library check-tracks TRACK_ID_1,TRACK_ID_2 --json
-spotifyify users check-following artist ARTIST_ID --json
+spotifyify play --artist Ikkimel --track "WHO'S THAT"
 ```
 
-### Filtering output
+A track name (or free text) plays that one track; without one, `--album` plays
+the album and `--artist` alone plays the artist. If Spotify reports no active
+device, the CLI picks a controllable one and retries.
 
-Use `--field`, `--fields`, or `-f` to keep only selected response fields. The
-option can be repeated or passed as a comma-separated list:
+### Mutations return the new state
+
+Commands that change something report the state they produced, so no follow-up
+read is needed:
 
 ```bash
-spotifyify tracks search "Daft Punk" --limit 3 --field id --field name --field uri
-spotifyify tracks search "Daft Punk" --json --fields items.0.id,items.0.name
-spotifyify player state --json --fields item.name,is_playing,progress_ms
-spotifyify library saved-tracks --json --fields track.id,track.name,added_at
+spotifyify player play --uri spotify:track:TRACK_ID
 ```
 
-IDs, URIs, scopes, and fields accept repeated values or comma-separated values:
+```json
+[{"state": "playing", "track": "HAMPELMANN", "artists": ["Ikkimel"], "device": "Wohnzimmer"}]
+```
+
+Playback commands briefly wait for Spotify to apply the change before reporting;
+pass `--no-wait` to skip that and read immediately. Library and follow mutations
+report the resulting saved/following state, and playlist mutations report the new
+snapshot and length.
+
+### Filtering and ordering
 
 ```bash
-spotifyify tracks get-many 4uLU6hMCjMI75M1A2tKUQC,0DiWol3AO6WpXZgp0goxAV
+spotifyify tracks search "Daft Punk" --limit 3 --field id,name,uri
+spotifyify library saved-tracks --sort track.name
+spotifyify library top-tracks --limit 50 --where "artists=Ikkimel"
+spotifyify playlists tracks PLAYLIST_ID --spotify-fields "items(track(id,name))"
+```
+
+| Option | Effect |
+| --- | --- |
+| `--field`, `-f` | Replace the declared columns with the given field paths |
+| `--sort` | Stable re-sort by field path; prefix `-` for descending, repeat for tiebreakers |
+| `--where` | Keep rows whose field path contains a value, case-insensitively |
+| `--spotify-fields` | Server-side filter applied by Spotify before it sends the response |
+
+Rows otherwise keep the order Spotify returned them in. `--sort` is stable, so
+ties keep that order and repeated calls are reproducible.
+
+### Batching
+
+Commands that take IDs or URIs are variadic and accept repeated or
+comma-separated values. One call fans out to as many API requests as Spotify's
+per-endpoint id limits require:
+
+```bash
+spotifyify tracks get ID_1 ID_2 ID_3
+spotifyify albums get ID_1,ID_2
 spotifyify playlists add PLAYLIST_ID spotify:track:ID_1 spotify:track:ID_2
-spotifyify playlists list --scope playlist-read-private,user-library-read
+spotifyify player add-to-queue spotify:track:ID_1 spotify:track:ID_2
+spotifyify library save-tracks ID_1,ID_2,ID_3
 ```
 
 ### Common options
 
 | Option | Description |
 | ------ | ----------- |
-| `--json` | Print the raw Pydantic response payload as JSON instead of a compact table |
+| `--format` | `json` (default) or `table` |
+| `--json` | Shorthand for `--format json` |
+| `--raw` | Emit the untouched Spotify payload |
 | `--field`, `--fields`, `-f` | Include only selected field paths |
+| `--sort` | Stable sort by field path |
+| `--where` | Keep only matching rows |
 | `--scope`, `-s` | Request OAuth scopes |
 | `--limit`, `-l` | Number of items to fetch, capped at Spotify's per-endpoint limits |
 | `--offset`, `-o` | Result offset for paginated endpoints |
 | `--market`, `-m` | ISO 3166-1 alpha-2 market code |
 | `--device-id` | Target Spotify Connect device for playback commands |
+| `--wait` / `--no-wait` | Whether playback mutations wait for the change to take effect |
 
 Most user-scoped commands set the matching default scope automatically. Override
 or extend scopes with `--scope` when you need a different authorization grant.
@@ -394,20 +479,21 @@ client.
 
 | Namespace | Commands |
 | --------- | -------- |
-| `tracks` | `search`, `get`, `get-many` |
-| `artists` | `search`, `get`, `get-many`, `top-tracks`, `albums`, `related` |
-| `albums` | `search`, `get`, `get-many`, `tracks`, `new-releases` |
+| *(top level)* | `play` |
+| `tracks` | `search`, `get` |
+| `artists` | `search`, `get`, `top-tracks`, `albums`, `related` |
+| `albums` | `search`, `get`, `tracks`, `new-releases` |
 | `playlists` | `search`, `get`, `list`, `tracks`, `create`, `update`, `add`, `replace`, `remove`, `reorder`, `cover-image` |
-| `shows` | `search`, `get`, `get-many`, `episodes` |
-| `episodes` | `search`, `get`, `get-many` |
+| `shows` | `search`, `get`, `episodes` |
+| `episodes` | `search`, `get` |
 | `library` | `saved-tracks`, `saved-albums`, `saved-shows`, `saved-episodes`, `top-tracks`, `top-artists`, `save-*`, `remove-*`, `check-*` for tracks/albums/shows/episodes |
 | `player` | `state`, `play`, `pause`, `skip`, `previous`, `seek`, `repeat`, `shuffle`, `volume`, `queue`, `add-to-queue`, `transfer`, `devices`, `recently-played` |
 | `users` | `me`, `get`, `following`, `follow`, `unfollow`, `check-following` |
 
-Use Typer's built-in help to inspect exact arguments and options:
+`get` replaces the former `get-many`, which is still accepted as an alias.
 
 ```bash
-spotifyify --help
+spotifyify --agent-help
 spotifyify playlists create --help
 spotifyify player play --help
 ```

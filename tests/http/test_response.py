@@ -35,6 +35,12 @@ class TestParseResponse(unittest.TestCase):
     def test_empty_content_returns_none(self):
         self.assertIsNone(parse_response(self._make_response(200)))
 
+    def test_non_json_success_body_is_not_an_error(self):
+        # Some playback endpoints answer 200 with an opaque, non-JSON body.
+        response = self._make_response(200, content=b"0YcilXzZl6EEW9kWEytjWC7bsX4")
+
+        self.assertIsNone(parse_response(response))
+
     def test_successful_json_is_returned(self):
         self.assertEqual(
             parse_response(self._make_response(200, json_data={"tracks": []})),

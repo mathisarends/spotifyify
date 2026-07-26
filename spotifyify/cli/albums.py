@@ -4,21 +4,33 @@ from typing import Annotated
 
 import typer
 
-from ._core import _coalesce_scopes, _split_values
+from ._aliases import AliasGroup
+from ._core import BATCH_ALBUMS, _coalesce_scopes, _gather_batches, _split_values
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
+    FormatOption,
     IdsArgument,
     JsonOption,
     LimitOption,
     MarketOption,
     OffsetOption,
+    RawOption,
     ScopeOption,
+    SortOption,
+    WhereOption,
     _handle,
     _render,
 )
 
-app = typer.Typer(help="Work with Spotify albums.")
+app = typer.Typer(
+    help="Work with Spotify albums.",
+    cls=AliasGroup,
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
+
+COLUMNS = ("id", "name", "artists", "uri")
 
 
 @app.command("search")
@@ -27,8 +39,12 @@ def search_albums(
     limit: LimitOption = DEFAULT_LIMIT,
     offset: OffsetOption = 0,
     market: MarketOption = None,
+    fmt: FormatOption = None,
     json_output: JsonOption = False,
+    raw: RawOption = False,
     fields: FieldsOption = None,
+    sort: SortOption = None,
+    where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
     result = _handle(
@@ -39,51 +55,47 @@ def search_albums(
     )
     _render(
         result,
+        columns=COLUMNS,
+        fmt=fmt,
         json_output=json_output,
+        raw=raw,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
+        sort=sort,
+        where=where,
     )
 
 
 @app.command("get")
-def get_album(
-    album_id: Annotated[str, typer.Argument(help="Spotify album ID.")],
-    market: MarketOption = None,
-    json_output: JsonOption = False,
-    fields: FieldsOption = None,
-    scope: ScopeOption = None,
-) -> None:
-    result = _handle(
-        lambda spotify: spotify.albums.get(album_id, market=market),
-        scopes=_coalesce_scopes(scope),
-    )
-    _render(
-        result,
-        json_output=json_output,
-        fields=fields,
-        columns=("id", "name", "artists", "uri"),
-    )
-
-
-@app.command("get-many")
-def get_many_albums(
+def get_albums(
     album_ids: IdsArgument,
     market: MarketOption = None,
+    fmt: FormatOption = None,
     json_output: JsonOption = False,
+    raw: RawOption = False,
     fields: FieldsOption = None,
+    sort: SortOption = None,
+    where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
+    """Fetch one or many albums in a single call."""
+    ids = _split_values(album_ids)
     result = _handle(
-        lambda spotify: spotify.albums.get_many(
-            _split_values(album_ids), market=market
+        lambda spotify: _gather_batches(
+            lambda chunk: spotify.albums.get_many(chunk, market=market),
+            ids,
+            BATCH_ALBUMS,
         ),
         scopes=_coalesce_scopes(scope),
     )
     _render(
         result,
+        columns=COLUMNS,
+        fmt=fmt,
         json_output=json_output,
+        raw=raw,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
+        sort=sort,
+        where=where,
     )
 
 
@@ -93,8 +105,12 @@ def album_tracks(
     limit: LimitOption = 50,
     offset: OffsetOption = 0,
     market: MarketOption = None,
+    fmt: FormatOption = None,
     json_output: JsonOption = False,
+    raw: RawOption = False,
     fields: FieldsOption = None,
+    sort: SortOption = None,
+    where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
     result = _handle(
@@ -105,9 +121,13 @@ def album_tracks(
     )
     _render(
         result,
+        columns=COLUMNS,
+        fmt=fmt,
         json_output=json_output,
+        raw=raw,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
+        sort=sort,
+        where=where,
     )
 
 
@@ -116,8 +136,12 @@ def new_releases(
     country: Annotated[str | None, typer.Option("--country", "-c")] = None,
     limit: LimitOption = 20,
     offset: OffsetOption = 0,
+    fmt: FormatOption = None,
     json_output: JsonOption = False,
+    raw: RawOption = False,
     fields: FieldsOption = None,
+    sort: SortOption = None,
+    where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
     result = _handle(
@@ -128,7 +152,11 @@ def new_releases(
     )
     _render(
         result,
+        columns=COLUMNS,
+        fmt=fmt,
         json_output=json_output,
+        raw=raw,
         fields=fields,
-        columns=("id", "name", "artists", "uri"),
+        sort=sort,
+        where=where,
     )
