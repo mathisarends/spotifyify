@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
 from .core import (
     BATCH_EPISODES,
-    _default_market,
-    _gather_batches,
-    _split_values,
+    default_market,
+    gather_batches,
+    split_values,
     spotify_client,
 )
 from .options import (
@@ -39,7 +37,7 @@ async def search_episodes(
 ) -> None:
     async with spotify_client() as spotify:
         result = await spotify.episodes.find(
-            query, limit=limit, market=_default_market()
+            query, limit=limit, market=default_market()
         )
     print_result(
         result,
@@ -55,10 +53,10 @@ async def get_episodes(
     fields: FieldsOption = None,
 ) -> None:
     """Fetch one or many episodes in a single call."""
-    ids = _split_values(episode_ids)
-    market = _default_market()
+    ids = split_values(episode_ids)
+    market = default_market()
     async with spotify_client() as spotify:
-        result = await _gather_batches(
+        result = await gather_batches(
             lambda chunk: spotify.episodes.get_many(chunk, market=market),
             ids,
             BATCH_EPISODES,

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import os
@@ -11,6 +9,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from spotifyify import Spotifyify, SpotifyScope
+from spotifyify.schemas import PlaybackState
 
 try:
     import typer
@@ -34,17 +33,17 @@ _device_override: str | None = None
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
 
-def _as_jsonable(value: Jsonable) -> Any:
+def as_jsonable(value: Jsonable) -> Any:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json", exclude_none=True)
     if isinstance(value, list):
-        return [_as_jsonable(item) for item in value]
+        return [as_jsonable(item) for item in value]
     if isinstance(value, dict):
-        return {key: _as_jsonable(item) for key, item in value.items()}
+        return {key: as_jsonable(item) for key, item in value.items()}
     return value
 
 
-def _split_values(values: Sequence[str] | None) -> list[str]:
+def split_values(values: Sequence[str] | None) -> list[str]:
     if not values:
         return []
     items: list[str] = []
@@ -53,16 +52,14 @@ def _split_values(values: Sequence[str] | None) -> list[str]:
     return items
 
 
-def _merge_scopes(*scope_groups: Sequence[SpotifyScope]) -> list[SpotifyScope]:
+def merge_scopes(*scope_groups: Sequence[SpotifyScope]) -> list[SpotifyScope]:
     merged: list[SpotifyScope] = []
     for group in scope_groups:
         merged.extend(scope for scope in group if scope not in merged)
     return merged
 
 
-def _parse_json_object(
-    raw_value: str | None, option_name: str
-) -> dict[str, Any] | None:
+def parse_json_object(raw_value: str | None, option_name: str) -> dict[str, Any] | None:
     if not raw_value:
         return None
     try:
@@ -80,7 +77,7 @@ def _parse_json_object(
     return value
 
 
-def _get_path(value: Any, path: str) -> Any:
+def get_path(value: Any, path: str) -> Any:
     current = value
     for part in path.split("."):
         if isinstance(current, Mapping):
@@ -97,16 +94,16 @@ def _get_path(value: Any, path: str) -> Any:
     return current
 
 
-def _filter_fields(value: Any, fields: Sequence[str]) -> Any:
+def filter_fields(value: Any, fields: Sequence[str]) -> Any:
     if not fields:
         return value
     if isinstance(value, list):
-        return [_filter_fields(item, fields) for item in value]
-    return {field: _get_path(value, field) for field in fields}
+        return [filter_fields(item, fields) for item in value]
+    return {field: get_path(value, field) for field in fields}
 
 
 def _format_value(value: Any) -> str:
-    value = _as_jsonable(value)
+    value = as_jsonable(value)
     if value is None:
         return ""
     if isinstance(value, bool):
@@ -122,7 +119,7 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
-def _cell(value: Any) -> str:
+def cell(value: Any) -> str:
     """Render one field as a single-line, escape-free table cell."""
     return _CONTROL_CHARACTERS.sub(" ", _format_value(value))
 
@@ -134,7 +131,7 @@ def _project(value: Any) -> Any:
     `"artists": ["Ikkimel"]` rather than two screens of artist objects, while
     numbers and booleans stay numbers and booleans.
     """
-    value = _as_jsonable(value)
+    value = as_jsonable(value)
     if isinstance(value, list):
         return [_project(item) for item in value]
     if isinstance(value, dict):
@@ -144,16 +141,16 @@ def _project(value: Any) -> Any:
     return value
 
 
-def _rows(value: Any, columns: Sequence[str]) -> list[dict[str, Any]]:
+def rows(value: Any, columns: Sequence[str]) -> list[dict[str, Any]]:
     """The command's declared columns, in order, for every item in the result."""
     return [
-        {column: _project(_get_path(item, column)) for column in columns}
+        {column: _project(get_path(item, column)) for column in columns}
         for item in _items(value)
     ]
 
 
 def _items(value: Any) -> list[Any]:
-    value = _as_jsonable(value)
+    value = as_jsonable(value)
     if isinstance(value, dict) and isinstance(value.get("items"), list):
         return value["items"]
     if isinstance(value, dict) and isinstance(value.get("queue"), list):
@@ -167,17 +164,17 @@ def _items(value: Any) -> list[Any]:
 
 def _sort_key(value: Any) -> tuple[int, float, str]:
     """Total order across mixed types so sorting never raises and never varies."""
-    value = _as_jsonable(value)
+    value = as_jsonable(value)
     if value is None:
         return (2, 0.0, "")
     if isinstance(value, bool):
         return (0, float(value), "")
     if isinstance(value, (int, float)):
         return (0, float(value), "")
-    return (1, 0.0, _cell(value).casefold())
+    return (1, 0.0, cell(value).casefold())
 
 
-def _sort_items(items: Sequence[Any], specs: Sequence[str]) -> list[Any]:
+def sort_items(items: Sequence[Any], specs: Sequence[str]) -> list[Any]:
     """Stable multi-key sort; ties keep the order Spotify returned them in."""
     ordered = list(items)
     for spec in reversed(list(specs)):
@@ -186,7 +183,7 @@ def _sort_items(items: Sequence[Any], specs: Sequence[str]) -> list[Any]:
         if not path:
             continue
         ordered.sort(
-            key=lambda item: _sort_key(_get_path(item, path)), reverse=descending
+            key=lambda item: _sort_key(get_path(item, path)), reverse=descending
         )
     return ordered
 
@@ -205,37 +202,37 @@ def _replace_collection(
     return payload
 
 
-def _apply_sort(value: Any, specs: Sequence[str]) -> Any:
+def apply_sort(value: Any, specs: Sequence[str]) -> Any:
     if not specs:
         return value
     return _replace_collection(
-        _as_jsonable(value), lambda items: _sort_items(items, specs)
+        as_jsonable(value), lambda items: sort_items(items, specs)
     )
 
 
-def _set_default_market(value: str | None) -> None:
+def set_default_market(value: str | None) -> None:
     """Record the --market value from the root command, for this process only."""
     global _market_override
     _market_override = value
 
 
-def _set_default_device_id(value: str | None) -> None:
+def set_default_device_id(value: str | None) -> None:
     """Record the --device-id value from the root command, for this process only."""
     global _device_override
     _device_override = value
 
 
-def _default_market() -> str | None:
+def default_market() -> str | None:
     """Root --market flag, then the environment, then no market at all."""
     return _market_override or os.environ.get(MARKET_ENV_VAR) or None
 
 
-def _default_device_id() -> str | None:
+def default_device_id() -> str | None:
     """Root --device-id flag, then the environment, then no device at all."""
     return _device_override or os.environ.get(DEVICE_ENV_VAR) or None
 
 
-def _is_raw_output() -> bool:
+def is_raw_output() -> bool:
     return os.environ.get(RAW_ENV_VAR) == "1"
 
 
@@ -246,8 +243,8 @@ def _echo(text: str) -> None:
     typer.echo(text)
 
 
-def _print_json(value: Any) -> None:
-    _echo(json.dumps(_as_jsonable(value), indent=2, ensure_ascii=False))
+def print_json(value: Any) -> None:
+    _echo(json.dumps(as_jsonable(value), indent=2, ensure_ascii=False))
 
 
 @asynccontextmanager
@@ -279,7 +276,7 @@ def _chunked(values: Sequence[str], size: int) -> list[list[str]]:
     return [list(values[index : index + size]) for index in range(0, len(values), size)]
 
 
-async def _gather_batches(
+async def gather_batches(
     action: Callable[[list[str]], Awaitable[Sequence[Any]]],
     ids: Sequence[str],
     size: int,
@@ -292,7 +289,7 @@ async def _gather_batches(
     return [item for result in results for item in result]
 
 
-async def _sequential_batches(
+async def sequential_batches(
     action: Callable[[list[str]], Awaitable[Any]],
     ids: Sequence[str],
     size: int,
@@ -310,10 +307,10 @@ PLAYBACK_COLUMNS = ("state", "track", "artists", "device")
 SETTLE_ATTEMPTS = 4
 SETTLE_DELAY_SECONDS = 0.25
 
-Predicate = Callable[[Any], bool]
+Predicate = Callable[[PlaybackState | None], bool]
 
 
-def _playback_summary(state: Any) -> dict[str, Any]:
+def playback_summary(state: Any) -> dict[str, Any]:
     """A flat, fixed-key view of playback that mutations and reads both emit."""
     if state is None:
         return {
@@ -328,7 +325,7 @@ def _playback_summary(state: Any) -> dict[str, Any]:
             "repeat": "",
             "uri": "",
         }
-    payload = _as_jsonable(state)
+    payload = as_jsonable(state)
     item = payload.get("item") or {}
     artists = item.get("artists") or []
     show = item.get("show") or {}
@@ -349,17 +346,17 @@ def _playback_summary(state: Any) -> dict[str, Any]:
     }
 
 
-def is_playing(state: Any) -> bool:
-    return bool(getattr(state, "is_playing", False))
+def is_playing(state: PlaybackState | None) -> bool:
+    return bool(state and state.is_playing)
 
 
-def is_paused(state: Any) -> bool:
-    return state is not None and not getattr(state, "is_playing", False)
+def is_paused(state: PlaybackState | None) -> bool:
+    return state is not None and not state.is_playing
 
 
-def is_fresh_track(state: Any) -> bool:
+def is_fresh_track(state: PlaybackState | None) -> bool:
     """A just-started track: playing and barely into its runtime."""
-    return is_playing(state) and (getattr(state, "progress_ms", None) or 0) < 5000
+    return is_playing(state) and (state.progress_ms or 0) < 5000
 
 
 def plays_uri(uri: str | None) -> Predicate:
@@ -371,21 +368,18 @@ def plays_uri(uri: str | None) -> Predicate:
     if uri is None:
         return is_fresh_track
 
-    def matches(state: Any) -> bool:
-        return (
-            is_playing(state)
-            and getattr(getattr(state, "item", None), "uri", None) == uri
-        )
+    def matches(state: PlaybackState | None) -> bool:
+        return is_playing(state) and state.item is not None and state.item.uri == uri
 
     return matches
 
 
-async def _settled_playback(
+async def settled_playback(
     spotify: Spotifyify,
     *,
     until: Predicate | None = None,
     wait: bool = True,
-) -> Any:
+) -> PlaybackState | None:
     """Read playback back after a mutation, briefly waiting for it to take effect.
 
     Spotify applies playback commands asynchronously, so an immediate read can

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Annotated, Any
 
 import typer
@@ -10,15 +8,15 @@ from spotifyify.schemas import Device
 
 from .core import (
     PLAYBACK_COLUMNS,
-    _default_device_id,
-    _default_market,
-    _is_raw_output,
-    _merge_scopes,
-    _parse_json_object,
-    _playback_summary,
-    _settled_playback,
-    _sort_items,
-    _split_values,
+    default_device_id,
+    default_market,
+    is_raw_output,
+    merge_scopes,
+    parse_json_object,
+    playback_summary,
+    settled_playback,
+    sort_items,
+    split_values,
     is_fresh_track,
     is_paused,
     is_playing,
@@ -45,7 +43,7 @@ MODIFY_SCOPES = [SpotifyScope.USER_MODIFY_PLAYBACK_STATE]
 # Playback mutations report the state they produced, so they need the read
 # scope too — otherwise the caller pays a second round trip to learn what
 # actually happened.
-CONTROL_SCOPES = _merge_scopes(MODIFY_SCOPES, READ_SCOPES)
+CONTROL_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 
 
 def _select_fallback_device(devices: list[Device]) -> Device | None:
@@ -100,12 +98,12 @@ async def player_state(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(READ_SCOPES) as spotify:
-        state = await spotify.player.state(market=_default_market())
+        state = await spotify.player.state(market=default_market())
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -119,7 +117,7 @@ async def player_play(
     wait: WaitOption = True,
     fields: FieldsOption = None,
 ) -> None:
-    uris = _split_values(uri) or None
+    uris = split_values(uri) or None
     if uris:
         # Wait for the requested track, not merely for "something is playing".
         until = plays_uri(uris[0])
@@ -130,18 +128,18 @@ async def player_play(
     async with spotify_client(CONTROL_SCOPES) as spotify:
         await _play_with_device_fallback(
             spotify,
-            device_id=_default_device_id(),
+            device_id=default_device_id(),
             context_uri=context_uri,
             uris=uris,
-            offset=_parse_json_object(offset, "--offset-json"),
+            offset=parse_json_object(offset, "--offset-json"),
             position_ms=position_ms,
         )
-        state = await _settled_playback(spotify, until=until, wait=wait)
+        state = await settled_playback(spotify, until=until, wait=wait)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -152,13 +150,13 @@ async def player_pause(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.pause(device_id=_default_device_id())
-        state = await _settled_playback(spotify, until=is_paused, wait=wait)
+        await spotify.player.pause(device_id=default_device_id())
+        state = await settled_playback(spotify, until=is_paused, wait=wait)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -169,13 +167,13 @@ async def player_skip(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.skip(device_id=_default_device_id())
-        state = await _settled_playback(spotify, until=is_fresh_track, wait=wait)
+        await spotify.player.skip(device_id=default_device_id())
+        state = await settled_playback(spotify, until=is_fresh_track, wait=wait)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -186,13 +184,13 @@ async def player_previous(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.previous(device_id=_default_device_id())
-        state = await _settled_playback(spotify, until=is_fresh_track, wait=wait)
+        await spotify.player.previous(device_id=default_device_id())
+        state = await settled_playback(spotify, until=is_fresh_track, wait=wait)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -203,13 +201,13 @@ async def player_seek(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.seek(position_ms, device_id=_default_device_id())
-        state = await _settled_playback(spotify)
+        await spotify.player.seek(position_ms, device_id=default_device_id())
+        state = await settled_playback(spotify)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -220,13 +218,13 @@ async def player_repeat(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.repeat(state, device_id=_default_device_id())
-        playback = await _settled_playback(spotify)
+        await spotify.player.repeat(state, device_id=default_device_id())
+        playback = await settled_playback(spotify)
     print_result(
         playback,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -237,13 +235,13 @@ async def player_shuffle(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.shuffle(state, device_id=_default_device_id())
-        playback = await _settled_playback(spotify)
+        await spotify.player.shuffle(state, device_id=default_device_id())
+        playback = await settled_playback(spotify)
     print_result(
         playback,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -254,13 +252,13 @@ async def player_volume(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
-        await spotify.player.volume(volume_percent, device_id=_default_device_id())
-        state = await _settled_playback(spotify)
+        await spotify.player.volume(volume_percent, device_id=default_device_id())
+        state = await settled_playback(spotify)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -285,20 +283,20 @@ async def add_to_queue(
     fields: FieldsOption = None,
 ) -> None:
     """Queue one or many tracks or episodes in a single call."""
-    queued = _split_values(uris)
-    device_id = _default_device_id()
+    queued = split_values(uris)
+    device_id = default_device_id()
 
     async with spotify_client(CONTROL_SCOPES) as spotify:
         # Spotify has no bulk queue endpoint and the queue is ordered, so these
         # must stay sequential.
         for uri in queued:
             await spotify.player.add_to_queue(uri, device_id=device_id)
-        state = await _settled_playback(spotify)
+        state = await settled_playback(spotify)
     print_result(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -312,7 +310,7 @@ async def transfer_playback(
 ) -> None:
     async with spotify_client(CONTROL_SCOPES) as spotify:
         await spotify.player.transfer(device_id, play=play)
-        state = await _settled_playback(
+        state = await settled_playback(
             spotify,
             until=is_playing if play else None,
             wait=wait,
@@ -321,7 +319,7 @@ async def transfer_playback(
         state,
         columns=PLAYBACK_COLUMNS,
         fields=fields,
-        project=_playback_summary,
+        project=playback_summary,
     )
 
 
@@ -334,7 +332,7 @@ async def player_devices(
         result = await spotify.player.devices()
     # Spotify returns devices in no defined order; sort so repeated calls and
     # any caching built on top of them stay reproducible.
-    display_result = result if _is_raw_output() else _sort_items(result or [], ("id",))
+    display_result = result if is_raw_output() else sort_items(result or [], ("id",))
     print_result(
         display_result,
         columns=("id", "name", "type", "is_active", "volume_percent"),

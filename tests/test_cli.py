@@ -31,7 +31,7 @@ class TestCli(unittest.TestCase):
 
     def test_split_values_accepts_repeated_and_csv_values(self):
         self.assertEqual(
-            cli._split_values(["a,b", "c d"]),
+            cli.split_values(["a,b", "c d"]),
             ["a", "b", "c", "d"],
         )
 
@@ -48,10 +48,10 @@ class TestCli(unittest.TestCase):
         }
 
         self.assertEqual(
-            cli._filter_fields(payload["items"], ["id", "album.name"]),
+            cli.filter_fields(payload["items"], ["id", "album.name"]),
             [{"id": "track_id", "album.name": "Album"}],
         )
-        self.assertEqual(cli._get_path(payload, "items.0.name"), "Track")
+        self.assertEqual(cli.get_path(payload, "items.0.name"), "Track")
 
     def test_typer_app_registers_all_namespace_groups_when_available(self):
         if cli.typer is None:
@@ -93,9 +93,7 @@ class TestOutputContract(unittest.TestCase):
             ]
         }
 
-        rows = cli._rows(
-            payload, ("id", "name", "artists", "album.name", "duration_ms")
-        )
+        rows = cli.rows(payload, ("id", "name", "artists", "album.name", "duration_ms"))
 
         self.assertEqual(
             list(rows[0]),
@@ -107,11 +105,11 @@ class TestOutputContract(unittest.TestCase):
         self.assertEqual(rows[0]["duration_ms"], 1000)
 
     def test_cells_never_contain_control_characters(self):
-        rows = cli._rows([{"name": "a\tb\nc\x1b[31m"}], ("name",))
+        rows = cli.rows([{"name": "a\tb\nc\x1b[31m"}], ("name",))
 
-        self.assertNotIn("\t", cli._cell(rows[0]["name"]))
-        self.assertNotIn("\n", cli._cell(rows[0]["name"]))
-        self.assertNotIn("\x1b", cli._cell(rows[0]["name"]))
+        self.assertNotIn("\t", cli.cell(rows[0]["name"]))
+        self.assertNotIn("\n", cli.cell(rows[0]["name"]))
+        self.assertNotIn("\x1b", cli.cell(rows[0]["name"]))
 
 
 class TestStableOrdering(unittest.TestCase):
@@ -122,14 +120,14 @@ class TestStableOrdering(unittest.TestCase):
             {"name": "same", "id": "third"},
         ]
 
-        ordered = cli._sort_items(items, ["name"])
+        ordered = cli.sort_items(items, ["name"])
 
         self.assertEqual([item["id"] for item in ordered], ["first", "second", "third"])
 
     def test_sort_handles_missing_values_without_raising(self):
         items = [{"n": 2}, {"n": None}, {"n": 1}, {}]
 
-        ordered = cli._sort_items(items, ["n"])
+        ordered = cli.sort_items(items, ["n"])
 
         # Numbers first in order, absent values last.
         self.assertEqual([item.get("n") for item in ordered], [1, 2, None, None])
@@ -137,14 +135,14 @@ class TestStableOrdering(unittest.TestCase):
     def test_descending_sort_uses_a_leading_dash(self):
         items = [{"n": 1}, {"n": 3}, {"n": 2}]
 
-        ordered = cli._sort_items(items, ["-n"])
+        ordered = cli.sort_items(items, ["-n"])
 
         self.assertEqual([item["n"] for item in ordered], [3, 2, 1])
 
     def test_sort_applies_inside_a_paging_envelope(self):
         payload = {"total": 2, "items": [{"n": 2}, {"n": 1}]}
 
-        result = cli._apply_sort(payload, ["n"])
+        result = cli.apply_sort(payload, ["n"])
 
         self.assertEqual(result["items"], [{"n": 1}, {"n": 2}])
         self.assertEqual(result["total"], 2)
@@ -152,7 +150,7 @@ class TestStableOrdering(unittest.TestCase):
 
 class TestPlaybackSummary(unittest.TestCase):
     def test_summary_of_no_playback_is_stopped(self):
-        summary = cli._playback_summary(None)
+        summary = cli.playback_summary(None)
 
         self.assertEqual(summary["state"], "stopped")
         self.assertEqual(summary["artists"], [])
@@ -170,7 +168,7 @@ class TestPlaybackSummary(unittest.TestCase):
             }
         )
 
-        summary = cli._playback_summary(state)
+        summary = cli.playback_summary(state)
 
         self.assertEqual(summary["state"], "playing")
         self.assertEqual(summary["track"], "HAMPELMANN")
@@ -180,7 +178,7 @@ class TestPlaybackSummary(unittest.TestCase):
     def test_paused_playback_is_reported_as_paused(self):
         state = PlaybackState.model_validate({"is_playing": False})
 
-        self.assertEqual(cli._playback_summary(state)["state"], "paused")
+        self.assertEqual(cli.playback_summary(state)["state"], "paused")
 
 
 class TestBatching(unittest.TestCase):

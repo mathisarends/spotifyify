@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
 from .core import (
     BATCH_ARTISTS,
-    _default_market,
-    _gather_batches,
-    _split_values,
+    default_market,
+    gather_batches,
+    split_values,
     spotify_client,
 )
 from .options import (
@@ -54,9 +52,9 @@ async def get_artists(
     fields: FieldsOption = None,
 ) -> None:
     """Fetch one or many artists in a single call."""
-    ids = _split_values(artist_ids)
+    ids = split_values(artist_ids)
     async with spotify_client() as spotify:
-        result = await _gather_batches(spotify.artists.get_many, ids, BATCH_ARTISTS)
+        result = await gather_batches(spotify.artists.get_many, ids, BATCH_ARTISTS)
     print_result(
         result,
         columns=COLUMNS,
@@ -72,7 +70,7 @@ async def artist_top_tracks(
 ) -> None:
     async with spotify_client() as spotify:
         result = await spotify.artists.top_tracks(
-            artist_id, market=_default_market() or "US"
+            artist_id, market=default_market() or "US"
         )
     print_result(
         result,
@@ -96,7 +94,7 @@ async def artist_albums(
         result = await spotify.artists.albums(
             artist_id,
             include_groups=include_groups,
-            market=_default_market(),
+            market=default_market(),
             limit=limit,
         )
     print_result(

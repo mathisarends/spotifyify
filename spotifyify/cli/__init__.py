@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import sys
 from typing import Annotated
 
@@ -10,30 +8,30 @@ except ImportError:  # pragma: no cover - exercised by installed package users.
 
 from .core import (
     INSTALL_MESSAGE,
-    _apply_sort,
-    _cell,
-    _filter_fields,
-    _get_path,
-    _playback_summary,
-    _rows,
-    _set_default_device_id,
-    _set_default_market,
-    _sort_items,
-    _split_values,
+    apply_sort,
+    cell,
+    filter_fields,
+    get_path,
+    playback_summary,
+    rows,
+    set_default_device_id,
+    set_default_market,
+    sort_items,
+    split_values,
 )
 
 __all__ = [
     "INSTALL_MESSAGE",
     "main",
     "typer",
-    "_apply_sort",
-    "_cell",
-    "_filter_fields",
-    "_get_path",
-    "_playback_summary",
-    "_rows",
-    "_sort_items",
-    "_split_values",
+    "apply_sort",
+    "cell",
+    "filter_fields",
+    "get_path",
+    "playback_summary",
+    "rows",
+    "sort_items",
+    "split_values",
 ]
 
 
@@ -114,8 +112,8 @@ if typer is not None:
             ),
         ] = None,
     ) -> None:
-        _set_default_market(market)
-        _set_default_device_id(device_id)
+        set_default_market(market)
+        set_default_device_id(device_id)
 
 
 if __name__ == "__main__":

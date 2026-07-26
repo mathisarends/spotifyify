@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Sequence
 from functools import wraps
@@ -12,11 +10,11 @@ from spotifyify import SpotifyAPIError, SpotifyAuthError
 
 from .core import (
     Jsonable,
-    _as_jsonable,
-    _is_raw_output,
-    _print_json,
-    _rows,
-    _split_values,
+    as_jsonable,
+    is_raw_output,
+    print_json,
+    rows,
+    split_values,
 )
 
 DEFAULT_LIMIT = 10
@@ -86,9 +84,9 @@ def print_result(
     SPOTIFYIFY_RAW=1 opts out into the untouched Spotify payload, for
     debugging fields that are not part of any command's declared columns.
     """
-    if _is_raw_output():
-        _print_json(_as_jsonable(result))
+    if is_raw_output():
+        print_json(as_jsonable(result))
         return
     payload = project(result) if project is not None else result
-    selected_columns = _split_values(fields) or list(columns)
-    _print_json(_rows(payload, selected_columns))
+    selected_columns = split_values(fields) or list(columns)
+    print_json(rows(payload, selected_columns))

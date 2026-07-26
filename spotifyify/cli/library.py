@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
@@ -11,10 +9,10 @@ from .core import (
     BATCH_EPISODES,
     BATCH_SHOWS,
     BATCH_TRACKS,
-    _default_market,
-    _merge_scopes,
-    _sequential_batches,
-    _split_values,
+    default_market,
+    merge_scopes,
+    sequential_batches,
+    split_values,
     spotify_client,
 )
 from .options import (
@@ -36,7 +34,7 @@ SAVED_COLUMNS = ("id", "saved")
 READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ]
 MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY]
 # Save/remove report the resulting saved state, so they read it back too.
-WRITE_SCOPES = _merge_scopes(MODIFY_SCOPES, READ_SCOPES)
+WRITE_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 
 
 @app.command("saved-tracks")
@@ -47,7 +45,7 @@ async def saved_tracks(
 ) -> None:
     async with spotify_client(READ_SCOPES) as spotify:
         result = await spotify.library.saved_tracks(
-            limit=limit, market=_default_market()
+            limit=limit, market=default_market()
         )
     print_result(
         result,
@@ -64,7 +62,7 @@ async def saved_albums(
 ) -> None:
     async with spotify_client(READ_SCOPES) as spotify:
         result = await spotify.library.saved_albums(
-            limit=limit, market=_default_market()
+            limit=limit, market=default_market()
         )
     print_result(
         result,
@@ -141,9 +139,9 @@ async def save_tracks(
     track_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(track_ids)
+    ids = split_values(track_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.save_tracks, ids, BATCH_TRACKS)
+        await sequential_batches(spotify.library.save_tracks, ids, BATCH_TRACKS)
         saved = await spotify.library.check_tracks(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -162,9 +160,9 @@ async def remove_tracks(
     track_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(track_ids)
+    ids = split_values(track_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.remove_tracks, ids, BATCH_TRACKS)
+        await sequential_batches(spotify.library.remove_tracks, ids, BATCH_TRACKS)
         saved = await spotify.library.check_tracks(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -183,7 +181,7 @@ async def check_tracks(
     track_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(track_ids)
+    ids = split_values(track_ids)
     async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_tracks(ids)
     result = [
@@ -203,9 +201,9 @@ async def save_albums(
     album_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(album_ids)
+    ids = split_values(album_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.save_albums, ids, BATCH_ALBUMS)
+        await sequential_batches(spotify.library.save_albums, ids, BATCH_ALBUMS)
         saved = await spotify.library.check_albums(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -224,9 +222,9 @@ async def remove_albums(
     album_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(album_ids)
+    ids = split_values(album_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.remove_albums, ids, BATCH_ALBUMS)
+        await sequential_batches(spotify.library.remove_albums, ids, BATCH_ALBUMS)
         saved = await spotify.library.check_albums(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -245,7 +243,7 @@ async def check_albums(
     album_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(album_ids)
+    ids = split_values(album_ids)
     async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_albums(ids)
     result = [
@@ -265,9 +263,9 @@ async def save_shows(
     show_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(show_ids)
+    ids = split_values(show_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.save_shows, ids, BATCH_SHOWS)
+        await sequential_batches(spotify.library.save_shows, ids, BATCH_SHOWS)
         saved = await spotify.library.check_shows(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -286,9 +284,9 @@ async def remove_shows(
     show_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(show_ids)
+    ids = split_values(show_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.remove_shows, ids, BATCH_SHOWS)
+        await sequential_batches(spotify.library.remove_shows, ids, BATCH_SHOWS)
         saved = await spotify.library.check_shows(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -307,7 +305,7 @@ async def check_shows(
     show_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(show_ids)
+    ids = split_values(show_ids)
     async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_shows(ids)
     result = [
@@ -327,9 +325,9 @@ async def save_episodes(
     episode_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(episode_ids)
+    ids = split_values(episode_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.save_episodes, ids, BATCH_EPISODES)
+        await sequential_batches(spotify.library.save_episodes, ids, BATCH_EPISODES)
         saved = await spotify.library.check_episodes(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -348,9 +346,9 @@ async def remove_episodes(
     episode_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(episode_ids)
+    ids = split_values(episode_ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(spotify.library.remove_episodes, ids, BATCH_EPISODES)
+        await sequential_batches(spotify.library.remove_episodes, ids, BATCH_EPISODES)
         saved = await spotify.library.check_episodes(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -369,7 +367,7 @@ async def check_episodes(
     episode_ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    ids = _split_values(episode_ids)
+    ids = split_values(episode_ids)
     async with spotify_client(READ_SCOPES) as spotify:
         saved = await spotify.library.check_episodes(ids)
     result = [

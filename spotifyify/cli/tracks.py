@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
 from .core import (
     BATCH_TRACKS,
-    _default_market,
-    _gather_batches,
-    _split_values,
+    default_market,
+    gather_batches,
+    split_values,
     spotify_client,
 )
 from .options import (
@@ -37,7 +35,7 @@ async def search_tracks(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.tracks.find(query, limit=limit, market=_default_market())
+        result = await spotify.tracks.find(query, limit=limit, market=default_market())
     print_result(
         result,
         columns=COLUMNS,
@@ -52,10 +50,10 @@ async def get_tracks(
     fields: FieldsOption = None,
 ) -> None:
     """Fetch one or many tracks in a single call."""
-    ids = _split_values(track_ids)
-    market = _default_market()
+    ids = split_values(track_ids)
+    market = default_market()
     async with spotify_client() as spotify:
-        result = await _gather_batches(
+        result = await gather_batches(
             lambda chunk: spotify.tracks.get_many(chunk, market=market),
             ids,
             BATCH_TRACKS,

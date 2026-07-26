@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
 
 from spotifyify import SpotifyScope
 
-from .core import _default_market, _split_values, spotify_client
+from .core import default_market, split_values, spotify_client
 from .options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -54,7 +52,7 @@ async def get_playlist(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.playlists.get(playlist_id, market=_default_market())
+        result = await spotify.playlists.get(playlist_id, market=default_market())
     print_result(
         result,
         columns=COLUMNS,
@@ -98,10 +96,10 @@ async def playlist_tracks(
     async with spotify_client() as spotify:
         result = await spotify.playlists.tracks(
             playlist_id,
-            market=_default_market(),
+            market=default_market(),
             fields=fields_query,
             limit=limit,
-            additional_types=_split_values(additional_types) or None,
+            additional_types=split_values(additional_types) or None,
         )
     print_result(
         result,
@@ -176,7 +174,7 @@ async def add_playlist_items(
     """Add one or many URIs in a single call."""
     async with spotify_client(_MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.add(
-            playlist_id, _split_values(uris), position=position
+            playlist_id, split_values(uris), position=position
         )
         playlist = await spotify.playlists.get(playlist_id)
     result = {
@@ -200,7 +198,7 @@ async def replace_playlist_items(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(_MODIFY_SCOPES) as spotify:
-        snapshot_id = await spotify.playlists.replace(playlist_id, _split_values(uris))
+        snapshot_id = await spotify.playlists.replace(playlist_id, split_values(uris))
         playlist = await spotify.playlists.get(playlist_id)
     result = {
         "playlist_id": playlist_id,
@@ -223,7 +221,7 @@ async def remove_playlist_items(
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(_MODIFY_SCOPES) as spotify:
-        snapshot_id = await spotify.playlists.remove(playlist_id, _split_values(uris))
+        snapshot_id = await spotify.playlists.remove(playlist_id, split_values(uris))
         playlist = await spotify.playlists.get(playlist_id)
     result = {
         "playlist_id": playlist_id,

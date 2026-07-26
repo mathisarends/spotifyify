@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 from typing import Annotated, Any
 
 import typer
 
 from .core import (
     PLAYBACK_COLUMNS,
-    _default_device_id,
-    _default_market,
-    _playback_summary,
-    _settled_playback,
+    default_device_id,
+    default_market,
+    playback_summary,
+    settled_playback,
     is_fresh_track,
     plays_uri,
     spotify_client,
@@ -95,7 +93,7 @@ def register(app: typer.Typer) -> None:
         # Otherwise the broadest given filter becomes the playback context.
         wants_track = bool(track or words)
         wants_album = bool(album) and not wants_track
-        market = _default_market()
+        market = default_market()
 
         async with spotify_client(CONTROL_SCOPES) as spotify:
             if wants_track:
@@ -114,18 +112,18 @@ def register(app: typer.Typer) -> None:
 
             await _play_with_device_fallback(
                 spotify,
-                device_id=_default_device_id(),
+                device_id=default_device_id(),
                 uris=uris,
                 context_uri=context_uri,
             )
             # Wait for the thing we resolved, so the reported state is not the
             # track that happened to be playing already.
             until = plays_uri(uris[0]) if uris else is_fresh_track
-            state = await _settled_playback(spotify, until=until, wait=wait)
+            state = await settled_playback(spotify, until=until, wait=wait)
 
         print_result(
             state,
             columns=PLAYBACK_COLUMNS,
             fields=fields,
-            project=_playback_summary,
+            project=playback_summary,
         )

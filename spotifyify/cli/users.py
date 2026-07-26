@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Annotated
 
 import typer
@@ -8,9 +6,9 @@ from spotifyify import SpotifyScope
 
 from .core import (
     BATCH_FOLLOW,
-    _merge_scopes,
-    _sequential_batches,
-    _split_values,
+    merge_scopes,
+    sequential_batches,
+    split_values,
     spotify_client,
 )
 from .options import (
@@ -33,7 +31,7 @@ FOLLOWING_COLUMNS = ("id", "following")
 READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ]
 MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY]
 # follow/unfollow report the resulting state, so they read it back too.
-WRITE_SCOPES = _merge_scopes(MODIFY_SCOPES, READ_SCOPES)
+WRITE_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 
 
 @app.command("me")
@@ -89,9 +87,9 @@ async def users_follow(
     ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    item_ids = _split_values(ids)
+    item_ids = split_values(ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(
+        await sequential_batches(
             lambda chunk: spotify.users.follow(type, chunk),
             item_ids,
             BATCH_FOLLOW,
@@ -115,9 +113,9 @@ async def users_unfollow(
     ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    item_ids = _split_values(ids)
+    item_ids = split_values(ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await _sequential_batches(
+        await sequential_batches(
             lambda chunk: spotify.users.unfollow(type, chunk),
             item_ids,
             BATCH_FOLLOW,
@@ -141,7 +139,7 @@ async def users_check_following(
     ids: IdsArgument,
     fields: FieldsOption = None,
 ) -> None:
-    item_ids = _split_values(ids)
+    item_ids = split_values(ids)
     async with spotify_client(READ_SCOPES) as spotify:
         following_values = await spotify.users.check_following(type, item_ids)
     payload = [
