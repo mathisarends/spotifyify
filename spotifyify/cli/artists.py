@@ -4,10 +4,8 @@ from typing import Annotated
 
 import typer
 
-from ._aliases import AliasGroup
 from ._core import (
     BATCH_ARTISTS,
-    _coalesce_scopes,
     _gather_batches,
     _split_values,
     spotify_client,
@@ -31,7 +29,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Work with Spotify artists.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -55,7 +52,7 @@ async def search_artists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.artists.find(query, limit=limit, offset=offset)
     print_result(
         result,
@@ -83,7 +80,7 @@ async def get_artists(
 ) -> None:
     """Fetch one or many artists in a single call."""
     ids = _split_values(artist_ids)
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await _gather_batches(spotify.artists.get_many, ids, BATCH_ARTISTS)
     print_result(
         result,
@@ -110,7 +107,7 @@ async def artist_top_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.artists.top_tracks(artist_id, market=market)
     print_result(
         result,
@@ -143,7 +140,7 @@ async def artist_albums(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.artists.albums(
             artist_id,
             include_groups=include_groups,
@@ -175,7 +172,7 @@ async def related_artists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.artists.related(artist_id)
     print_result(
         result,

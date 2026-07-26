@@ -51,7 +51,7 @@ def _split_values(values: Sequence[str] | None) -> list[str]:
     return items
 
 
-def _parse_scopes(scope_values: Sequence[str]) -> list[SpotifyScope | str]:
+def _parse_scopes(scope_values: Sequence[str] | None) -> list[SpotifyScope | str]:
     scopes: list[SpotifyScope | str] = []
     for value in _split_values(scope_values):
         try:
@@ -59,10 +59,6 @@ def _parse_scopes(scope_values: Sequence[str]) -> list[SpotifyScope | str]:
         except ValueError:
             scopes.append(value)
     return scopes
-
-
-def _coalesce_scopes(scope_values: Sequence[str] | None) -> Sequence[str]:
-    return scope_values or ()
 
 
 def _merge_scopes(*scope_groups: Sequence[str]) -> list[str]:
@@ -316,7 +312,9 @@ def _print_table(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> N
 
 
 @asynccontextmanager
-async def spotify_client(scopes: Sequence[str]) -> AsyncGenerator[Spotifyify, None]:
+async def spotify_client(
+    scopes: Sequence[str] | None,
+) -> AsyncGenerator[Spotifyify, None]:
     """Open the async Spotify client used by one explicit CLI command."""
     async with Spotifyify(scopes=_parse_scopes(scopes)) as spotify:
         yield spotify

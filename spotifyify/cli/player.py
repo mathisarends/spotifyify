@@ -8,10 +8,8 @@ from spotifyify import Spotifyify, SpotifyScope
 from spotifyify.exceptions import SpotifyAPIError
 from spotifyify.schemas import Device
 
-from ._aliases import AliasGroup
 from ._core import (
     PLAYBACK_COLUMNS,
-    _coalesce_scopes,
     _merge_scopes,
     _parse_json_object,
     _playback_summary,
@@ -42,7 +40,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Control and inspect Spotify playback.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -114,7 +111,7 @@ async def player_state(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         state = await spotify.player.state(market=market)
     print_result(
         state,
@@ -150,7 +147,7 @@ async def player_play(
         until = is_fresh_track
     else:
         until = is_playing
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await _play_with_device_fallback(
             spotify,
             device_id=device_id,
@@ -182,7 +179,7 @@ async def player_pause(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.pause(device_id=device_id)
         state = await _settled_playback(spotify, until=is_paused, wait=wait)
     print_result(
@@ -207,7 +204,7 @@ async def player_skip(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.skip(device_id=device_id)
         state = await _settled_playback(spotify, until=is_fresh_track, wait=wait)
     print_result(
@@ -232,7 +229,7 @@ async def player_previous(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.previous(device_id=device_id)
         state = await _settled_playback(spotify, until=is_fresh_track, wait=wait)
     print_result(
@@ -257,7 +254,7 @@ async def player_seek(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.seek(position_ms, device_id=device_id)
         state = await _settled_playback(spotify)
     print_result(
@@ -282,7 +279,7 @@ async def player_repeat(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.repeat(state, device_id=device_id)
         playback = await _settled_playback(spotify)
     print_result(
@@ -307,7 +304,7 @@ async def player_shuffle(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.shuffle(state, device_id=device_id)
         playback = await _settled_playback(spotify)
     print_result(
@@ -332,7 +329,7 @@ async def player_volume(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.volume(volume_percent, device_id=device_id)
         state = await _settled_playback(spotify)
     print_result(
@@ -357,7 +354,7 @@ async def player_queue(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.player.queue()
     print_result(
         result,
@@ -385,7 +382,7 @@ async def add_to_queue(
     """Queue one or many tracks or episodes in a single call."""
     queued = _split_values(uris)
 
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         # Spotify has no bulk queue endpoint and the queue is ordered, so these
         # must stay sequential.
         for uri in queued:
@@ -414,7 +411,7 @@ async def transfer_playback(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+    async with spotify_client(scope or CONTROL_SCOPES) as spotify:
         await spotify.player.transfer(device_id, play=play)
         state = await _settled_playback(
             spotify,
@@ -443,7 +440,7 @@ async def player_devices(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.player.devices()
     # Spotify returns devices in no defined order; sort so repeated calls and
     # any caching built on top of them stay reproducible.
@@ -475,7 +472,7 @@ async def recently_played(
     scope: ScopeOption = None,
 ) -> None:
     async with spotify_client(
-        _coalesce_scopes(scope) or [SpotifyScope.USER_READ_RECENTLY_PLAYED.value]
+        scope or [SpotifyScope.USER_READ_RECENTLY_PLAYED.value]
     ) as spotify:
         result = await spotify.player.recently_played(
             limit=limit, after=after, before=before

@@ -368,18 +368,18 @@ Both formats project the same fields, so `--format` changes the encoding and
 nothing else. `--raw` opts out into the untouched Spotify payload when you need
 paging metadata or a field that is not a declared column.
 
-### One-shot discoverability
+### Command discovery
 
-`--agent-help` dumps the entire command tree and this output contract in a single
-call, small enough to paste into a system prompt:
+Use the standard `--help` option at the root, group, or command level:
 
 ```bash
-spotifyify --agent-help
+spotifyify --help
+spotifyify artists --help
+spotifyify artists get --help
 ```
 
-Group names also tolerate the singular form, so `spotifyify artist get ID` works
-as well as `artists`. Unknown names list the alternatives in the error itself
-rather than requiring a `--help` round trip.
+Resource groups use plural names consistently (`artists`, `tracks`, `albums`),
+and each command has one canonical spelling.
 
 ### Everyday usage
 
@@ -490,10 +490,8 @@ client.
 | `player` | `state`, `play`, `pause`, `skip`, `previous`, `seek`, `repeat`, `shuffle`, `volume`, `queue`, `add-to-queue`, `transfer`, `devices`, `recently-played` |
 | `users` | `me`, `get`, `following`, `follow`, `unfollow`, `check-following` |
 
-`get` replaces the former `get-many`, which is still accepted as an alias.
-
 ```bash
-spotifyify --agent-help
+spotifyify --help
 spotifyify playlists create --help
 spotifyify player play --help
 ```

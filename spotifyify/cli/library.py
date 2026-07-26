@@ -6,13 +6,11 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from ._aliases import AliasGroup
 from ._core import (
     BATCH_ALBUMS,
     BATCH_EPISODES,
     BATCH_SHOWS,
     BATCH_TRACKS,
-    _coalesce_scopes,
     _merge_scopes,
     _sequential_batches,
     _split_values,
@@ -36,7 +34,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Work with the current user's library.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -63,7 +60,7 @@ async def saved_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.library.saved_tracks(
             limit=limit, offset=offset, market=market
         )
@@ -93,7 +90,7 @@ async def saved_albums(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.library.saved_albums(
             limit=limit, offset=offset, market=market
         )
@@ -122,7 +119,7 @@ async def saved_shows(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.library.saved_shows(limit=limit, offset=offset)
     print_result(
         result,
@@ -149,7 +146,7 @@ async def saved_episodes(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.library.saved_episodes(limit=limit, offset=offset)
     print_result(
         result,
@@ -177,9 +174,7 @@ async def library_top_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(
-        _coalesce_scopes(scope) or [SpotifyScope.USER_TOP_READ.value]
-    ) as spotify:
+    async with spotify_client(scope or [SpotifyScope.USER_TOP_READ.value]) as spotify:
         result = await spotify.library.top_tracks(
             time_range=time_range, limit=limit, offset=offset
         )
@@ -209,9 +204,7 @@ async def library_top_artists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(
-        _coalesce_scopes(scope) or [SpotifyScope.USER_TOP_READ.value]
-    ) as spotify:
+    async with spotify_client(scope or [SpotifyScope.USER_TOP_READ.value]) as spotify:
         result = await spotify.library.top_artists(
             time_range=time_range, limit=limit, offset=offset
         )
@@ -238,7 +231,7 @@ async def save_tracks(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(track_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_tracks, ids, BATCH_TRACKS)
         saved = await spotify.library.check_tracks(ids)
     result = [
@@ -266,7 +259,7 @@ async def remove_tracks(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(track_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_tracks, ids, BATCH_TRACKS)
         saved = await spotify.library.check_tracks(ids)
     result = [
@@ -294,7 +287,7 @@ async def check_tracks(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(track_ids)
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         saved = await spotify.library.check_tracks(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -321,7 +314,7 @@ async def save_albums(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(album_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_albums, ids, BATCH_ALBUMS)
         saved = await spotify.library.check_albums(ids)
     result = [
@@ -349,7 +342,7 @@ async def remove_albums(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(album_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_albums, ids, BATCH_ALBUMS)
         saved = await spotify.library.check_albums(ids)
     result = [
@@ -377,7 +370,7 @@ async def check_albums(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(album_ids)
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         saved = await spotify.library.check_albums(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -404,7 +397,7 @@ async def save_shows(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(show_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_shows, ids, BATCH_SHOWS)
         saved = await spotify.library.check_shows(ids)
     result = [
@@ -432,7 +425,7 @@ async def remove_shows(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(show_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_shows, ids, BATCH_SHOWS)
         saved = await spotify.library.check_shows(ids)
     result = [
@@ -460,7 +453,7 @@ async def check_shows(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(show_ids)
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         saved = await spotify.library.check_shows(ids)
     result = [
         {"id": item_id, "saved": is_saved}
@@ -487,7 +480,7 @@ async def save_episodes(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(episode_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.save_episodes, ids, BATCH_EPISODES)
         saved = await spotify.library.check_episodes(ids)
     result = [
@@ -515,7 +508,7 @@ async def remove_episodes(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(episode_ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(spotify.library.remove_episodes, ids, BATCH_EPISODES)
         saved = await spotify.library.check_episodes(ids)
     result = [
@@ -543,7 +536,7 @@ async def check_episodes(
     scope: ScopeOption = None,
 ) -> None:
     ids = _split_values(episode_ids)
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         saved = await spotify.library.check_episodes(ids)
     result = [
         {"id": item_id, "saved": is_saved}

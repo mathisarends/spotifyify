@@ -266,7 +266,7 @@ class TestBatching(unittest.TestCase):
         self.assertEqual(_chunked([], 2), [])
 
 
-class TestAliasTolerance(unittest.TestCase):
+class TestCommandNaming(unittest.TestCase):
     def setUp(self):
         if cli.typer is None:
             self.skipTest("typer is optional")
@@ -278,46 +278,34 @@ class TestAliasTolerance(unittest.TestCase):
     def _resolves(self, name):
         return self.root.get_command(self.ctx, name)
 
-    def test_singular_group_names_resolve_to_the_plural_group(self):
-        self.assertIsNotNone(self._resolves("artist"))
-        self.assertIsNotNone(self._resolves("track"))
+    def test_resource_groups_use_plural_names(self):
+        resource_groups = (
+            "albums",
+            "artists",
+            "episodes",
+            "playlists",
+            "shows",
+            "tracks",
+            "users",
+        )
+        for name in resource_groups:
+            self.assertIsNotNone(self._resolves(name))
 
-    def test_canonical_names_still_resolve(self):
-        self.assertIsNotNone(self._resolves("artists"))
+    def test_singular_group_names_do_not_resolve(self):
+        self.assertIsNone(self._resolves("artist"))
+        self.assertIsNone(self._resolves("track"))
 
     def test_unknown_names_still_fail(self):
         self.assertIsNone(self._resolves("definitely-not-a-command"))
 
-    def test_get_many_is_accepted_as_get(self):
+    def test_get_is_the_only_bulk_fetch_command_name(self):
         import click
 
         artists = self._resolves("artists")
-        command = artists.get_command(click.Context(artists), "get-many")
+        context = click.Context(artists)
 
-        self.assertIsNotNone(command)
-        self.assertEqual(command.name, "get")
-
-
-class TestAgentHelp(unittest.TestCase):
-    def setUp(self):
-        if cli.typer is None:
-            self.skipTest("typer is optional")
-        self.text = cli.agent_help(cli.typer.main.get_command(cli.app))
-
-    def test_every_group_appears(self):
-        for group in ("tracks", "artists", "albums", "playlists", "player", "library"):
-            self.assertIn(f"{group}: ", self.text)
-
-    def test_the_output_contract_is_stated(self):
-        self.assertIn("JSON on stdout", self.text)
-        self.assertIn("--sort", self.text)
-        self.assertIn("Mutations print the state they produced", self.text)
-
-    def test_variadic_arguments_are_marked(self):
-        self.assertIn("get TRACK_IDS...", self.text)
-
-    def test_it_stays_small_enough_for_a_system_prompt(self):
-        self.assertLess(len(self.text), 4000)
+        self.assertIsNotNone(artists.get_command(context, "get"))
+        self.assertIsNone(artists.get_command(context, "get-many"))
 
 
 class FakeSpotifyify:
@@ -571,12 +559,12 @@ class TestEndToEnd(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
 
-    def test_unknown_command_names_the_alternatives(self):
+    def test_unknown_command_fails_normally(self):
         result = self.runner.invoke(cli.app, ["artists", "lookup"])
 
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Available:", result.output)
-        self.assertIn("top-tracks", result.output)
+        self.assertIn("No such command", result.output)
+        self.assertNotIn("Available:", result.output)
 
     def test_output_carries_no_ansi_escapes(self):
         async def find(query, **kwargs):

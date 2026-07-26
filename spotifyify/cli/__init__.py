@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from typing import Annotated
 
 try:
     import typer
@@ -77,14 +76,11 @@ if typer is not None:
         tracks,
         users,
     )
-    from ._agent_help import agent_help
-    from ._aliases import AliasGroup
 
-    __all__ += ["agent_help", "app"]
+    __all__ += ["app"]
 
     app = typer.Typer(
         help="Command line tools for the spotifyify Spotify client.",
-        cls=AliasGroup,
         # Plain click help: no ANSI, no boxes, no pager.
         rich_markup_mode=None,
         # Completion installers are Typer's only interactive code path.
@@ -104,29 +100,6 @@ if typer is not None:
     app.add_typer(player.app, name="player")
     app.add_typer(users.app, name="users")
     quick.register(app)
-
-    def _render_agent_help() -> str:
-        return agent_help(typer.main.get_command(app))
-
-    @app.command("agent-help", hidden=True)
-    def agent_help_command() -> None:
-        """Print the whole command tree and output contract in one shot."""
-        typer.echo(_render_agent_help())
-
-    @app.callback(invoke_without_command=True)
-    def _root(
-        agent: Annotated[
-            bool,
-            typer.Option(
-                "--agent-help",
-                help="Print the whole command tree and output contract in one shot.",
-            ),
-        ] = False,
-    ) -> None:
-        if agent:
-            typer.echo(_render_agent_help())
-            raise typer.Exit()
-
 
 if __name__ == "__main__":
     main()

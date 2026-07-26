@@ -4,10 +4,8 @@ from typing import Annotated
 
 import typer
 
-from ._aliases import AliasGroup
 from ._core import (
     BATCH_TRACKS,
-    _coalesce_scopes,
     _gather_batches,
     _split_values,
     spotify_client,
@@ -31,7 +29,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Work with Spotify tracks.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -54,7 +51,7 @@ async def search_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.tracks.find(
             query, limit=limit, offset=offset, market=market
         )
@@ -85,7 +82,7 @@ async def get_tracks(
 ) -> None:
     """Fetch one or many tracks in a single call."""
     ids = _split_values(track_ids)
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await _gather_batches(
             lambda chunk: spotify.tracks.get_many(chunk, market=market),
             ids,

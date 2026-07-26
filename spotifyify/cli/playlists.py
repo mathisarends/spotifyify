@@ -6,8 +6,7 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from ._aliases import AliasGroup
-from ._core import _coalesce_scopes, _split_values, spotify_client
+from ._core import _split_values, spotify_client
 from ._options import (
     DEFAULT_LIMIT,
     FieldsOption,
@@ -27,7 +26,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Work with Spotify playlists.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -55,7 +53,7 @@ async def search_playlists(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.playlists.find(query, limit=limit, offset=offset)
     print_result(
         result,
@@ -80,7 +78,7 @@ async def get_playlist(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.playlists.get(playlist_id, market=market)
     print_result(
         result,
@@ -107,7 +105,7 @@ async def list_playlists(
     scope: ScopeOption = None,
 ) -> None:
     async with spotify_client(
-        _coalesce_scopes(scope) or [SpotifyScope.PLAYLIST_READ_PRIVATE.value]
+        scope or [SpotifyScope.PLAYLIST_READ_PRIVATE.value]
     ) as spotify:
         result = await spotify.playlists.list(
             user_id=user_id, limit=limit, offset=offset
@@ -149,7 +147,7 @@ async def playlist_tracks(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.playlists.tracks(
             playlist_id,
             market=market,
@@ -186,7 +184,7 @@ async def create_playlist(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
         result = await spotify.playlists.create(
             name,
             public=public,
@@ -220,7 +218,7 @@ async def update_playlist(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
         await spotify.playlists.update(
             playlist_id,
             name=name,
@@ -252,7 +250,7 @@ async def add_playlist_items(
     scope: ScopeOption = None,
 ) -> None:
     """Add one or many URIs in a single call."""
-    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.add(
             playlist_id, _split_values(uris), position=position
         )
@@ -284,7 +282,7 @@ async def replace_playlist_items(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.replace(playlist_id, _split_values(uris))
         playlist = await spotify.playlists.get(playlist_id)
     result = {
@@ -314,7 +312,7 @@ async def remove_playlist_items(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
         snapshot_id = await spotify.playlists.remove(playlist_id, _split_values(uris))
         playlist = await spotify.playlists.get(playlist_id)
     result = {
@@ -347,7 +345,7 @@ async def reorder_playlist_items(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or _MODIFY_SCOPES) as spotify:
+    async with spotify_client(scope or _MODIFY_SCOPES) as spotify:
         new_snapshot_id = await spotify.playlists.reorder(
             playlist_id,
             range_start=range_start,
@@ -383,7 +381,7 @@ async def playlist_cover_image(
     sort: SortOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.playlists.cover_image(playlist_id)
     print_result(
         result,

@@ -6,10 +6,8 @@ import typer
 
 from spotifyify import SpotifyScope
 
-from ._aliases import AliasGroup
 from ._core import (
     BATCH_FOLLOW,
-    _coalesce_scopes,
     _merge_scopes,
     _sequential_batches,
     _split_values,
@@ -31,7 +29,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Work with Spotify users and following.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -54,7 +51,7 @@ async def users_me(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.users.me()
     print_result(
         result,
@@ -76,7 +73,7 @@ async def users_get(
     fields: FieldsOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.users.get(user_id)
     print_result(
         result,
@@ -102,7 +99,7 @@ async def users_following(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         result = await spotify.users.following(type=type, limit=limit, after=after)
     print_result(
         result,
@@ -128,7 +125,7 @@ async def users_follow(
     scope: ScopeOption = None,
 ) -> None:
     item_ids = _split_values(ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(
             lambda chunk: spotify.users.follow(type, chunk),
             item_ids,
@@ -161,7 +158,7 @@ async def users_unfollow(
     scope: ScopeOption = None,
 ) -> None:
     item_ids = _split_values(ids)
-    async with spotify_client(_coalesce_scopes(scope) or WRITE_SCOPES) as spotify:
+    async with spotify_client(scope or WRITE_SCOPES) as spotify:
         await _sequential_batches(
             lambda chunk: spotify.users.unfollow(type, chunk),
             item_ids,
@@ -194,7 +191,7 @@ async def users_check_following(
     scope: ScopeOption = None,
 ) -> None:
     item_ids = _split_values(ids)
-    async with spotify_client(_coalesce_scopes(scope) or READ_SCOPES) as spotify:
+    async with spotify_client(scope or READ_SCOPES) as spotify:
         following_values = await spotify.users.check_following(type, item_ids)
     payload = [
         {"id": item_id, "following": following}

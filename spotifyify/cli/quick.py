@@ -6,7 +6,6 @@ import typer
 
 from ._core import (
     PLAYBACK_COLUMNS,
-    _coalesce_scopes,
     _playback_summary,
     _settled_playback,
     is_fresh_track,
@@ -108,7 +107,7 @@ def register(app: typer.Typer) -> None:
         wants_track = bool(track or words)
         wants_album = bool(album) and not wants_track
 
-        async with spotify_client(_coalesce_scopes(scope) or CONTROL_SCOPES) as spotify:
+        async with spotify_client(scope or CONTROL_SCOPES) as spotify:
             if wants_track:
                 hit = _first(await spotify.tracks.find(query, limit=1, market=market))
                 uris, context_uri = ([hit.uri] if hit else None), None

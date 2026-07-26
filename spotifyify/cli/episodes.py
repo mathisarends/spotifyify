@@ -4,10 +4,8 @@ from typing import Annotated
 
 import typer
 
-from ._aliases import AliasGroup
 from ._core import (
     BATCH_EPISODES,
-    _coalesce_scopes,
     _gather_batches,
     _split_values,
     spotify_client,
@@ -31,7 +29,6 @@ from ._options import (
 
 app = typer.Typer(
     help="Work with Spotify episodes.",
-    cls=AliasGroup,
     rich_markup_mode=None,
     no_args_is_help=True,
 )
@@ -55,7 +52,7 @@ async def search_episodes(
     where: WhereOption = None,
     scope: ScopeOption = None,
 ) -> None:
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await spotify.episodes.find(
             query, limit=limit, offset=offset, market=market
         )
@@ -86,7 +83,7 @@ async def get_episodes(
 ) -> None:
     """Fetch one or many episodes in a single call."""
     ids = _split_values(episode_ids)
-    async with spotify_client(_coalesce_scopes(scope)) as spotify:
+    async with spotify_client(scope) as spotify:
         result = await _gather_batches(
             lambda chunk: spotify.episodes.get_many(chunk, market=market),
             ids,
