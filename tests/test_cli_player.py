@@ -1,7 +1,7 @@
 import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, call, patch
+from unittest.mock import AsyncMock, call
 
 try:
     import typer  # noqa: F401
@@ -186,8 +186,7 @@ class TestPlaybackReporting(PlayerCommandTestCase):
     def test_pause_waits_for_playback_to_actually_stop(self):
         states = [_state(), _state(is_playing=False)]
 
-        with patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0):
-            rows = self.run_json(["player", "pause"], self.player(states))
+        rows = self.run_json(["player", "pause"], self.player(states))
 
         self.assertEqual(self.call_names().count("state"), 2)
         self.assertEqual(rows[0]["state"], "paused")
@@ -195,8 +194,7 @@ class TestPlaybackReporting(PlayerCommandTestCase):
     def test_skip_waits_for_a_freshly_started_track(self):
         states = [_state(progress_ms=90_000), _state(progress_ms=100)]
 
-        with patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0):
-            self.run_json(["player", "skip"], self.player(states))
+        self.run_json(["player", "skip"], self.player(states))
 
         self.assertEqual(self.call_names(), ["skip", "state", "state"])
 
@@ -211,10 +209,9 @@ class TestPlaybackReporting(PlayerCommandTestCase):
     def test_transfer_with_play_waits_for_playback_to_start(self):
         states = [_state(is_playing=False), _state()]
 
-        with patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0):
-            rows = self.run_json(
-                ["player", "transfer", "kitchen", "--play"], self.player(states)
-            )
+        rows = self.run_json(
+            ["player", "transfer", "kitchen", "--play"], self.player(states)
+        )
 
         self.assertEqual(self.call_names().count("state"), 2)
         self.assertEqual(rows[0]["state"], "playing")

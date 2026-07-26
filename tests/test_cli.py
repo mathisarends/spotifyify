@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from spotifyify import cli
 from spotifyify.schemas import PlaybackState
+from tests.cli_harness import CliTestCase
 
 
 class TestCli(unittest.TestCase):
@@ -231,35 +232,9 @@ class TestCommandNaming(unittest.TestCase):
         self.assertIsNone(artists.get_command(context, "get-many"))
 
 
-class FakeSpotifyify:
-    """Stands in for the real client inside the CLI's async runner."""
-
-    namespaces: dict = {}
-
-    def __init__(self, **kwargs):
-        self.scopes = kwargs.get("scopes")
-        for name, value in self.namespaces.items():
-            setattr(self, name, value)
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc_info):
-        return False
-
-
-class TestEndToEnd(unittest.TestCase):
-    def setUp(self):
-        if cli.typer is None:
-            self.skipTest("typer is optional")
-        from typer.testing import CliRunner
-
-        self.runner = CliRunner()
-
+class TestEndToEnd(CliTestCase):
     def _run(self, args, namespaces, env=None):
-        FakeSpotifyify.namespaces = namespaces
-        with patch("spotifyify.cli.core.Spotifyify", FakeSpotifyify):
-            return self.runner.invoke(cli.app, args, env=env)
+        return self.run_cli(args, namespaces, env=env)
 
     def test_search_prints_declared_columns_as_json_by_default(self):
         async def find(query, **kwargs):
@@ -450,11 +425,10 @@ class TestEndToEnd(unittest.TestCase):
         async def state(**kwargs):
             return PlaybackState.model_validate(states.pop(0) if states else states)
 
-        with patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0):
-            result = self._run(
-                ["player", "play", "--uri", "spotify:track:new"],
-                {"player": SimpleNamespace(play=play, state=state)},
-            )
+        result = self._run(
+            ["player", "play", "--uri", "spotify:track:new"],
+            {"player": SimpleNamespace(play=play, state=state)},
+        )
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(json.loads(result.output)[0]["track"], "HAMPELMANN")

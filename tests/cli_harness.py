@@ -36,6 +36,12 @@ class CliTestCase(unittest.TestCase):
             self.skipTest("typer is optional")
         from typer.testing import CliRunner
 
+        # Commands that wait for playback to settle poll with a real delay; a
+        # fake client answers instantly, so the wait is pure test runtime.
+        delay = patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0)
+        delay.start()
+        self.addCleanup(delay.stop)
+
         self.runner = CliRunner()
 
     def run_cli(self, args, namespaces=None, env=None):

@@ -1,6 +1,5 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
 
 try:
     import typer  # noqa: F401
@@ -227,8 +226,7 @@ class TestQuickPlayReporting(QuickPlayTestCase):
         namespaces = self.namespaces(tracks=SimpleNamespace(uri="spotify:track:t1"))
         namespaces["player"].state = state
 
-        with patch("spotifyify.cli.core.SETTLE_DELAY_SECONDS", 0):
-            rows = self.run_json(["play", "--track", "x"], namespaces)
+        rows = self.run_json(["play", "--track", "x"], namespaces)
 
         self.assertEqual(rows[0]["track"], "HAMPELMANN")
 
