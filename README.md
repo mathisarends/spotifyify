@@ -332,6 +332,13 @@ uv tool install --from . "spotifyify[cli]"
 spotifyify --help
 ```
 
+Or run the checkout directly without installing a global command:
+
+```bash
+uv sync --extra cli
+uv run spotifyify --help
+```
+
 ### Output contract
 
 Every command writes JSON to stdout and nothing else, regardless of whether
@@ -365,6 +372,18 @@ spotifyify tracks search "Ikkimel" --limit 2
 Set `SPOTIFYIFY_RAW=1` to get the untouched Spotify payload instead, for
 debugging paging metadata or a field that is not a declared column.
 
+```bash
+SPOTIFYIFY_RAW=1 spotifyify tracks search "Daft Punk" --limit 1
+```
+
+PowerShell:
+
+```powershell
+$env:SPOTIFYIFY_RAW = "1"
+spotifyify tracks search "Daft Punk" --limit 1
+Remove-Item Env:SPOTIFYIFY_RAW
+```
+
 ### Command discovery
 
 Use the standard `--help` option at the root, group, or command level:
@@ -374,6 +393,8 @@ spotifyify --help
 spotifyify artists --help
 spotifyify artists get --help
 ```
+
+The short form `-h` works at every level as well.
 
 Resource groups use plural names consistently (`artists`, `tracks`, `albums`),
 and each command has one canonical spelling.
@@ -386,6 +407,7 @@ The CLI mirrors the public namespace API from `spotifyify.namespaces`:
 spotifyify tracks search "Daft Punk" --limit 5
 spotifyify albums get 4aawyAB9vmqN3uQ7FjRGTy
 spotifyify playlists list
+spotifyify player state
 ```
 
 To find something and play it without a separate lookup:
@@ -429,6 +451,13 @@ spotifyify playlists tracks PLAYLIST_ID --spotify-fields "items(track(id,name))"
 | `--spotify-fields` | Server-side filter applied by Spotify before it sends the response |
 
 Rows otherwise keep the order Spotify returned them in.
+
+`--field` is a client-side output projection and can be repeated or receive a
+comma-separated list. Nested values use dotted paths:
+
+```bash
+spotifyify tracks get TRACK_ID --field id --field name --field album.name
+```
 
 ### Batching
 
@@ -498,9 +527,11 @@ spotifyify player play --help
 
 ## Examples
 
-See the [`examples/`](./examples) directory for runnable scripts:
+See the [`examples/`](./examples) directory for CLI recipes and runnable Python
+scripts:
 
-- [`examples/search_and_play.py`](./examples/search_and_play.py) — search for tracks and control playback
-- [`examples/manage_playlist.py`](./examples/manage_playlist.py) — create and manage a playlist
+- [`examples/cli/README.md`](./examples/cli/README.md) — copy-paste CLI workflows for search, playback, playlists, library, batching, and JSON output
+- [`examples/player/search_and_play.py`](./examples/player/search_and_play.py) — search for tracks and control playback with the Python API
+- [`examples/playlists/manage_playlist.py`](./examples/playlists/manage_playlist.py) — create and manage a playlist with the Python API
 - [`examples/playlists/user_token_playlist.py`](./examples/playlists/user_token_playlist.py) — create playlists with caller-supplied user tokens
-- [`examples/library_stats.py`](./examples/library_stats.py) — explore your top tracks and saved library
+- [`examples/library/library_stats.py`](./examples/library/library_stats.py) — explore your top tracks and saved library
