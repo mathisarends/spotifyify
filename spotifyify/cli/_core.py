@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import re
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -316,7 +316,7 @@ def _print_table(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> N
 
 
 @asynccontextmanager
-async def spotify_client(scopes: Sequence[str]) -> AsyncIterator[Spotifyify]:
+async def spotify_client(scopes: Sequence[str]) -> AsyncGenerator[Spotifyify, None]:
     """Open the async Spotify client used by one explicit CLI command."""
     async with Spotifyify(scopes=_parse_scopes(scopes)) as spotify:
         yield spotify

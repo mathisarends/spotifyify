@@ -1,6 +1,6 @@
 from typing import Any, Self
 
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncGenerator, Generator, Iterable
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar, Token
 
@@ -77,7 +77,7 @@ class Spotifyify:
         await self._oauth.close()
 
     @contextmanager
-    def retry_hook(self, hook: OnRetryHook) -> Iterator[None]:
+    def retry_hook(self, hook: OnRetryHook) -> Generator[None, None, None]:
         token = current_retry_hook.set(hook)
         try:
             yield
@@ -90,7 +90,7 @@ class Spotifyify:
         *,
         access_token: str | None = None,
         on_retry: OnRetryHook | None = None,
-    ) -> AsyncIterator[None]:
+    ) -> AsyncGenerator[None, None]:
         """Scope user-specific calls with a supplied token, otherwise use app auth."""
         ctx_tokens: list[tuple[ContextVar[Any], Token]] = []
         if access_token is not None:
@@ -106,7 +106,7 @@ class Spotifyify:
                 context_var.reset(token)
 
     @asynccontextmanager
-    async def user_token(self, access_token: str) -> AsyncIterator[None]:
+    async def user_token(self, access_token: str) -> AsyncGenerator[None, None]:
         async with self.session(access_token=access_token):
             yield
 
