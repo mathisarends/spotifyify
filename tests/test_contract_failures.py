@@ -64,3 +64,19 @@ async def test_injected_provider_does_not_load_unrelated_environment_credentials
     monkeypatch.setenv("SPOTIFY_TOKEN_EXPIRES_AT", "not-a-timestamp")
     async with SpotifyClient(token_provider=AsyncMock()):
         pass
+
+
+@pytest.mark.asyncio
+async def test_complete_pages_require_an_item_collection():
+    payload = {
+        "href": "https://api.spotify.com/v1/me/tracks",
+        "limit": 20,
+        "offset": 0,
+        "total": 0,
+    }
+    async with SpotifyClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    ) as spotify:
+        async with spotify.session(access_token="external"):
+            with pytest.raises(SpotifyResponseError, match="items"):
+                await spotify.library.saved_tracks()

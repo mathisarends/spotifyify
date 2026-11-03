@@ -54,7 +54,7 @@ class CursorPaging[T = Any](SpotifyModel):
     total: int | None = Field(
         None, description="The total number of items available to return."
     )
-    items: list[T] | None = None
+    items: list[T]
 
 
 class Paging[T = Any](SpotifyModel):
@@ -88,7 +88,7 @@ class Paging[T = Any](SpotifyModel):
         description="The total number of items available to return.\n",
         examples=[4],
     )
-    items: list[T] | None = None
+    items: list[T]
 
 
 class CursorPagingSimplifiedArtist(CursorPaging["Artist"]):
