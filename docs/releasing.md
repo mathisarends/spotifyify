@@ -1,6 +1,7 @@
 # Releasing spotifyify
 
-The next release is **0.9.0**. Its version is already set in `pyproject.toml`
+The prepared release is **0.9.0**, dated **2026-11-03** in the changelog.
+Its version is already set in `pyproject.toml`
 and the root `spotifyify` entry in `uv.lock`. Release preparation does not publish
 the package or create a tag. The CI workflow validates changes and builds
 distributions; there is no automated PyPI publishing workflow.
@@ -43,9 +44,9 @@ Check those with a dedicated Spotify account if release changes require them.
 
 ## Publish after merge
 
-1. Choose the exact commit to release, confirm it has passed CI, and replace the
-   changelog's `unreleased` marker with the release date. Include this edit in
-   the released commit and rebuild its artifacts using the checks above.
+1. Choose the exact commit to release and confirm it has passed CI. Confirm that
+   the changelog date matches the publication date; update it if publication is
+   delayed. Build artifacts from that exact commit using the checks above.
 2. Check PyPI for an existing `0.9.0`; published versions cannot be replaced.
    Configure PyPI credentials or a trusted publishing workflow before uploading.
 3. Validate metadata with `uvx --from twine twine check` followed by the two exact
