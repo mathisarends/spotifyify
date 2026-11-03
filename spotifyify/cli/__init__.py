@@ -19,6 +19,7 @@ from .core import (
     set_default_market,
     set_default_profile,
     set_api_mode,
+    set_full_output,
     sort_items,
     split_values,
 )
@@ -99,6 +100,13 @@ if typer is not None:
 
     @app.callback(invoke_without_command=True)
     def _root(
+        full: Annotated[
+            bool | None,
+            typer.Option(
+                "--full/--compact",
+                help="Emit full normalized models instead of selected row columns.",
+            ),
+        ] = None,
         api_mode: Annotated[
             ApiMode | None,
             typer.Option(
@@ -133,6 +141,7 @@ if typer is not None:
     ) -> None:
         set_default_profile(profile)
         set_api_mode(api_mode)
+        set_full_output(full)
         set_default_market(market)
         set_default_device_id(device_id)
 

@@ -1,3 +1,5 @@
+from spotifyify.cli.core import fetch_pages
+from spotifyify.cli.options import OffsetOption, AllOption
 from typing import Annotated
 
 import typer
@@ -34,10 +36,18 @@ _MODIFY_SCOPES = [
 async def search_playlists(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.playlists.find(query, limit=limit)
+        result = await fetch_pages(
+            spotify.playlists.search,
+            query,
+            limit=limit,
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,
@@ -65,10 +75,18 @@ async def get_playlist(
 async def list_playlists(
     user_id: Annotated[str | None, typer.Option("--user-id", "-u")] = None,
     limit: LimitOption = 20,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client([SpotifyScope.PLAYLIST_READ_PRIVATE]) as spotify:
-        result = await spotify.playlists.list(user_id=user_id, limit=limit)
+        result = await fetch_pages(
+            spotify.playlists.list,
+            user_id=user_id,
+            limit=limit,
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,
@@ -76,7 +94,8 @@ async def list_playlists(
     )
 
 
-@app.command("tracks")
+@app.command("tracks", hidden=True)
+@app.command("items")
 @async_command
 async def playlist_tracks(
     playlist_id: Annotated[str, typer.Argument(help="Spotify playlist ID.")],
@@ -91,15 +110,22 @@ async def playlist_tracks(
     additional_types: Annotated[
         list[str] | None, typer.Option("--additional-type")
     ] = None,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
+    if all_pages and fields_query is not None:
+        fields_query = "next,offset,limit," + fields_query
     async with spotify_client() as spotify:
-        result = await spotify.playlists.tracks(
+        result = await fetch_pages(
+            spotify.playlists.tracks,
             playlist_id,
             market=default_market(),
             fields=fields_query,
             limit=limit,
             additional_types=split_values(additional_types) or None,
+            all_pages=all_pages,
+            offset=offset,
         )
     print_result(
         result,

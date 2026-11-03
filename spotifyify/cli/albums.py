@@ -1,11 +1,11 @@
+from spotifyify.cli.core import fetch_pages
+from spotifyify.cli.options import OffsetOption, AllOption
 from typing import Annotated
 
 import typer
 
 from spotifyify.cli.core import (
-    BATCH_ALBUMS,
     default_market,
-    gather_batches,
     split_values,
     spotify_client,
 )
@@ -32,10 +32,19 @@ COLUMNS = ("id", "name", "artists", "uri")
 async def search_albums(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.albums.find(query, limit=limit, market=default_market())
+        result = await fetch_pages(
+            spotify.albums.search,
+            query,
+            limit=limit,
+            market=default_market(),
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,
@@ -53,11 +62,7 @@ async def get_albums(
     ids = split_values(album_ids)
     market = default_market()
     async with spotify_client() as spotify:
-        result = await gather_batches(
-            lambda chunk: spotify.albums.get_many(chunk, market=market),
-            ids,
-            BATCH_ALBUMS,
-        )
+        result = await spotify.albums.get_many(ids, market=market)
     print_result(
         result,
         columns=COLUMNS,
@@ -70,11 +75,18 @@ async def get_albums(
 async def album_tracks(
     album_id: Annotated[str, typer.Argument(help="Spotify album ID.")],
     limit: LimitOption = 50,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.albums.tracks(
-            album_id, limit=limit, market=default_market()
+        result = await fetch_pages(
+            spotify.albums.tracks,
+            album_id,
+            limit=limit,
+            market=default_market(),
+            all_pages=all_pages,
+            offset=offset,
         )
     print_result(
         result,
@@ -88,10 +100,18 @@ async def album_tracks(
 async def new_releases(
     country: Annotated[str | None, typer.Option("--country", "-c")] = None,
     limit: LimitOption = 20,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.albums.new_releases(country=country, limit=limit)
+        result = await fetch_pages(
+            spotify.albums.new_releases,
+            country=country,
+            limit=limit,
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,

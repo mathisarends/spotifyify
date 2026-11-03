@@ -97,13 +97,13 @@ def register(app: typer.Typer) -> None:
 
         async with spotify_client(CONTROL_SCOPES) as spotify:
             if wants_track:
-                hit = _first(await spotify.tracks.find(query, limit=1, market=market))
+                hit = _first(await spotify.tracks.search(query, limit=1, market=market))
                 uris, context_uri = ([hit.uri] if hit else None), None
             elif wants_album:
-                hit = _first(await spotify.albums.find(query, limit=1, market=market))
+                hit = _first(await spotify.albums.search(query, limit=1, market=market))
                 uris, context_uri = None, (hit.uri if hit else None)
             else:
-                hit = _first(await spotify.artists.find(query, limit=1))
+                hit = _first(await spotify.artists.search(query, limit=1))
                 uris, context_uri = None, (hit.uri if hit else None)
 
             if hit is None or not (uris or context_uri):

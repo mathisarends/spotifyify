@@ -20,7 +20,7 @@ class TestErrorTranslation(CliTestCase):
         async def find(query, **kwargs):
             raise error
 
-        return {"tracks": SimpleNamespace(find=find)}
+        return {"tracks": SimpleNamespace(search=find)}
 
     def test_an_api_error_exits_one_with_the_message_on_stderr(self):
         result = self.run_cli(
@@ -69,7 +69,7 @@ class TestErrorTranslation(CliTestCase):
 
         result = self.run_cli(
             ["tracks", "search", "x"],
-            {"tracks": SimpleNamespace(find=find)},
+            {"tracks": SimpleNamespace(search=find)},
         )
 
         self.assertIsInstance(result.exception, SpotifyifyError)
@@ -91,7 +91,7 @@ class TestFieldSelection(CliTestCase):
                 ]
             }
 
-        return {"tracks": SimpleNamespace(find=find)}
+        return {"tracks": SimpleNamespace(search=find)}
 
     def test_fields_replace_the_declared_columns(self):
         rows = self.run_json(["tracks", "search", "x", "--field", "id"], self._tracks())
@@ -175,7 +175,7 @@ class TestLimitBounds(CliTestCase):
             seen.update(kwargs)
             return {"items": []}
 
-        return {"tracks": SimpleNamespace(find=find)}
+        return {"tracks": SimpleNamespace(search=find)}
 
     def test_the_limit_reaches_the_client(self):
         seen = {}
@@ -209,7 +209,7 @@ class TestOutputEncoding(CliTestCase):
 
         result = self.run_cli(
             ["tracks", "search", "x", "-f", "name"],
-            {"tracks": SimpleNamespace(find=find)},
+            {"tracks": SimpleNamespace(search=find)},
         )
 
         self.assertEqual(result.exit_code, 0, result.output)

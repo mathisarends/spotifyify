@@ -1,11 +1,11 @@
+from spotifyify.cli.core import fetch_pages
+from spotifyify.cli.options import OffsetOption, AllOption
 from typing import Annotated
 
 import typer
 
 from spotifyify.cli.core import (
-    BATCH_TRACKS,
     default_market,
-    gather_batches,
     split_values,
     spotify_client,
 )
@@ -32,10 +32,19 @@ COLUMNS = ("id", "name", "artists", "album.name", "uri")
 async def search_tracks(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.tracks.find(query, limit=limit, market=default_market())
+        result = await fetch_pages(
+            spotify.tracks.search,
+            query,
+            limit=limit,
+            market=default_market(),
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,
@@ -53,11 +62,7 @@ async def get_tracks(
     ids = split_values(track_ids)
     market = default_market()
     async with spotify_client() as spotify:
-        result = await gather_batches(
-            lambda chunk: spotify.tracks.get_many(chunk, market=market),
-            ids,
-            BATCH_TRACKS,
-        )
+        result = await spotify.tracks.get_many(ids, market=market)
     print_result(
         result,
         columns=COLUMNS,

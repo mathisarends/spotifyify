@@ -1,3 +1,5 @@
+from spotifyify.cli.core import fetch_cursor_pages
+from spotifyify.cli.options import AllOption
 from typing import Annotated
 
 import typer
@@ -5,9 +7,7 @@ import typer
 from spotifyify import SpotifyScope
 
 from spotifyify.cli.core import (
-    BATCH_FOLLOW,
     merge_scopes,
-    sequential_batches,
     split_values,
     spotify_client,
 )
@@ -69,10 +69,17 @@ async def users_following(
     type: Annotated[str, typer.Option("--type")] = "artist",
     limit: LimitOption = 20,
     after: Annotated[str | None, typer.Option("--after")] = None,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client(READ_SCOPES) as spotify:
-        result = await spotify.users.following(type=type, limit=limit, after=after)
+        result = await fetch_cursor_pages(
+            spotify.users.following,
+            type=type,
+            limit=limit,
+            after=after,
+            all_pages=all_pages,
+        )
     print_result(
         result,
         columns=("id", "name", "uri"),
@@ -89,11 +96,7 @@ async def users_follow(
 ) -> None:
     item_ids = split_values(ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await sequential_batches(
-            lambda chunk: spotify.users.follow(type, chunk),
-            item_ids,
-            BATCH_FOLLOW,
-        )
+        await spotify.users.follow(type, item_ids)
         following = await spotify.users.check_following(type, item_ids)
     result = [
         {"id": item_id, "following": is_following}
@@ -115,11 +118,7 @@ async def users_unfollow(
 ) -> None:
     item_ids = split_values(ids)
     async with spotify_client(WRITE_SCOPES) as spotify:
-        await sequential_batches(
-            lambda chunk: spotify.users.unfollow(type, chunk),
-            item_ids,
-            BATCH_FOLLOW,
-        )
+        await spotify.users.unfollow(type, item_ids)
         following = await spotify.users.check_following(type, item_ids)
     result = [
         {"id": item_id, "following": is_following}

@@ -42,22 +42,22 @@ class LibraryTestCase(CliTestCase):
 
 
 class TestSaveAndRemove(LibraryTestCase):
-    def test_ids_beyond_spotifys_limit_are_split_across_requests(self):
+    def test_all_ids_are_delegated_to_sdk_batching(self):
         ids = [f"t{index}" for index in range(BATCH_TRACKS + 1)]
 
         self.run_json(["library", "save-tracks", ",".join(ids)], self.library())
 
         chunks = [chunk for name, chunk in self.written if name == "save_tracks"]
-        self.assertEqual([len(chunk) for chunk in chunks], [BATCH_TRACKS, 1])
+        self.assertEqual(chunks, [ids])
         self.assertEqual([item for chunk in chunks for item in chunk], ids)
 
-    def test_albums_use_their_own_smaller_limit(self):
+    def test_album_writes_are_delegated_without_cli_batch_limits(self):
         ids = [f"a{index}" for index in range(BATCH_ALBUMS + 1)]
 
         self.run_json(["library", "save-albums", ",".join(ids)], self.library())
 
         chunks = [chunk for name, chunk in self.written if name == "save_albums"]
-        self.assertEqual([len(chunk) for chunk in chunks], [BATCH_ALBUMS, 1])
+        self.assertEqual(chunks, [ids])
 
     def test_a_single_id_makes_a_single_request(self):
         self.run_json(["library", "save-tracks", "t1"], self.library())
@@ -158,14 +158,12 @@ class TestFollowing(CliTestCase):
             )
         }
 
-    def test_the_type_is_forwarded_with_every_chunk(self):
+    def test_the_type_and_all_ids_are_forwarded_to_sdk(self):
         ids = [f"a{index}" for index in range(BATCH_FOLLOW + 1)]
 
         self.run_json(["users", "follow", "artist", ",".join(ids)], self.users())
 
-        self.assertEqual(
-            [len(chunk) for _, _, chunk in self.written], [BATCH_FOLLOW, 1]
-        )
+        self.assertEqual([len(chunk) for _, _, chunk in self.written], [len(ids)])
         self.assertEqual({type for _, type, _ in self.written}, {"artist"})
 
     def test_following_is_read_back_after_the_write(self):
@@ -181,7 +179,7 @@ class TestFollowing(CliTestCase):
 
 
 class TestBulkFetch(CliTestCase):
-    def test_a_bulk_read_is_split_and_rejoined_in_order(self):
+    def test_bulk_reads_delegate_to_sdk_and_keep_order(self):
         requested = []
 
         async def get_many(ids, **kwargs):
@@ -195,10 +193,10 @@ class TestBulkFetch(CliTestCase):
             {"tracks": SimpleNamespace(get_many=get_many)},
         )
 
-        self.assertEqual([len(chunk) for chunk in requested], [BATCH_TRACKS, 2])
+        self.assertEqual(requested, [ids])
         self.assertEqual([row["id"] for row in rows], ids)
 
-    def test_the_market_reaches_every_chunk(self):
+    def test_the_market_reaches_the_sdk(self):
         markets = []
 
         async def get_many(ids, **kwargs):
@@ -212,7 +210,7 @@ class TestBulkFetch(CliTestCase):
             {"tracks": SimpleNamespace(get_many=get_many)},
         )
 
-        self.assertEqual(markets, ["DE", "DE"])
+        self.assertEqual(markets, ["DE"])
 
 
 if __name__ == "__main__":

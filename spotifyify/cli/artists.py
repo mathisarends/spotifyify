@@ -1,11 +1,11 @@
+from spotifyify.cli.core import fetch_pages
+from spotifyify.cli.options import OffsetOption, AllOption
 from typing import Annotated
 
 import typer
 
 from spotifyify.cli.core import (
-    BATCH_ARTISTS,
     default_market,
-    gather_batches,
     split_values,
     spotify_client,
 )
@@ -34,10 +34,18 @@ ALBUM_COLUMNS = ("id", "name", "album_type", "uri")
 async def search_artists(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.artists.find(query, limit=limit)
+        result = await fetch_pages(
+            spotify.artists.search,
+            query,
+            limit=limit,
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,
@@ -54,7 +62,7 @@ async def get_artists(
     """Fetch one or many artists in a single call."""
     ids = split_values(artist_ids)
     async with spotify_client() as spotify:
-        result = await gather_batches(spotify.artists.get_many, ids, BATCH_ARTISTS)
+        result = await spotify.artists.get_many(ids)
     print_result(
         result,
         columns=COLUMNS,
@@ -88,14 +96,19 @@ async def artist_albums(
         typer.Option("--include-groups", help="album,single,appears_on,compilation"),
     ] = None,
     limit: LimitOption = 20,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.artists.albums(
+        result = await fetch_pages(
+            spotify.artists.albums,
             artist_id,
             include_groups=include_groups,
             market=default_market(),
             limit=limit,
+            all_pages=all_pages,
+            offset=offset,
         )
     print_result(
         result,

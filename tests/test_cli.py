@@ -185,7 +185,7 @@ class TestPlaybackSummary(unittest.TestCase):
 
 class TestBatching(unittest.TestCase):
     def test_ids_are_chunked_to_the_endpoint_limit(self):
-        from spotifyify.cli.core import _chunked
+        from spotifyify.batching import chunks as _chunked
 
         self.assertEqual(_chunked(["a", "b", "c"], 2), [["a", "b"], ["c"]])
         self.assertEqual(_chunked([], 2), [])
@@ -254,7 +254,7 @@ class TestEndToEnd(CliTestCase):
 
         result = self._run(
             ["tracks", "search", "Ikkimel"],
-            {"tracks": SimpleNamespace(find=find)},
+            {"tracks": SimpleNamespace(search=find)},
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -269,7 +269,7 @@ class TestEndToEnd(CliTestCase):
 
         result = self._run(
             ["tracks", "search", "x"],
-            {"tracks": SimpleNamespace(find=find)},
+            {"tracks": SimpleNamespace(search=find)},
             env={"SPOTIFYIFY_RAW": "1"},
         )
 
@@ -384,7 +384,7 @@ class TestEndToEnd(CliTestCase):
         result = self._run(
             ["play", "--artist", "Ikkimel", "--track", "WHO'S THAT"],
             {
-                "tracks": SimpleNamespace(find=find),
+                "tracks": SimpleNamespace(search=find),
                 "player": SimpleNamespace(play=play, state=state),
             },
         )
@@ -472,7 +472,7 @@ class TestEndToEnd(CliTestCase):
 
         result = self._run(
             ["tracks", "search", "x"],
-            {"tracks": SimpleNamespace(find=find)},
+            {"tracks": SimpleNamespace(search=find)},
         )
 
         self.assertEqual(result.exit_code, 0, result.output)

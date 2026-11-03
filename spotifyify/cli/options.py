@@ -42,6 +42,10 @@ LimitOption = Annotated[
     int,
     typer.Option("--limit", "-l", min=1, max=50, help="Number of items to fetch."),
 ]
+OffsetOption = Annotated[
+    int, typer.Option("--offset", min=0, help="Starting position for paged results.")
+]
+AllOption = Annotated[bool, typer.Option("--all", help="Fetch all remaining pages.")]
 WaitOption = Annotated[
     bool,
     typer.Option(
@@ -100,8 +104,8 @@ def print_result(
 ) -> None:
     """Emit the command's declared columns, in order, as JSON.
 
-    SPOTIFYIFY_RAW=1 opts out into the untouched Spotify payload, for
-    debugging fields that are not part of any command's declared columns.
+    --full (or SPOTIFYIFY_FULL=1) emits the complete normalized response models,
+    retaining explicit nulls and unknown fields. SPOTIFYIFY_RAW is a legacy alias.
     """
     if is_raw_output():
         print_json(as_jsonable(result))

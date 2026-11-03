@@ -1,11 +1,11 @@
+from spotifyify.cli.core import fetch_pages
+from spotifyify.cli.options import OffsetOption, AllOption
 from typing import Annotated
 
 import typer
 
 from spotifyify.cli.core import (
-    BATCH_SHOWS,
     default_market,
-    gather_batches,
     split_values,
     spotify_client,
 )
@@ -33,10 +33,19 @@ EPISODE_COLUMNS = ("id", "name", "release_date", "uri")
 async def search_shows(
     query: Annotated[str, typer.Argument(help="Spotify search query.")],
     limit: LimitOption = DEFAULT_LIMIT,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.shows.find(query, limit=limit, market=default_market())
+        result = await fetch_pages(
+            spotify.shows.search,
+            query,
+            limit=limit,
+            market=default_market(),
+            all_pages=all_pages,
+            offset=offset,
+        )
     print_result(
         result,
         columns=COLUMNS,
@@ -54,11 +63,7 @@ async def get_shows(
     ids = split_values(show_ids)
     market = default_market()
     async with spotify_client() as spotify:
-        result = await gather_batches(
-            lambda chunk: spotify.shows.get_many(chunk, market=market),
-            ids,
-            BATCH_SHOWS,
-        )
+        result = await spotify.shows.get_many(ids, market=market)
     print_result(
         result,
         columns=COLUMNS,
@@ -71,11 +76,18 @@ async def get_shows(
 async def show_episodes(
     show_id: Annotated[str, typer.Argument(help="Spotify show ID.")],
     limit: LimitOption = 20,
+    offset: OffsetOption = 0,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client() as spotify:
-        result = await spotify.shows.episodes(
-            show_id, market=default_market(), limit=limit
+        result = await fetch_pages(
+            spotify.shows.episodes,
+            show_id,
+            market=default_market(),
+            limit=limit,
+            all_pages=all_pages,
+            offset=offset,
         )
     print_result(
         result,

@@ -4,6 +4,24 @@ import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from typing import cast
 
+BATCH_TRACKS = 50
+BATCH_ARTISTS = 50
+BATCH_ALBUMS = 20
+BATCH_SHOWS = 50
+BATCH_EPISODES = 50
+BATCH_FOLLOW = 50
+
+
+async def gather_batches(action, ids: Sequence[str], size: int) -> list:
+    """Compatibility helper backed by the bounded SDK worker pool."""
+    results = await bounded_map(action, chunks(ids, size))
+    return [item for result in results for item in result]
+
+
+async def sequential_batches(action, ids: Sequence[str], size: int) -> None:
+    for batch in chunks(ids, size):
+        await action(batch)
+
 
 def chunks[T](values: Sequence[T], size: int) -> list[list[T]]:
     if size < 1:

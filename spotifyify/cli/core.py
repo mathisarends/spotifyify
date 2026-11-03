@@ -1,3 +1,11 @@
+from spotifyify.batching import BATCH_TRACKS as BATCH_TRACKS
+from spotifyify.batching import BATCH_ARTISTS as BATCH_ARTISTS
+from spotifyify.batching import BATCH_ALBUMS as BATCH_ALBUMS
+from spotifyify.batching import BATCH_SHOWS as BATCH_SHOWS
+from spotifyify.batching import BATCH_EPISODES as BATCH_EPISODES
+from spotifyify.batching import BATCH_FOLLOW as BATCH_FOLLOW
+from spotifyify.batching import gather_batches as gather_batches
+from spotifyify.batching import sequential_batches as sequential_batches
 import asyncio
 import json
 import os
@@ -8,7 +16,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from spotifyify import Spotifyify, SpotifyScope
+from spotifyify import SpotifyClient, SpotifyScope
+from spotifyify.exceptions import SpotifyResponseError
+from spotifyify.pagination import next_offset
+from urllib.parse import parse_qs, urlparse
 from spotifyify.schemas import PlaybackState
 from spotifyify.config import ApiMode
 
@@ -23,12 +34,14 @@ DEFAULT_LIMIT = 10
 INSTALL_MESSAGE = "Install the CLI dependencies with: uv add spotifyify[cli]"
 
 RAW_ENV_VAR = "SPOTIFYIFY_RAW"
+FULL_ENV_VAR = "SPOTIFYIFY_FULL"
 MARKET_ENV_VAR = "SPOTIFYIFY_MARKET"
 DEVICE_ENV_VAR = "SPOTIFYIFY_DEVICE_ID"
 
 _market_override: str | None = None
 _profile_override: str | None = None
 _api_mode_override: ApiMode | None = None
+_full_override: bool | None = None
 _device_override: str | None = None
 
 # Table cells are single-line by construction, so anything that could forge a
@@ -84,7 +97,8 @@ def get_path(value: Any, path: str) -> Any:
     current = value
     for part in path.split("."):
         if isinstance(current, Mapping):
-            current = current.get(part)
+            aliases = {"tracks": "items", "track": "item"}
+            current = current.get(part if part in current else aliases.get(part, part))
         elif isinstance(current, Sequence) and not isinstance(current, str):
             try:
                 current = current[int(part)]
@@ -256,7 +270,91 @@ def default_device_id() -> str | None:
 
 
 def is_raw_output() -> bool:
-    return os.environ.get(RAW_ENV_VAR) == "1"
+    return (
+        _full_override
+        if _full_override is not None
+        else os.environ.get(FULL_ENV_VAR, os.environ.get(RAW_ENV_VAR)) == "1"
+    )
+
+
+def set_full_output(value: bool | None) -> None:
+    global _full_override
+    _full_override = value
+
+
+is_full_output = is_raw_output
+
+
+async def fetch_pages(
+    action: Callable[..., Awaitable[Any]],
+    *args: Any,
+    limit: int,
+    offset: int = 0,
+    all_pages: bool = False,
+    **kwargs: Any,
+) -> Any:
+    """Collect offset pages only when requested; preserve ordinary return types."""
+    result = await action(
+        *args, limit=limit, **({"offset": offset} if offset else {}), **kwargs
+    )
+    if not all_pages:
+        return result
+    first = as_jsonable(result)
+    if not isinstance(first, dict):
+        raise SpotifyResponseError("Expected a paging object")
+    payload = first
+    items = list(payload.get("items") or [])
+    while payload.get("next"):
+        offset = next_offset(
+            payload["next"], current=offset, limit=payload.get("limit") or limit
+        )
+        payload = as_jsonable(await action(*args, limit=limit, offset=offset, **kwargs))
+        if not isinstance(payload, dict):
+            raise SpotifyResponseError("Expected a paging object")
+        items.extend(payload.get("items") or [])
+    return {**first, "items": items, "next": None}
+
+
+async def fetch_cursor_pages(
+    action: Callable[..., Awaitable[Any]],
+    *args: Any,
+    limit: int,
+    all_pages: bool = False,
+    **kwargs: Any,
+) -> Any:
+    result = await action(*args, limit=limit, **kwargs)
+    if not all_pages:
+        return result
+    first = as_jsonable(result)
+    if not isinstance(first, dict):
+        raise SpotifyResponseError("Expected a cursor paging object")
+    payload, visited = first, set()
+    items = list(payload.get("items") or [])
+    while next_url := payload.get("next"):
+        if next_url in visited:
+            raise SpotifyResponseError("Cursor pagination did not advance")
+        visited.add(next_url)
+        query = parse_qs(urlparse(next_url).query)
+        cursors = {key: query[key][0] for key in ("after", "before") if key in query}
+        if len(cursors) != 1:
+            raise SpotifyResponseError("Expected one pagination cursor")
+        kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key not in {"after", "before"}
+        }
+        # Artist cursors are IDs; playback cursors are millisecond timestamps.
+        kwargs.update(
+            {
+                key: int(value) if value.isdecimal() else value
+                for key, value in cursors.items()
+            }
+        )
+        payload = as_jsonable(await action(*args, limit=limit, **kwargs))
+        if not isinstance(payload, dict):
+            raise SpotifyResponseError("Expected a cursor paging object")
+        items.extend(payload.get("items") or [])
+    return {**first, "items": items, "next": None}
 
 
 def _echo(text: str) -> None:
@@ -273,55 +371,12 @@ def print_json(value: Any) -> None:
 @asynccontextmanager
 async def spotify_client(
     scopes: Sequence[SpotifyScope] = (),
-) -> AsyncGenerator[Spotifyify, None]:
+) -> AsyncGenerator[SpotifyClient, None]:
     """Open the async Spotify client used by one explicit CLI command."""
-    async with Spotifyify(
+    async with SpotifyClient(
         scopes=scopes, cache_profile=default_profile(), api_mode=default_api_mode()
     ) as spotify:
         yield spotify
-
-
-# --------------------------------------------------------------------------- #
-# Batching — one CLI call fans out to as many API calls as Spotify's id limits
-# require, instead of making the caller loop.
-# --------------------------------------------------------------------------- #
-
-# Maximum ids Spotify accepts per request, per endpoint family.
-BATCH_TRACKS = 50
-BATCH_ARTISTS = 50
-BATCH_ALBUMS = 20
-BATCH_SHOWS = 50
-BATCH_EPISODES = 50
-BATCH_FOLLOW = 50
-
-
-def _chunked(values: Sequence[str], size: int) -> list[list[str]]:
-    if not values:
-        return []
-    return [list(values[index : index + size]) for index in range(0, len(values), size)]
-
-
-async def gather_batches(
-    action: Callable[[list[str]], Awaitable[Sequence[Any]]],
-    ids: Sequence[str],
-    size: int,
-) -> list[Any]:
-    """Fan out reads concurrently, then concatenate in request order."""
-    chunks = _chunked(ids, size)
-    if not chunks:
-        return []
-    results = await asyncio.gather(*(action(chunk) for chunk in chunks))
-    return [item for result in results for item in result]
-
-
-async def sequential_batches(
-    action: Callable[[list[str]], Awaitable[Any]],
-    ids: Sequence[str],
-    size: int,
-) -> None:
-    """Apply writes chunk by chunk so partial failures stay comprehensible."""
-    for chunk in _chunked(ids, size):
-        await action(chunk)
 
 
 # --------------------------------------------------------------------------- #
@@ -400,7 +455,7 @@ def plays_uri(uri: str | None) -> Predicate:
 
 
 async def settled_playback(
-    spotify: Spotifyify,
+    spotify: SpotifyClient,
     *,
     until: Predicate | None = None,
     wait: bool = True,

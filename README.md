@@ -416,19 +416,21 @@ spotifyify tracks search "Ikkimel" --limit 2
 ]
 ```
 
-Set `SPOTIFYIFY_RAW=1` to get the untouched Spotify payload instead, for
-debugging paging metadata or a field that is not a declared column.
+Use the root flag `--full` or `SPOTIFYIFY_FULL=1` to get complete normalized
+response models, including paging metadata, unknown fields and explicit nulls.
+This is model serialization, not the original HTTP body: aliases and timestamps
+normalize, and `--all` combines pages. `SPOTIFYIFY_RAW=1` remains a legacy alias.
 
 ```bash
-SPOTIFYIFY_RAW=1 spotifyify tracks search "Daft Punk" --limit 1
+spotifyify --full tracks search "Daft Punk" --limit 1
 ```
 
 PowerShell:
 
 ```powershell
-$env:SPOTIFYIFY_RAW = "1"
+$env:SPOTIFYIFY_FULL = "1"
 spotifyify tracks search "Daft Punk" --limit 1
-Remove-Item Env:SPOTIFYIFY_RAW
+Remove-Item Env:SPOTIFYIFY_FULL
 ```
 
 ### Command discovery
@@ -442,6 +444,18 @@ spotifyify artists get --help
 ```
 
 The short form `-h` works at every level as well.
+
+Paged commands expose `--offset` and `--all`; cursor-based history/following
+commands expose `--all` alongside their cursor options. For example:
+
+```bash
+spotifyify tracks search "ambient" --limit 10 --offset 10 --all
+spotifyify library saved-tracks --all
+spotifyify playlists items PLAYLIST_ID --all
+```
+
+`playlists items` is the canonical command for tracks and episodes. The previous
+`playlists tracks` spelling remains a hidden compatibility alias.
 
 Resource groups use plural names consistently (`artists`, `tracks`, `albums`),
 and each command has one canonical spelling.

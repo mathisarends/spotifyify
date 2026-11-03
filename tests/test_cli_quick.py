@@ -91,9 +91,9 @@ class QuickPlayTestCase(CliTestCase):
             return _playing()
 
         return {
-            "tracks": SimpleNamespace(find=finder("tracks", tracks)),
-            "albums": SimpleNamespace(find=finder("albums", albums)),
-            "artists": SimpleNamespace(find=finder("artists", artists)),
+            "tracks": SimpleNamespace(search=finder("tracks", tracks)),
+            "albums": SimpleNamespace(search=finder("albums", albums)),
+            "artists": SimpleNamespace(search=finder("artists", artists)),
             "player": SimpleNamespace(play=play, state=state),
         }
 

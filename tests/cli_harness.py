@@ -47,7 +47,7 @@ class CliTestCase(unittest.TestCase):
     def run_cli(self, args, namespaces=None, env=None):
         FakeSpotifyify.namespaces = namespaces or {}
         FakeSpotifyify.instances = []
-        with patch("spotifyify.cli.core.Spotifyify", FakeSpotifyify):
+        with patch("spotifyify.cli.core.SpotifyClient", FakeSpotifyify):
             return self.runner.invoke(cli.app, args, env=env)
 
     def run_json(self, args, namespaces=None, env=None):

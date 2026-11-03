@@ -1,8 +1,10 @@
+from spotifyify.cli.core import fetch_cursor_pages
+from spotifyify.cli.options import AllOption
 from typing import Annotated, Any
 
 import typer
 
-from spotifyify import Spotifyify, SpotifyScope
+from spotifyify import SpotifyClient, SpotifyScope
 from spotifyify.exceptions import SpotifyAPIError
 from spotifyify.schemas import Device
 
@@ -65,7 +67,7 @@ def _select_fallback_device(devices: list[Device]) -> Device | None:
 
 
 async def _play_with_device_fallback(
-    spotify: Spotifyify,
+    spotify: SpotifyClient,
     *,
     device_id: str | None,
     context_uri: str | None = None,
@@ -346,11 +348,16 @@ async def recently_played(
     limit: LimitOption = 20,
     after: Annotated[int | None, typer.Option("--after")] = None,
     before: Annotated[int | None, typer.Option("--before")] = None,
+    all_pages: AllOption = False,
     fields: FieldsOption = None,
 ) -> None:
     async with spotify_client([SpotifyScope.USER_READ_RECENTLY_PLAYED]) as spotify:
-        result = await spotify.player.recently_played(
-            limit=limit, after=after, before=before
+        result = await fetch_cursor_pages(
+            spotify.player.recently_played,
+            limit=limit,
+            after=after,
+            before=before,
+            all_pages=all_pages,
         )
     print_result(
         result,
