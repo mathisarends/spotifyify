@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager, contextmanager
 from functools import cached_property
 from typing import Self
 
-import httpx
+import httpx2
 
 from spotifyify.auth import AccessTokenProvider
 from spotifyify.cache_handler import CacheFileHandler, CacheHandler
@@ -33,7 +33,7 @@ class SpotifyClient:
     """Async Spotify SDK. Use as an async context manager or call ``aclose``.
 
     An injected token provider remains owned by its caller. The client owns its
-    HTTP transport and closes it, including an injected httpx transport.
+    HTTP transport and closes it, including an injected httpx2 transport.
     """
 
     def __init__(
@@ -46,7 +46,7 @@ class SpotifyClient:
         retry_backoff_seconds: float = 1.0,
         *,
         token_provider: AccessTokenProvider | None = None,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: httpx2.AsyncBaseTransport | None = None,
         cache_profile: str = "default",
         retry_policy: RetryPolicy | None = None,
         api_mode: ApiMode | str = ApiMode.DEVELOPMENT,

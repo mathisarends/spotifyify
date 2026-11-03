@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 
-import httpx
+import httpx2
 
 from spotifyify.http.retry_policy import HttpMethod
 
@@ -11,7 +11,7 @@ from spotifyify.http.retry_policy import HttpMethod
 class RetryEvent:
     method: HttpMethod
     path: str
-    response: httpx.Response
+    response: httpx2.Response
     retry_number: int
     max_retries: int
     retry_in_seconds: float

@@ -6,7 +6,7 @@ from ipaddress import ip_address
 from typing import Any
 from urllib.parse import quote, urlparse
 
-import httpx
+import httpx2
 from pydantic import ValidationError
 
 from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
@@ -34,14 +34,14 @@ class SpotifyOAuth:
         cache_handler: CacheHandler | None = None,
         timeout: float = 10.0,
         *,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
         self.credentials = credentials
         self.cache_handler = (
             cache_handler if cache_handler is not None else MemoryCacheHandler()
         )
         self.timeout = timeout
-        self._http: httpx.AsyncClient | None = None
+        self._http: httpx2.AsyncClient | None = None
         self._transport = transport
         self._closed = False
         self._token_info: TokenInfo | None = None
@@ -163,7 +163,7 @@ class SpotifyOAuth:
             if self._closed:
                 raise SpotifyAuthError("OAuth provider is closed")
             if self._http is None:
-                self._http = httpx.AsyncClient(
+                self._http = httpx2.AsyncClient(
                     timeout=self.timeout, transport=self._transport
                 )
             response = await self._http.post(
@@ -185,7 +185,7 @@ class SpotifyOAuth:
             raise SpotifyAuthError(
                 f"Token request failed: {exc.message}", code=error_code
             ) from exc
-        except httpx.HTTPError as exc:
+        except httpx2.HTTPError as exc:
             logger.exception(
                 "Spotify OAuth token request failed: grant_type=%s",
                 payload.grant_type,

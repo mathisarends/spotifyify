@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify import SpotifyClient, Spotifyify
@@ -16,7 +16,7 @@ async def test_tokens_and_hooks_are_isolated_between_clients_and_tasks():
         token = request.headers["Authorization"]
         seen.append(token)
         attempts[token] = attempts.get(token, 0) + 1
-        return httpx.Response(
+        return httpx2.Response(
             503 if attempts[token] == 1 else 200, json={"type": "track"}
         )
 
@@ -25,12 +25,12 @@ async def test_tokens_and_hooks_are_isolated_between_clients_and_tasks():
     first_events, second_events = [], []
     async with SpotifyClient(
         token_provider=provider,
-        transport=httpx.MockTransport(respond),
+        transport=httpx2.MockTransport(respond),
         retry_backoff_seconds=0,
     ) as first:
         async with SpotifyClient(
             token_provider=provider,
-            transport=httpx.MockTransport(respond),
+            transport=httpx2.MockTransport(respond),
             retry_backoff_seconds=0,
         ) as second:
             async with first.request_context(

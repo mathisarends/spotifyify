@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 from pydantic import BaseModel
 
 from spotifyify.exceptions import (
@@ -21,7 +21,7 @@ class TestParseResponse(unittest.TestCase):
         text="",
         headers=None,
     ):
-        response = MagicMock(spec=httpx.Response)
+        response = MagicMock(spec=httpx2.Response)
         response.status_code = status_code
         response.content = content
         response.text = text

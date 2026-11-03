@@ -1,6 +1,6 @@
 from unittest.mock import AsyncMock
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify import SpotifyAuthError, SpotifyClient, SpotifyResponseError
@@ -23,7 +23,7 @@ async def test_empty_or_wrong_shaped_success_responses_do_not_become_empty_resul
     operation,
 ):
     async with SpotifyClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200))
+        transport=httpx2.MockTransport(lambda request: httpx2.Response(200))
     ) as spotify:
         async with spotify.session(access_token="external"):
             with pytest.raises(SpotifyResponseError):
@@ -36,7 +36,7 @@ async def test_revoked_environment_refresh_is_not_retried_by_the_next_request():
 
     def respond(request):
         calls.append(request)
-        return httpx.Response(400, json={"error": "invalid_grant"})
+        return httpx2.Response(400, json={"error": "invalid_grant"})
 
     oauth = SpotifyOAuth(
         SpotifyCredentials(
@@ -46,7 +46,7 @@ async def test_revoked_environment_refresh_is_not_retried_by_the_next_request():
             refresh_token="revoked",
         ),
         MemoryCacheHandler(),
-        transport=httpx.MockTransport(respond),
+        transport=httpx2.MockTransport(respond),
     )
     try:
         for _ in range(2):
@@ -75,7 +75,9 @@ async def test_complete_pages_require_an_item_collection():
         "total": 0,
     }
     async with SpotifyClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+        transport=httpx2.MockTransport(
+            lambda request: httpx2.Response(200, json=payload)
+        )
     ) as spotify:
         async with spotify.session(access_token="external"):
             with pytest.raises(SpotifyResponseError, match="items"):
