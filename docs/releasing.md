@@ -3,8 +3,9 @@
 The prepared release is **0.9.0**, dated **2026-11-03** in the changelog.
 Its version is already set in `pyproject.toml`
 and the root `spotifyify` entry in `uv.lock`. Release preparation does not publish
-the package or create a tag. The CI workflow validates changes and builds
-distributions; there is no automated PyPI publishing workflow.
+the package or create a tag. The `release.yml` workflow publishes stable version
+tags after the full CI matrix, package build, metadata checks and an installed
+wheel smoke test succeed.
 
 ## Validate the release PR
 
@@ -44,17 +45,40 @@ Check those with a dedicated Spotify account if release changes require them.
 
 ## Publish after merge
 
-1. Choose the exact commit to release and confirm it has passed CI. Confirm that
-   the changelog date matches the publication date; update it if publication is
-   delayed. Build artifacts from that exact commit using the checks above.
-2. Check PyPI for an existing `0.9.0`; published versions cannot be replaced.
-   Configure PyPI credentials or a trusted publishing workflow before uploading.
-3. Validate metadata with `uvx --from twine twine check` followed by the two exact
-   distribution paths. Upload those same files with `uv publish`, passing both
-   paths explicitly rather than uploading all of `dist/`.
-4. Tag the validated commit as `v0.9.0`, push the tag and create a GitHub release
-   from the matching changelog entry. Confirm the installed version and imports
-   from PyPI in a fresh environment.
+The PyPI Trusted Publisher must match these exact values:
+
+- Owner: `mathisarends`
+- Repository: `spotifyify`
+- Workflow: `release.yml`
+- GitHub environment: `pypi`
+
+The GitHub repository must have an environment named `pypi`. No PyPI API token
+is required: only the publish job receives `id-token: write`, and it downloads
+the distributions from the separate build job without executing project code.
+
+1. Choose the exact commit on `main` to release and confirm it has passed CI.
+   Confirm that the changelog date matches the publication date; update it if
+   publication is delayed. The package version, lockfile version and tag must
+   agree, and the changelog must contain a dated entry.
+2. Check PyPI for an existing version; published files cannot be replaced.
+3. Tag that commit and push the tag:
+
+   ```bash
+   git tag -a v0.9.0 <validated-main-commit> -m "Release 0.9.0"
+   git push origin v0.9.0
+   ```
+
+4. Watch the **Release** workflow. It repeats all four CI combinations, builds
+   fresh distributions, validates them with Twine, smoke-tests an installed wheel,
+   and uploads them to PyPI with OIDC and attestations. Only after PyPI succeeds
+   does it create the GitHub release with changelog notes, the same distributions
+   and SHA-256 checksums.
+5. Confirm the installed version and imports from PyPI in a fresh environment.
+
+To retry an interrupted release, rerun its workflow or manually dispatch
+`release.yml` with the existing version tag as the ref. Branch refs are rejected
+before publication. Already published files are skipped; GitHub release assets
+can be uploaded again. Never move a published version tag or change its source.
 
 Package upload, tag creation and GitHub release publication are separate steps
 from opening or merging the release PR.
