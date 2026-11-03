@@ -1,6 +1,3 @@
-from contextvars import ContextVar
+from spotifyify.http.context import default_context
 
-current_access_token: ContextVar[str | None] = ContextVar(
-    "current_access_token",
-    default=None,
-)
+current_access_token = default_context.access_token

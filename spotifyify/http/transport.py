@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from spotifyify.http.retry_context import current_retry_hook
+from spotifyify.http.context import RequestContext, default_context
 from spotifyify.http.retry_event import RetryEvent
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
 from spotifyify.http.serialization import SerializedJsonPayload
@@ -21,11 +21,15 @@ class HttpTransport:
         base_url: str,
         timeout: float,
         retry_policy: RetryPolicy,
+        context: RequestContext | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = base_url
         self._timeout = timeout
         self._retry_policy = retry_policy
         self._client: httpx.AsyncClient | None = None
+        self._context = context if context is not None else default_context
+        self._transport = transport
 
     async def open(self) -> None:
         if self._client is None:
@@ -33,6 +37,7 @@ class HttpTransport:
             self._client = httpx.AsyncClient(
                 base_url=self._base_url,
                 timeout=self._timeout,
+                transport=self._transport,
             )
 
     async def close(self) -> None:
@@ -114,7 +119,7 @@ class HttpTransport:
                 retry_event.retry_number,
                 retry_event.max_retries,
             )
-            if (hook := current_retry_hook.get()) is not None:
+            if (hook := self._context.on_retry.get()) is not None:
                 result = hook(retry_event)
                 if inspect.isawaitable(result):
                     await result

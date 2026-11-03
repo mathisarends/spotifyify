@@ -1,6 +1,6 @@
 from typing import Any
 
-from spotifyify.client import SpotifyClient
+from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import (
     CursorPagingPlayHistory,
     Device,
@@ -10,7 +10,7 @@ from spotifyify.schemas import (
 
 
 class Player:
-    def __init__(self, http: SpotifyClient) -> None:
+    def __init__(self, http: SpotifyAPIClient) -> None:
         self._http = http
 
     async def state(self, *, market: str | None = None) -> PlaybackState | None:

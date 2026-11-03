@@ -2,7 +2,7 @@ from typing import Any
 
 from collections.abc import Iterable
 
-from spotifyify.client import SpotifyClient
+from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import (
     PagingTrack,
     Track,
@@ -11,7 +11,7 @@ from spotifyify.utils import coalesce_csv
 
 
 class Tracks:
-    def __init__(self, http: SpotifyClient) -> None:
+    def __init__(self, http: SpotifyAPIClient) -> None:
         self._http = http
 
     async def find(

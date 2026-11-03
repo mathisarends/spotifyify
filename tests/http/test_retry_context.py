@@ -1,7 +1,6 @@
 import asyncio
 import unittest
 
-from spotifyify.http.retry_context import current_retry_hook
 from spotifyify.spotifyify import Spotifyify
 
 
@@ -13,7 +12,7 @@ class TestRetryContext(unittest.IsolatedAsyncioTestCase):
         async def capture_hook(hook):
             with spotify.retry_hook(hook):
                 await asyncio.sleep(0)
-                hooks_seen.append(current_retry_hook.get())
+                hooks_seen.append(spotify._context.on_retry.get())
 
         def first_hook(event):
             pass
@@ -27,7 +26,7 @@ class TestRetryContext(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertCountEqual(hooks_seen, [first_hook, second_hook])
-        self.assertIsNone(current_retry_hook.get())
+        self.assertIsNone(spotify._context.on_retry.get())
 
     async def test_retry_hook_restores_previous_hook(self):
         spotify = Spotifyify.__new__(Spotifyify)
@@ -39,9 +38,9 @@ class TestRetryContext(unittest.IsolatedAsyncioTestCase):
             pass
 
         with spotify.retry_hook(first_hook):
-            self.assertIs(current_retry_hook.get(), first_hook)
+            self.assertIs(spotify._context.on_retry.get(), first_hook)
             with spotify.retry_hook(second_hook):
-                self.assertIs(current_retry_hook.get(), second_hook)
-            self.assertIs(current_retry_hook.get(), first_hook)
+                self.assertIs(spotify._context.on_retry.get(), second_hook)
+            self.assertIs(spotify._context.on_retry.get(), first_hook)
 
-        self.assertIsNone(current_retry_hook.get())
+        self.assertIsNone(spotify._context.on_retry.get())

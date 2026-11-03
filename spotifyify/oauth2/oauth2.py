@@ -22,7 +22,7 @@ from spotifyify.http import parse_response
 logger = logging.getLogger(__name__)
 
 
-class SpotifyifyOAuth:
+class SpotifyOAuth:
     _SPOTIFY_OAUTH_AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
     _SPOTIFY_OAUTH_TOKEN_URL = "https://accounts.spotify.com/api/token"
 
@@ -382,3 +382,6 @@ class SpotifyifyOAuth:
             chunks = [str(part).strip() for part in scope]
             return " ".join(sorted(set(filter(None, chunks)))) or None
         raise TypeError("scope must be str, list[str], tuple[str, ...], or None")
+
+
+SpotifyifyOAuth = SpotifyOAuth

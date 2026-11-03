@@ -1,9 +1,9 @@
-from spotifyify.client import SpotifyClient
+from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import CursorPagingSimplifiedArtist, PublicUser, User
 
 
 class Users:
-    def __init__(self, http: SpotifyClient) -> None:
+    def __init__(self, http: SpotifyAPIClient) -> None:
         self._http = http
 
     async def me(self) -> User:

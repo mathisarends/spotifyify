@@ -1,11 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
 
-class SpotifyifyError(Exception):
+class SpotifyError(Exception):
     """Base exception for all spotifyify errors."""
 
 
-class SpotifyAPIError(SpotifyifyError):
+class SpotifyAPIError(SpotifyError):
     def __init__(
         self, status_code: int, message: str, details: dict | None = None
     ) -> None:
@@ -32,5 +32,8 @@ class SpotifyRateLimitError(SpotifyAPIError):
         super().__init__(429, message, details)
 
 
-class SpotifyAuthError(SpotifyifyError):
+class SpotifyAuthError(SpotifyError):
     pass
+
+
+SpotifyifyError = SpotifyError
