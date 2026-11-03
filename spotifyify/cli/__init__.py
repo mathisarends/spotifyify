@@ -1,5 +1,6 @@
 import sys
 from typing import Annotated
+from spotifyify.config import ApiMode
 
 try:
     import typer
@@ -17,6 +18,7 @@ from .core import (
     set_default_device_id,
     set_default_market,
     set_default_profile,
+    set_api_mode,
     sort_items,
     split_values,
 )
@@ -97,6 +99,13 @@ if typer is not None:
 
     @app.callback(invoke_without_command=True)
     def _root(
+        api_mode: Annotated[
+            ApiMode | None,
+            typer.Option(
+                "--api-mode",
+                help="Spotify API contract; use extended only with Extended Quota access.",
+            ),
+        ] = None,
         profile: Annotated[
             str | None,
             typer.Option(
@@ -123,6 +132,7 @@ if typer is not None:
         ] = None,
     ) -> None:
         set_default_profile(profile)
+        set_api_mode(api_mode)
         set_default_market(market)
         set_default_device_id(device_id)
 

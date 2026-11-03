@@ -4,6 +4,7 @@ from .spotifyify import Spotifyify
 from .spotify import SpotifyClient
 from .client import SpotifyAPIClient
 from .auth import AccessTokenProvider
+from .config import ApiMode
 from .credentials import SpotifyCredentials
 from .exceptions import (
     SpotifyAPIError,
@@ -80,6 +81,7 @@ __all__ = [
     "SpotifyClient",
     "SpotifyAPIClient",
     "AccessTokenProvider",
+    "ApiMode",
     "SpotifyError",
     "SpotifyifyError",
     "SpotifyCredentials",

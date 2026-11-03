@@ -1,3 +1,4 @@
+from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock, MagicMock, call
 
@@ -9,6 +10,8 @@ from spotifyify.schemas import Image, PagingPlaylist, PagingPlaylistTrack, Playl
 class TestPlaylists(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.http = AsyncMock()
+        self.http.api_mode = ApiMode.EXTENDED
+        self.http.concurrency = 8
         self.mock_client = MagicMock()
         self.mock_client.http = self.http
         self.playlists = Playlists(self.mock_client)

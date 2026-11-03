@@ -107,6 +107,22 @@ asyncio.run(main())
 
 ## API design
 
+The default API contract is Spotify **Development Mode** (including the 2026
+changes). Library writes/checks use `/me/library`, playlists are created with
+`/me/playlists`, and `get_many()` uses bounded individual reads. Search accepts
+at most 10 items per request in this mode. Endpoints Spotify removed from this
+mode fail locally with `SpotifyUnsupportedOperation`.
+
+Apps that already have Extended Quota access can select the legacy-compatible
+contract with `SpotifyClient(api_mode="extended")`, or use
+`spotifyify --api-mode extended ...` / `SPOTIFYIFY_API_MODE=extended` in the CLI.
+This option selects endpoints; it does not change the app's Spotify quota mode.
+
+`get_many()` accepts any number of IDs, batches where supported, and returns one
+entry per input ID in the same order. Missing entries are `None`. Configure
+parallel read workers with `concurrency` (default: 8). Empty input returns an
+empty list; pass `[track_id]` for one ID rather than a plain string.
+
 The `Spotifyify` class is the entry point. It exposes all Spotify resources as lazy-loaded namespace properties. Every method is a coroutine and must be awaited.
 
 ```

@@ -8,7 +8,17 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def coalesce_items(ids_or_uris: Iterable[str]) -> list[str]:
-    return [str(v).strip() for v in ids_or_uris if str(v).strip()]
+    if isinstance(ids_or_uris, (str, bytes)):
+        raise ValueError(
+            "Pass a collection of IDs or URIs, for example [item_id], rather than a single string"
+        )
+    result = []
+    for value in ids_or_uris:
+        if not isinstance(value, str):
+            raise ValueError("IDs and URIs must be strings")
+        if value.strip():
+            result.append(value.strip())
+    return result
 
 
 def coalesce_csv(ids_or_uris: Iterable[str]) -> str:

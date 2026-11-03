@@ -10,6 +10,12 @@ class TokenFormPayload(BaseModel):
 
 
 class SpotifyScope(StrEnum):
+    USER_FOLLOW_READ = "user-follow-read"
+    USER_FOLLOW_MODIFY = "user-follow-modify"
+    USER_READ_PRIVATE = "user-read-private"
+    USER_READ_EMAIL = "user-read-email"
+    USER_READ_PLAYBACK_POSITION = "user-read-playback-position"
+    PLAYLIST_READ_COLLABORATIVE = "playlist-read-collaborative"
     USER_READ_PLAYBACK_STATE = "user-read-playback-state"
     USER_MODIFY_PLAYBACK_STATE = "user-modify-playback-state"
     USER_LIBRARY_READ = "user-library-read"

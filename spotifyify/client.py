@@ -6,6 +6,7 @@ from pydantic import BaseModel
 import httpx
 
 from spotifyify.auth import AccessTokenProvider
+from spotifyify.config import ApiMode
 from spotifyify.http import (
     HttpMethod,
     HttpTransport,
@@ -33,8 +34,14 @@ class SpotifyAPIClient:
         context: RequestContext | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         retry_policy: RetryPolicy | None = None,
+        api_mode: ApiMode | str = ApiMode.DEVELOPMENT,
+        concurrency: int = 8,
     ) -> None:
         self._token_provider = token_provider
+        self.api_mode = ApiMode(api_mode)
+        if concurrency < 1:
+            raise ValueError("concurrency must be positive")
+        self.concurrency = concurrency
         self._scopes = list(scopes or [])
         self._context = context if context is not None else default_context
         self._closed = False

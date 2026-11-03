@@ -1,3 +1,5 @@
+from spotifyify.config import ApiMode
+from spotifyify.exceptions import SpotifyResponseError
 import unittest
 from unittest.mock import AsyncMock
 
@@ -9,6 +11,8 @@ from spotifyify.schemas import CursorPagingSimplifiedArtist, PublicUser, User
 class TestUsers(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.http = AsyncMock()
+        self.http.api_mode = ApiMode.EXTENDED
+        self.http.concurrency = 8
         self.users = Users(self.http)
 
     async def test_me(self):
@@ -53,5 +57,5 @@ class TestUsers(unittest.IsolatedAsyncioTestCase):
 
     async def test_check_following_non_list(self):
         self.http.get.return_value = None
-        result = await self.users.check_following("artist", ["id1"])
-        self.assertEqual(result, [])
+        with self.assertRaises(SpotifyResponseError):
+            await self.users.check_following("artist", ["id1"])

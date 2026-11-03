@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from spotifyify import Spotifyify, SpotifyScope
 from spotifyify.schemas import PlaybackState
+from spotifyify.config import ApiMode
 
 try:
     import typer
@@ -27,6 +28,7 @@ DEVICE_ENV_VAR = "SPOTIFYIFY_DEVICE_ID"
 
 _market_override: str | None = None
 _profile_override: str | None = None
+_api_mode_override: ApiMode | None = None
 _device_override: str | None = None
 
 # Table cells are single-line by construction, so anything that could forge a
@@ -237,6 +239,17 @@ def default_profile() -> str:
     return _profile_override or os.environ.get("SPOTIFYIFY_PROFILE") or "default"
 
 
+def set_api_mode(value: ApiMode | None) -> None:
+    global _api_mode_override
+    _api_mode_override = value
+
+
+def default_api_mode() -> ApiMode:
+    return _api_mode_override or ApiMode(
+        os.environ.get("SPOTIFYIFY_API_MODE", "development")
+    )
+
+
 def default_device_id() -> str | None:
     """Root --device-id flag, then the environment, then no device at all."""
     return _device_override or os.environ.get(DEVICE_ENV_VAR) or None
@@ -262,7 +275,9 @@ async def spotify_client(
     scopes: Sequence[SpotifyScope] = (),
 ) -> AsyncGenerator[Spotifyify, None]:
     """Open the async Spotify client used by one explicit CLI command."""
-    async with Spotifyify(scopes=scopes, cache_profile=default_profile()) as spotify:
+    async with Spotifyify(
+        scopes=scopes, cache_profile=default_profile(), api_mode=default_api_mode()
+    ) as spotify:
         yield spotify
 
 

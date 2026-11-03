@@ -1,3 +1,4 @@
+from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock
 
@@ -9,6 +10,8 @@ from spotifyify.schemas import Album, PagingSimplifiedAlbum, PagingSimplifiedTra
 class TestAlbums(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.http = AsyncMock()
+        self.http.api_mode = ApiMode.EXTENDED
+        self.http.concurrency = 8
         self.albums = Albums(self.http)
 
     async def test_find(self):

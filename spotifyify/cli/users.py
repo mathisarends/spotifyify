@@ -28,8 +28,8 @@ app = typer.Typer(
 COLUMNS = ("id", "display_name", "uri")
 FOLLOWING_COLUMNS = ("id", "following")
 
-READ_SCOPES = [SpotifyScope.USER_LIBRARY_READ]
-MODIFY_SCOPES = [SpotifyScope.USER_LIBRARY_MODIFY]
+READ_SCOPES = [SpotifyScope.USER_FOLLOW_READ]
+MODIFY_SCOPES = [SpotifyScope.USER_FOLLOW_MODIFY]
 # follow/unfollow report the resulting state, so they read it back too.
 WRITE_SCOPES = merge_scopes(MODIFY_SCOPES, READ_SCOPES)
 

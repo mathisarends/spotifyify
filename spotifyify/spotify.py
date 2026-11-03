@@ -11,6 +11,7 @@ from spotifyify.auth import AccessTokenProvider
 from spotifyify.cache_handler import CacheFileHandler, CacheHandler
 from spotifyify.client import SpotifyAPIClient
 from spotifyify.credentials import SpotifyCredentials
+from spotifyify.config import ApiMode
 from spotifyify.http import OnRetryHook, RetryPolicy
 from spotifyify.http.context import RequestContext
 from spotifyify.namespaces import (
@@ -47,6 +48,8 @@ class SpotifyClient:
         transport: httpx.AsyncBaseTransport | None = None,
         cache_profile: str = "default",
         retry_policy: RetryPolicy | None = None,
+        api_mode: ApiMode | str = ApiMode.DEVELOPMENT,
+        concurrency: int = 8,
     ) -> None:
         self._credentials = (
             credentials if credentials is not None else SpotifyCredentials()
@@ -77,6 +80,8 @@ class SpotifyClient:
             context=self._context,
             transport=transport,
             retry_policy=retry_policy,
+            api_mode=api_mode,
+            concurrency=concurrency,
         )
 
     @cached_property

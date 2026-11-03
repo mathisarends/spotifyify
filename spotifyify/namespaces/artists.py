@@ -1,50 +1,39 @@
+from spotifyify.namespaces.base import Resource
 from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
 
-from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import (
     Artist,
     PagingArtistDiscographyAlbum,
     PagingArtist,
     Track,
 )
-from spotifyify.utils import coalesce_csv, deprecated
+from spotifyify.utils import deprecated
 
 
-class Artists:
-    def __init__(self, http: SpotifyAPIClient) -> None:
-        self._http = http
-
-    async def find(
-        self,
-        query: str,
-        *,
-        limit: int = 10,
-        offset: int = 0,
+class Artists(Resource):
+    async def search(
+        self, query: str, *, limit: int = 10, offset: int = 0
     ) -> PagingArtist:
-        params: dict[str, Any] = {
-            "q": query,
-            "type": "artist",
-            "limit": limit,
-            "offset": offset,
-        }
-        data = await self._http.get("/search", params=params, require_user=False) or {}
-        artists = data.get("artists", {}) if isinstance(data, dict) else {}
-        return validate_model(PagingArtist, artists)
+        return validate_model(
+            PagingArtist,
+            await self._search("artist", query, limit=limit, offset=offset),
+        )
+
+    find = search
 
     async def get(self, artist_id: str) -> Artist:
         data = await self._http.get(f"/artists/{artist_id}", require_user=False) or {}
         return validate_model(Artist, data)
 
-    async def get_many(self, artist_ids: Iterable[str]) -> list[Artist]:
-        params: dict[str, Any] = {"ids": coalesce_csv(artist_ids)}
-        data = await self._http.get("/artists", params=params, require_user=False)
-        artists = data.get("artists", []) if isinstance(data, dict) else []
-        return [validate_model(Artist, item) for item in artists if item]
+    async def get_many(self, artist_ids: Iterable[str]) -> list[Artist | None]:
+        """Fetch any number of IDs, preserving order and missing positions."""
+        return await self._get_many("artists", artist_ids, Artist, 50)
 
     async def top_tracks(self, artist_id: str, *, market: str = "US") -> list[Track]:
+        self._require_extended("Artist top tracks")
         data = (
             await self._http.get(
                 f"/artists/{artist_id}/top-tracks",
@@ -85,6 +74,7 @@ class Artists:
         "November 2024; this call will likely fail with a 404."
     )
     async def related(self, artist_id: str) -> list[Artist]:
+        self._require_extended("Related artists")
         data = (
             await self._http.get(
                 f"/artists/{artist_id}/related-artists",

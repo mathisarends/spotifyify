@@ -1,36 +1,23 @@
+from spotifyify.namespaces.base import Resource
 from spotifyify.http.response import validate_model
-from typing import Any
 
 from collections.abc import Iterable
 
-from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import Episode, PagingSimplifiedEpisode
-from spotifyify.utils import coalesce_csv
 
 
-class Episodes:
-    def __init__(self, http: SpotifyAPIClient) -> None:
-        self._http = http
-
-    async def find(
-        self,
-        query: str,
-        *,
-        limit: int = 10,
-        offset: int = 0,
-        market: str | None = None,
+class Episodes(Resource):
+    async def search(
+        self, query: str, *, limit: int = 10, offset: int = 0, market: str | None = None
     ) -> PagingSimplifiedEpisode:
-        params: dict[str, Any] = {
-            "q": query,
-            "type": "episode",
-            "limit": limit,
-            "offset": offset,
-        }
-        if market:
-            params["market"] = market
-        data = await self._http.get("/search", params=params, require_user=False) or {}
-        episodes = data.get("episodes", {}) if isinstance(data, dict) else {}
-        return validate_model(PagingSimplifiedEpisode, episodes)
+        return validate_model(
+            PagingSimplifiedEpisode,
+            await self._search(
+                "episode", query, limit=limit, offset=offset, market=market
+            ),
+        )
+
+    find = search
 
     async def get(self, episode_id: str, *, market: str | None = None) -> Episode:
         data = (
@@ -44,14 +31,7 @@ class Episodes:
         return validate_model(Episode, data)
 
     async def get_many(
-        self,
-        episode_ids: Iterable[str],
-        *,
-        market: str | None = None,
-    ) -> list[Episode]:
-        params: dict[str, Any] = {"ids": coalesce_csv(episode_ids)}
-        if market:
-            params["market"] = market
-        data = await self._http.get("/episodes", params=params, require_user=False)
-        episodes = data.get("episodes", []) if isinstance(data, dict) else []
-        return [validate_model(Episode, item) for item in episodes if item]
+        self, episode_ids: Iterable[str], *, market: str | None = None
+    ) -> list[Episode | None]:
+        """Fetch any number of IDs, preserving order and missing positions."""
+        return await self._get_many("episodes", episode_ids, Episode, 50, market=market)

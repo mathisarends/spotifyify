@@ -1,40 +1,28 @@
+from spotifyify.namespaces.base import Resource
 from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
 
-from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import (
     Album,
     PagingSimplifiedAlbum,
     PagingSimplifiedTrack,
 )
-from spotifyify.utils import coalesce_csv
 
 
-class Albums:
-    def __init__(self, http: SpotifyAPIClient) -> None:
-        self._http = http
-
-    async def find(
-        self,
-        query: str,
-        *,
-        limit: int = 10,
-        offset: int = 0,
-        market: str | None = None,
+class Albums(Resource):
+    async def search(
+        self, query: str, *, limit: int = 10, offset: int = 0, market: str | None = None
     ) -> PagingSimplifiedAlbum:
-        params: dict[str, Any] = {
-            "q": query,
-            "type": "album",
-            "limit": limit,
-            "offset": offset,
-        }
-        if market:
-            params["market"] = market
-        data = await self._http.get("/search", params=params, require_user=False) or {}
-        albums = data.get("albums", {}) if isinstance(data, dict) else {}
-        return validate_model(PagingSimplifiedAlbum, albums)
+        return validate_model(
+            PagingSimplifiedAlbum,
+            await self._search(
+                "album", query, limit=limit, offset=offset, market=market
+            ),
+        )
+
+    find = search
 
     async def get(self, album_id: str, *, market: str | None = None) -> Album:
         data = (
@@ -49,13 +37,9 @@ class Albums:
 
     async def get_many(
         self, album_ids: Iterable[str], *, market: str | None = None
-    ) -> list[Album]:
-        params: dict[str, Any] = {"ids": coalesce_csv(album_ids)}
-        if market:
-            params["market"] = market
-        data = await self._http.get("/albums", params=params, require_user=False)
-        albums = data.get("albums", []) if isinstance(data, dict) else []
-        return [validate_model(Album, item) for item in albums if item]
+    ) -> list[Album | None]:
+        """Fetch any number of IDs, preserving order and missing positions."""
+        return await self._get_many("albums", album_ids, Album, 20, market=market)
 
     async def tracks(
         self,
@@ -85,6 +69,7 @@ class Albums:
         limit: int = 20,
         offset: int = 0,
     ) -> PagingSimplifiedAlbum:
+        self._require_extended("New releases")
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if country:
             params["country"] = country

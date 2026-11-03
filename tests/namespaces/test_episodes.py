@@ -1,3 +1,4 @@
+from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock
 
@@ -9,6 +10,8 @@ from spotifyify.schemas import Episode, PagingSimplifiedEpisode
 class TestEpisodes(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.http = AsyncMock()
+        self.http.api_mode = ApiMode.EXTENDED
+        self.http.concurrency = 8
         self.episodes = Episodes(self.http)
 
     async def test_find(self):
@@ -35,7 +38,8 @@ class TestEpisodes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 2)
         self.assertIsInstance(result[0], Episode)
 
-    async def test_get_many_filters_none(self):
+    async def test_get_many_preserves_missing_positions(self):
         self.http.get.return_value = {"episodes": [None, episode(id="e1", name="Ep1")]}
         result = await self.episodes.get_many(["e1", "e2"])
-        self.assertEqual(len(result), 1)
+        self.assertEqual(len(result), 2)
+        self.assertIsNone(result[0])

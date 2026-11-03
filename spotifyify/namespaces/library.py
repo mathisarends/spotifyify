@@ -1,9 +1,9 @@
+from spotifyify.namespaces.base import Resource
 from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
 
-from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import (
     PagingArtist,
     PagingSavedAlbum,
@@ -12,13 +12,9 @@ from spotifyify.schemas import (
     PagingSavedTrack,
     PagingTrack,
 )
-from spotifyify.utils import coalesce_csv
 
 
-class Library:
-    def __init__(self, http: SpotifyAPIClient) -> None:
-        self._http = http
-
+class Library(Resource):
     async def saved_tracks(
         self,
         *,
@@ -66,54 +62,40 @@ class Library:
         return validate_model(PagingSavedEpisode, data)
 
     async def save_tracks(self, track_ids: Iterable[str]) -> None:
-        await self._http.put("/me/tracks", params={"ids": coalesce_csv(track_ids)})
+        await self._library_write("track", track_ids, remove=False)
 
     async def remove_tracks(self, track_ids: Iterable[str]) -> None:
-        await self._http.delete("/me/tracks", params={"ids": coalesce_csv(track_ids)})
+        await self._library_write("track", track_ids, remove=True)
 
     async def save_albums(self, album_ids: Iterable[str]) -> None:
-        await self._http.put("/me/albums", params={"ids": coalesce_csv(album_ids)})
+        await self._library_write("album", album_ids, remove=False)
 
     async def remove_albums(self, album_ids: Iterable[str]) -> None:
-        await self._http.delete("/me/albums", params={"ids": coalesce_csv(album_ids)})
+        await self._library_write("album", album_ids, remove=True)
 
     async def save_shows(self, show_ids: Iterable[str]) -> None:
-        await self._http.put("/me/shows", params={"ids": coalesce_csv(show_ids)})
+        await self._library_write("show", show_ids, remove=False)
 
     async def remove_shows(self, show_ids: Iterable[str]) -> None:
-        await self._http.delete("/me/shows", params={"ids": coalesce_csv(show_ids)})
+        await self._library_write("show", show_ids, remove=True)
 
     async def save_episodes(self, episode_ids: Iterable[str]) -> None:
-        await self._http.put("/me/episodes", params={"ids": coalesce_csv(episode_ids)})
+        await self._library_write("episode", episode_ids, remove=False)
 
     async def remove_episodes(self, episode_ids: Iterable[str]) -> None:
-        await self._http.delete(
-            "/me/episodes", params={"ids": coalesce_csv(episode_ids)}
-        )
+        await self._library_write("episode", episode_ids, remove=True)
 
     async def check_tracks(self, track_ids: Iterable[str]) -> list[bool]:
-        data = await self._http.get(
-            "/me/tracks/contains", params={"ids": coalesce_csv(track_ids)}
-        )
-        return data if isinstance(data, list) else []
+        return await self._library_check("track", track_ids)
 
     async def check_albums(self, album_ids: Iterable[str]) -> list[bool]:
-        data = await self._http.get(
-            "/me/albums/contains", params={"ids": coalesce_csv(album_ids)}
-        )
-        return data if isinstance(data, list) else []
+        return await self._library_check("album", album_ids)
 
     async def check_shows(self, show_ids: Iterable[str]) -> list[bool]:
-        data = await self._http.get(
-            "/me/shows/contains", params={"ids": coalesce_csv(show_ids)}
-        )
-        return data if isinstance(data, list) else []
+        return await self._library_check("show", show_ids)
 
     async def check_episodes(self, episode_ids: Iterable[str]) -> list[bool]:
-        data = await self._http.get(
-            "/me/episodes/contains", params={"ids": coalesce_csv(episode_ids)}
-        )
-        return data if isinstance(data, list) else []
+        return await self._library_check("episode", episode_ids)
 
     async def top_tracks(
         self,

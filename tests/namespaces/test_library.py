@@ -1,3 +1,5 @@
+from spotifyify.config import ApiMode
+from spotifyify.exceptions import SpotifyResponseError
 import unittest
 from unittest.mock import AsyncMock
 
@@ -16,6 +18,8 @@ from spotifyify.schemas import (
 class TestLibrary(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.http = AsyncMock()
+        self.http.api_mode = ApiMode.EXTENDED
+        self.http.concurrency = 8
         self.library = Library(self.http)
 
     async def test_saved_tracks(self):
@@ -99,10 +103,10 @@ class TestLibrary(unittest.IsolatedAsyncioTestCase):
         result = await self.library.check_episodes(["e1"])
         self.assertEqual(result, [True])
 
-    async def test_check_returns_empty_for_non_list(self):
+    async def test_check_rejects_unexpected_response(self):
         self.http.get.return_value = None
-        result = await self.library.check_tracks(["id1"])
-        self.assertEqual(result, [])
+        with self.assertRaises(SpotifyResponseError):
+            await self.library.check_tracks(["id1"])
 
     async def test_top_tracks(self):
         self.http.get.return_value = paging()

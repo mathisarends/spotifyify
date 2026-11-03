@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from spotifyify.namespaces.base import Resource
+from spotifyify.config import ApiMode
+from spotifyify.exceptions import SpotifyResponseError
+
 from spotifyify.http.response import validate_model
 
 from typing import TYPE_CHECKING, Any
@@ -16,27 +20,20 @@ if TYPE_CHECKING:
 _MAX_ITEMS_PER_REQUEST = 100
 
 
-class Playlists:
+class Playlists(Resource):
     def __init__(self, client: Spotifyify) -> None:
         self._client = client
-        self._http = client.http
+        super().__init__(client.http)
 
-    async def find(
-        self,
-        query: str,
-        *,
-        limit: int = 10,
-        offset: int = 0,
+    async def search(
+        self, query: str, *, limit: int = 10, offset: int = 0
     ) -> PagingPlaylist:
-        params: dict[str, Any] = {
-            "q": query,
-            "type": "playlist",
-            "limit": limit,
-            "offset": offset,
-        }
-        data = await self._http.get("/search", params=params, require_user=False) or {}
-        playlists = data.get("playlists", {}) if isinstance(data, dict) else {}
-        return validate_model(PagingPlaylist, playlists)
+        return validate_model(
+            PagingPlaylist,
+            await self._search("playlist", query, limit=limit, offset=offset),
+        )
+
+    find = search
 
     async def get(self, playlist_id: str, *, market: str | None = None) -> Playlist:
         params = {"market": market} if market else None
@@ -58,6 +55,7 @@ class Playlists:
         offset: int = 0,
     ) -> PagingPlaylist:
         if user_id:
+            self._require_extended("Other users playlists")
             path = f"/users/{user_id}/playlists"
         else:
             path = "/me/playlists"
@@ -65,7 +63,7 @@ class Playlists:
         data = await self._http.get(path, params=params) or {}
         return validate_model(PagingPlaylist, data)
 
-    async def tracks(
+    async def items(
         self,
         playlist_id: str,
         *,
@@ -82,13 +80,15 @@ class Playlists:
             params["fields"] = fields
         if additional_types is not None:
             params["additional_types"] = coalesce_csv(additional_types)
-        # The legacy read route still exposes public playlists to app-only tokens.
+        modern = self._http.api_mode == ApiMode.DEVELOPMENT
         data = await self._http.get(
-            f"/playlists/{playlist_id}/tracks",
+            f"/playlists/{playlist_id}/{'items' if modern else 'tracks'}",
             params=params,
-            require_user=False,
+            require_user=modern,
         )
         return validate_model(PagingPlaylistTrack, data or {})
+
+    tracks = items
 
     async def create(
         self,
@@ -99,13 +99,21 @@ class Playlists:
         description: str = "",
         user_id: str | None = None,
     ) -> Playlist:
-        target_user = user_id
-        if not target_user:
-            me = await self._client.users.me()
-            target_user = me.id or ""
+        if self._http.api_mode == ApiMode.DEVELOPMENT:
+            if user_id is not None:
+                self._require_extended("Creating a playlist for a supplied user_id")
+            path = "/me/playlists"
+        else:
+            target_user = user_id
+            if not target_user:
+                me = await self._client.users.me()
+                target_user = me.id
+            if not target_user:
+                raise SpotifyResponseError("Current user response is missing an ID")
+            path = f"/users/{target_user}/playlists"
         data = (
             await self._http.post(
-                f"/users/{target_user}/playlists",
+                path,
                 payload={
                     "name": name,
                     "public": public,
