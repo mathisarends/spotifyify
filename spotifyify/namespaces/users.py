@@ -1,3 +1,9 @@
+from collections.abc import AsyncIterator
+from typing import Any
+from spotifyify.pagination import iter_cursor_items
+from spotifyify.schemas import Artist
+from spotifyify.validation import spotify_id as validate_id
+from spotifyify.validation import page as validate_page
 from collections.abc import Iterable
 from spotifyify.batching import chunks
 from spotifyify.config import ApiMode
@@ -15,6 +21,7 @@ class Users(Resource):
         return validate_model(User, data)
 
     async def get(self, user_id: str) -> PublicUser:
+        user_id = validate_id(user_id)
         self._require_extended("Other user profiles")
         data = await self._http.get(f"/users/{user_id}", require_user=False) or {}
         return validate_model(PublicUser, data)
@@ -26,6 +33,9 @@ class Users(Resource):
         limit: int = 20,
         after: str | None = None,
     ) -> CursorPagingSimplifiedArtist:
+        validate_page(limit)
+        if type != "artist":
+            raise ValueError("following supports only type=artist")
         params: dict[str, str | int] = {"type": type, "limit": limit}
         if after:
             params["after"] = after
@@ -36,7 +46,7 @@ class Users(Resource):
     async def follow(self, type: str, ids: Iterable[str]) -> None:
         if type not in {"artist", "user"}:
             raise ValueError("type must be artist or user")
-        values = coalesce_items(ids)
+        values = [validate_id(value) for value in coalesce_items(ids)]
         if self._http.api_mode == ApiMode.DEVELOPMENT:
             await self._library_write(type, values, remove=False)
         else:
@@ -48,7 +58,7 @@ class Users(Resource):
     async def unfollow(self, type: str, ids: Iterable[str]) -> None:
         if type not in {"artist", "user"}:
             raise ValueError("type must be artist or user")
-        values = coalesce_items(ids)
+        values = [validate_id(value) for value in coalesce_items(ids)]
         if self._http.api_mode == ApiMode.DEVELOPMENT:
             await self._library_write(type, values, remove=True)
         else:
@@ -60,7 +70,7 @@ class Users(Resource):
     async def check_following(self, type: str, ids: Iterable[str]) -> list[bool]:
         if type not in {"artist", "user"}:
             raise ValueError("type must be artist or user")
-        values = coalesce_items(ids)
+        values = [validate_id(value) for value in coalesce_items(ids)]
         if self._http.api_mode == ApiMode.DEVELOPMENT:
             return await self._library_check(type, values)
         result: list[bool] = []
@@ -79,3 +89,11 @@ class Users(Resource):
                 )
             result.extend(data)
         return result
+
+    async def iter_following(
+        self, *, limit: int = 50, **kwargs: Any
+    ) -> AsyncIterator[Artist]:
+        async for item in iter_cursor_items(
+            self.following, limit=limit, numeric=False, **kwargs
+        ):
+            yield item

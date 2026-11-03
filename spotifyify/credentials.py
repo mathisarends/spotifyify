@@ -5,7 +5,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class SpotifyCredentials(BaseSettings):
     """Environment-backed credentials used by the async Spotify client."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", populate_by_name=True
+    )
 
     client_id: str | None = Field(default=None, validation_alias="SPOTIFY_CLIENT_ID")
     client_secret: SecretStr | None = Field(

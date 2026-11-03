@@ -13,6 +13,7 @@ from spotifyify.exceptions import (
 )
 from spotifyify.http.response import list_response, object_response, validate_model
 from spotifyify.utils import coalesce_items
+from spotifyify.validation import spotify_id
 
 
 class Resource:
@@ -35,7 +36,7 @@ class Resource:
         market: str | None = None,
     ) -> dict[str, Any]:
         maximum = 10 if self._http.api_mode == ApiMode.DEVELOPMENT else 50
-        if not query.strip():
+        if not isinstance(query, str) or not query.strip():
             raise ValueError("Search query must not be empty")
         if not 1 <= limit <= maximum or not 0 <= offset <= 1000:
             raise ValueError(f"Search requires limit 1..{maximum} and offset 0..1000")
@@ -61,7 +62,7 @@ class Resource:
         *,
         market: str | None = None,
     ) -> list[T | None]:
-        values = coalesce_items(ids)
+        values = [spotify_id(value) for value in coalesce_items(ids)]
         params = {"market": market} if market else {}
         if self._http.api_mode == ApiMode.DEVELOPMENT:
 
@@ -106,7 +107,7 @@ class Resource:
     async def _library_write(
         self, kind: str, ids: Iterable[str], *, remove: bool = False
     ) -> None:
-        values = coalesce_items(ids)
+        values = [spotify_id(value) for value in coalesce_items(ids)]
         action = self._http.delete if remove else self._http.put
         if self._http.api_mode == ApiMode.DEVELOPMENT:
             for batch in chunks(values, 40):
@@ -121,7 +122,7 @@ class Resource:
                 await action(f"/me/{kind}s", params={"ids": ",".join(batch)})
 
     async def _library_check(self, kind: str, ids: Iterable[str]) -> list[bool]:
-        values = coalesce_items(ids)
+        values = [spotify_id(value) for value in coalesce_items(ids)]
         result: list[bool] = []
         modern = self._http.api_mode == ApiMode.DEVELOPMENT
         for batch in chunks(values, 40 if modern else 50):

@@ -50,4 +50,24 @@ class SpotifyUnsupportedOperation(SpotifyError):
     """An operation is unavailable in the selected Spotify API mode."""
 
 
+class SpotifyBatchError(SpotifyError):
+    """A multi-request mutation failed after some inputs were processed."""
+
+    def __init__(
+        self,
+        operation: str,
+        *,
+        completed_items: int,
+        total_items: int,
+        snapshot_id: str | None,
+    ) -> None:
+        self.operation = operation
+        self.completed_items = completed_items
+        self.total_items = total_items
+        self.snapshot_id = snapshot_id
+        super().__init__(
+            f"{operation} stopped after {completed_items}/{total_items} input items; the playlist may already be partially updated"
+        )
+
+
 SpotifyifyError = SpotifyError

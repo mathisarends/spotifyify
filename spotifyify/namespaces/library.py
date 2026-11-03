@@ -1,6 +1,18 @@
+from collections.abc import AsyncIterator
+from typing import Any
+from spotifyify.pagination import iter_offset_items
+from spotifyify.schemas import (
+    Artist,
+    SavedAlbum,
+    SavedEpisode,
+    SavedShow,
+    SavedTrack,
+    Track,
+)
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
 from spotifyify.namespaces.base import Resource
 from spotifyify.http.response import validate_model
-from typing import Any
 
 from collections.abc import Iterable
 
@@ -22,6 +34,8 @@ class Library(Resource):
         offset: int = 0,
         market: str | None = None,
     ) -> PagingSavedTrack:
+        validate_page(limit, offset)
+        market = validate_market(market)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
@@ -35,6 +49,8 @@ class Library(Resource):
         offset: int = 0,
         market: str | None = None,
     ) -> PagingSavedAlbum:
+        validate_page(limit, offset)
+        market = validate_market(market)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
@@ -47,6 +63,7 @@ class Library(Resource):
         limit: int = 20,
         offset: int = 0,
     ) -> PagingSavedShow:
+        validate_page(limit, offset)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get("/me/shows", params=params) or {}
         return validate_model(PagingSavedShow, data)
@@ -57,6 +74,7 @@ class Library(Resource):
         limit: int = 20,
         offset: int = 0,
     ) -> PagingSavedEpisode:
+        validate_page(limit, offset)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get("/me/episodes", params=params) or {}
         return validate_model(PagingSavedEpisode, data)
@@ -104,6 +122,9 @@ class Library(Resource):
         limit: int = 20,
         offset: int = 0,
     ) -> PagingTrack:
+        validate_page(limit, offset)
+        if time_range not in {"short_term", "medium_term", "long_term"}:
+            raise ValueError("time_range must be short_term, medium_term, or long_term")
         data = (
             await self._http.get(
                 "/me/top/tracks",
@@ -120,6 +141,9 @@ class Library(Resource):
         limit: int = 20,
         offset: int = 0,
     ) -> PagingArtist:
+        validate_page(limit, offset)
+        if time_range not in {"short_term", "medium_term", "long_term"}:
+            raise ValueError("time_range must be short_term, medium_term, or long_term")
         data = (
             await self._http.get(
                 "/me/top/artists",
@@ -128,3 +152,57 @@ class Library(Resource):
             or {}
         )
         return validate_model(PagingArtist, data)
+
+    async def iter_saved_tracks(
+        self, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[SavedTrack]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.saved_tracks, limit=limit, offset=offset, **kwargs
+        ):
+            yield item
+
+    async def iter_saved_albums(
+        self, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[SavedAlbum]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.saved_albums, limit=limit, offset=offset, **kwargs
+        ):
+            yield item
+
+    async def iter_saved_shows(
+        self, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[SavedShow]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.saved_shows, limit=limit, offset=offset, **kwargs
+        ):
+            yield item
+
+    async def iter_saved_episodes(
+        self, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[SavedEpisode]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.saved_episodes, limit=limit, offset=offset, **kwargs
+        ):
+            yield item
+
+    async def iter_top_tracks(
+        self, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[Track]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.top_tracks, limit=limit, offset=offset, **kwargs
+        ):
+            yield item
+
+    async def iter_top_artists(
+        self, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[Artist]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.top_artists, limit=limit, offset=offset, **kwargs
+        ):
+            yield item

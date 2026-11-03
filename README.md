@@ -123,6 +123,22 @@ entry per input ID in the same order. Missing entries are `None`. Configure
 parallel read workers with `concurrency` (default: 8). Empty input returns an
 empty list; pass `[track_id]` for one ID rather than a plain string.
 
+Use `iter_search()`, `library.iter_saved_tracks()` (and the corresponding album,
+show and episode iterators), `playlists.iter_items()`, `users.iter_following()` or
+`player.iter_recently_played()` to consume pages lazily:
+
+```python
+async for saved in spotify.library.iter_saved_tracks(limit=50):
+    print(saved.track.name)
+```
+
+Playlist `add()`, `remove()` and `replace()` split large writes into ordered
+requests. These operations are not atomic across requests. If a later request
+fails, `SpotifyBatchError` exposes `completed_items`, `total_items` and the last
+`snapshot_id`; its cause retains the underlying error. Counts refer to processed
+input URIs, not the number of playlist entries removed. Restarting the whole
+operation can duplicate already applied changes, so recover using that progress.
+
 The `Spotifyify` class is the entry point. It exposes all Spotify resources as lazy-loaded namespace properties. Every method is a coroutine and must be awaited.
 
 ```

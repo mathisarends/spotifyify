@@ -1,11 +1,16 @@
+from collections.abc import AsyncIterator
+from typing import Any
+from spotifyify.pagination import iter_offset_items
+from spotifyify.schemas import Artist, ArtistDiscographyAlbum
+from spotifyify.validation import spotify_id as validate_id
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
 from spotifyify.namespaces.base import Resource
 from spotifyify.http.response import validate_model
-from typing import Any
 
 from collections.abc import Iterable
 
 from spotifyify.schemas import (
-    Artist,
     PagingArtistDiscographyAlbum,
     PagingArtist,
     Track,
@@ -17,6 +22,7 @@ class Artists(Resource):
     async def search(
         self, query: str, *, limit: int = 10, offset: int = 0
     ) -> PagingArtist:
+        validate_page(limit, offset)
         return validate_model(
             PagingArtist,
             await self._search("artist", query, limit=limit, offset=offset),
@@ -25,6 +31,7 @@ class Artists(Resource):
     find = search
 
     async def get(self, artist_id: str) -> Artist:
+        artist_id = validate_id(artist_id)
         data = await self._http.get(f"/artists/{artist_id}", require_user=False) or {}
         return validate_model(Artist, data)
 
@@ -33,6 +40,8 @@ class Artists(Resource):
         return await self._get_many("artists", artist_ids, Artist, 50)
 
     async def top_tracks(self, artist_id: str, *, market: str = "US") -> list[Track]:
+        artist_id = validate_id(artist_id)
+        market = validate_market(market)
         self._require_extended("Artist top tracks")
         data = (
             await self._http.get(
@@ -54,6 +63,9 @@ class Artists(Resource):
         limit: int = 20,
         offset: int = 0,
     ) -> PagingArtistDiscographyAlbum:
+        validate_page(limit, offset)
+        artist_id = validate_id(artist_id)
+        market = validate_market(market)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if include_groups:
             params["include_groups"] = include_groups
@@ -74,6 +86,7 @@ class Artists(Resource):
         "November 2024; this call will likely fail with a 404."
     )
     async def related(self, artist_id: str) -> list[Artist]:
+        artist_id = validate_id(artist_id)
         self._require_extended("Related artists")
         data = (
             await self._http.get(
@@ -84,3 +97,21 @@ class Artists(Resource):
         )
         artists = data.get("artists", []) if isinstance(data, dict) else []
         return [validate_model(Artist, item) for item in artists if item]
+
+    async def iter_search(
+        self, query: str, *, limit: int = 10, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[Artist]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.search, limit=limit, offset=offset, query=query, **kwargs
+        ):
+            yield item
+
+    async def iter_albums(
+        self, artist_id: str, *, limit: int = 50, offset: int = 0, **kwargs: Any
+    ) -> AsyncIterator[ArtistDiscographyAlbum]:
+        """Yield results across pages, stopping without prefetch when the caller stops."""
+        async for item in iter_offset_items(
+            self.albums, limit=limit, offset=offset, artist_id=artist_id, **kwargs
+        ):
+            yield item

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 import math
 import random
+from spotifyify.validation import integer
 
 _RETRYABLE_SERVER_ERROR_STATUS_CODES = frozenset({500, 502, 503, 504})
 
@@ -54,8 +55,7 @@ class RetryPolicy:
         max_wait_seconds: float = 60.0,
         jitter: float = 0.0,
     ) -> None:
-        if max_retries < 0:
-            raise ValueError("max_retries must be greater than or equal to 0")
+        integer("max_retries", max_retries)
         if not math.isfinite(backoff_seconds) or backoff_seconds < 0:
             raise ValueError("backoff_seconds must be greater than or equal to 0")
         self.max_retries = max_retries

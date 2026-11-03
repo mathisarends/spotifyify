@@ -7,6 +7,9 @@ import httpx
 
 from spotifyify.auth import AccessTokenProvider
 from spotifyify.config import ApiMode
+from spotifyify.utils import normalize_scopes
+from spotifyify.validation import integer
+import math
 from spotifyify.http import (
     HttpMethod,
     HttpTransport,
@@ -25,7 +28,7 @@ class SpotifyAPIClient:
     def __init__(
         self,
         token_provider: AccessTokenProvider,
-        scopes: Iterable[str] | None,
+        scopes: Iterable[str] | str | None,
         *,
         base_url: str,
         timeout: float = 10.0,
@@ -39,10 +42,11 @@ class SpotifyAPIClient:
     ) -> None:
         self._token_provider = token_provider
         self.api_mode = ApiMode(api_mode)
-        if concurrency < 1:
-            raise ValueError("concurrency must be positive")
+        integer("concurrency", concurrency, minimum=1)
+        if isinstance(timeout, bool) or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
         self.concurrency = concurrency
-        self._scopes = list(scopes or [])
+        self._scopes = normalize_scopes(scopes)
         self._context = context if context is not None else default_context
         self._closed = False
         self._transport = HttpTransport(

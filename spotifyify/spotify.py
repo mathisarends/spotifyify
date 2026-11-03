@@ -26,6 +26,7 @@ from spotifyify.namespaces import (
     Users,
 )
 from spotifyify.oauth2 import SpotifyOAuth, SpotifyScope
+from spotifyify.utils import normalize_scopes
 
 
 class SpotifyClient:
@@ -38,7 +39,7 @@ class SpotifyClient:
     def __init__(
         self,
         credentials: SpotifyCredentials | None = None,
-        scopes: Iterable[SpotifyScope | str] | None = None,
+        scopes: Iterable[SpotifyScope | str] | str | None = None,
         cache_handler: CacheHandler | None = None,
         timeout: float = 10.0,
         max_retries: int = 3,
@@ -54,7 +55,7 @@ class SpotifyClient:
         self._credentials = (
             credentials if credentials is not None else SpotifyCredentials()
         )
-        self._scopes = list(scopes or ())
+        self._scopes = normalize_scopes(scopes)
         self._oauth = (
             None
             if token_provider is not None

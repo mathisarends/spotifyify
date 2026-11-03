@@ -7,6 +7,19 @@ from typing import Any, TypeVar
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+def normalize_scopes(scopes: Iterable[str] | str | None) -> list[str]:
+    if scopes is None:
+        return []
+    if isinstance(scopes, str):
+        scopes = [scopes]
+    parts: set[str] = set()
+    for scope in scopes:
+        if not isinstance(scope, str):
+            raise TypeError("Scopes must be strings")
+        parts.update(scope.replace(",", " ").split())
+    return sorted(parts)
+
+
 def coalesce_items(ids_or_uris: Iterable[str]) -> list[str]:
     if isinstance(ids_or_uris, (str, bytes)):
         raise ValueError(

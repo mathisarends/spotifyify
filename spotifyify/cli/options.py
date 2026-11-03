@@ -11,6 +11,7 @@ from spotifyify.exceptions import (
     SpotifyResponseError,
     SpotifyTransportError,
     SpotifyUnsupportedOperation,
+    SpotifyBatchError,
 )
 from pydantic import ValidationError
 
@@ -76,6 +77,7 @@ def async_command(command: Callable[P, Awaitable[None]]) -> Callable[P, None]:
             SpotifyTransportError,
             SpotifyResponseError,
             SpotifyUnsupportedOperation,
+            SpotifyBatchError,
         ) as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(EXIT_API_ERROR) from exc
