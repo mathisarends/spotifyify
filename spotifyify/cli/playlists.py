@@ -103,7 +103,7 @@ async def playlist_tracks(
         )
     print_result(
         result,
-        columns=("track.id", "track.name", "track.artists", "added_at"),
+        columns=("item.id", "item.name", "item.artists", "added_at"),
         fields=fields,
     )
 
@@ -180,7 +180,7 @@ async def add_playlist_items(
     result = {
         "playlist_id": playlist_id,
         "snapshot_id": snapshot_id,
-        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "total": getattr(getattr(playlist, "items", None), "total", None),
         "name": getattr(playlist, "name", None),
     }
     print_result(
@@ -203,7 +203,7 @@ async def replace_playlist_items(
     result = {
         "playlist_id": playlist_id,
         "snapshot_id": snapshot_id,
-        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "total": getattr(getattr(playlist, "items", None), "total", None),
         "name": getattr(playlist, "name", None),
     }
     print_result(
@@ -226,7 +226,7 @@ async def remove_playlist_items(
     result = {
         "playlist_id": playlist_id,
         "snapshot_id": snapshot_id,
-        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "total": getattr(getattr(playlist, "items", None), "total", None),
         "name": getattr(playlist, "name", None),
     }
     print_result(
@@ -258,7 +258,7 @@ async def reorder_playlist_items(
     result = {
         "playlist_id": playlist_id,
         "snapshot_id": new_snapshot_id,
-        "total": getattr(getattr(playlist, "tracks", None), "total", None),
+        "total": getattr(getattr(playlist, "items", None), "total", None),
         "name": getattr(playlist, "name", None),
     }
     print_result(

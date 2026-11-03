@@ -38,6 +38,9 @@ from .schemas import (
     Context,
     Category,
     PlaylistTrack,
+    PlaylistItem,
+    PagingPlaylistItem,
+    PlaylistProjection,
     # Simplified models
     SimplifiedTrack,
     SimplifiedAlbum,
@@ -114,6 +117,9 @@ __all__ = [
     "Context",
     "Category",
     "PlaylistTrack",
+    "PlaylistItem",
+    "PagingPlaylistItem",
+    "PlaylistProjection",
     # Simplified models
     "SimplifiedTrack",
     "SimplifiedAlbum",

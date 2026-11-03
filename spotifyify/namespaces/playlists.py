@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING, Any
 
 from collections.abc import Iterable
 
-from spotifyify.schemas import Image, PagingPlaylist, PagingPlaylistTrack, Playlist
+from spotifyify.schemas import (
+    Image,
+    PagingPlaylist,
+    PagingPlaylistTrack,
+    Playlist,
+    PlaylistProjection,
+)
 from spotifyify.utils import coalesce_csv, coalesce_items
 
 if TYPE_CHECKING:
@@ -72,7 +78,7 @@ class Playlists(Resource):
         limit: int = 20,
         offset: int = 0,
         additional_types: Iterable[str] | None = None,
-    ) -> PagingPlaylistTrack:
+    ) -> PagingPlaylistTrack | PlaylistProjection:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
@@ -86,7 +92,9 @@ class Playlists(Resource):
             params=params,
             require_user=modern,
         )
-        return validate_model(PagingPlaylistTrack, data or {})
+        return validate_model(
+            PlaylistProjection if fields is not None else PagingPlaylistTrack, data
+        )
 
     tracks = items
 

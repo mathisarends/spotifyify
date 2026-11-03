@@ -38,7 +38,7 @@ _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
 def as_jsonable(value: Jsonable) -> Any:
     if isinstance(value, BaseModel):
-        return value.model_dump(mode="json", exclude_none=True)
+        return value.model_dump(mode="json", exclude_unset=True)
     if isinstance(value, list):
         return [as_jsonable(item) for item in value]
     if isinstance(value, dict):

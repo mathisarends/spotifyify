@@ -1,0 +1,19 @@
+{
+  "url": "https://developer.spotify.com/reference/web-api/open-api-schema.yaml",
+  "retrieved_on": "2026-11-03",
+  "sha256": "2d888d731358ae8a97126ffd4117d257305943f06721734abe9af24962bf38c3",
+  "generator_version": "0.88.0",
+  "generator_args": [
+    "--input-file-type",
+    "openapi",
+    "--output-model-type",
+    "pydantic_v2.BaseModel",
+    "--target-python-version",
+    "3.13",
+    "--use-standard-collections",
+    "--use-union-operator",
+    "--disable-timestamp",
+    "--formatters",
+    "ruff-format"
+  ]
+}

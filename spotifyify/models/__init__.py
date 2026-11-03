@@ -1,0 +1,263 @@
+"""Typed Spotify responses, normalized across supported API modes."""
+
+from pydantic import BaseModel as _BaseModel
+from .albums import (
+    Album,
+    AlbumBase,
+    ArtistDiscographyAlbum,
+    SavedAlbum,
+    SimplifiedAlbum,
+)
+from .artists import (
+    Artist,
+    SimplifiedArtist,
+)
+from .users import (
+    PlaylistOwner,
+    PlaylistUser,
+    PublicUser,
+    User,
+)
+from .tracks import (
+    LinkedTrack,
+    PlayHistory,
+    SavedTrack,
+    SimplifiedTrack,
+    Track,
+)
+from .shows import (
+    SavedShow,
+    Show,
+    ShowBase,
+    SimplifiedShow,
+)
+from .episodes import (
+    Episode,
+    EpisodeBase,
+    EpisodeRestriction,
+    ResumePoint,
+    SavedEpisode,
+    SimplifiedEpisode,
+)
+from .playlists import (
+    Playlist,
+    PlaylistItem,
+    PlaylistItemsRef,
+    SimplifiedPlaylist,
+)
+from .player import (
+    Context,
+    Device,
+    Disallows,
+    PlaybackState,
+    PlayerQueue,
+    Queue,
+)
+from .audiobooks import (
+    Audiobook,
+    AudiobookBase,
+    Author,
+    Chapter,
+    ChapterBase,
+    ChapterRestriction,
+    Narrator,
+    SimplifiedAudiobook,
+    SimplifiedChapter,
+)
+from .audio import (
+    AudioAnalysis,
+    AudioAnalysisTrack,
+    Key,
+    Loudness,
+    Meta,
+    Mode,
+    Section,
+    Segment,
+    Tempo,
+    TimeInterval,
+    TimeSignature,
+)
+from .paging import (
+    Cursor,
+    CursorPaging,
+    CursorPagingPlayHistory,
+    CursorPagingSimplifiedArtist,
+    Paging,
+    PagingArtist,
+    PagingArtistDiscographyAlbum,
+    PagingFeaturedPlaylist,
+    PagingPlaylist,
+    PagingPlaylistItem,
+    PagingSavedAlbum,
+    PagingSavedEpisode,
+    PagingSavedShow,
+    PagingSavedTrack,
+    PagingSimplifiedAlbum,
+    PagingSimplifiedAudiobook,
+    PagingSimplifiedChapter,
+    PagingSimplifiedEpisode,
+    PagingSimplifiedShow,
+    PagingSimplifiedTrack,
+    PagingTrack,
+)
+from .common import (
+    AlbumGroup,
+    AlbumObjectType,
+    AlbumRestriction,
+    AlbumType,
+    ArtistObjectType,
+    AudiobookObjectType,
+    Category,
+    ChapterObjectType,
+    Confidence,
+    Copyright,
+    EpisodeObjectType,
+    Error,
+    ExplicitContentSettings,
+    ExternalId,
+    ExternalUrl,
+    Followers,
+    HTTPStatusCode,
+    Image,
+    Mode1,
+    MusicalKeyValue,
+    PlaylistUserObjectType,
+    Reason,
+    ReleaseDatePrecision,
+    ShowObjectType,
+    TimeSignatureValue,
+    TrackObjectType,
+    TrackRestriction,
+    UserObjectType,
+    VolumePercent,
+)
+
+__all__ = [
+    "Album",
+    "AlbumBase",
+    "AlbumGroup",
+    "AlbumObjectType",
+    "AlbumRestriction",
+    "AlbumType",
+    "Artist",
+    "ArtistDiscographyAlbum",
+    "ArtistObjectType",
+    "AudioAnalysis",
+    "AudioAnalysisTrack",
+    "Audiobook",
+    "AudiobookBase",
+    "AudiobookObjectType",
+    "Author",
+    "Category",
+    "Chapter",
+    "ChapterBase",
+    "ChapterObjectType",
+    "ChapterRestriction",
+    "Confidence",
+    "Context",
+    "Copyright",
+    "Cursor",
+    "CursorPaging",
+    "CursorPagingPlayHistory",
+    "CursorPagingSimplifiedArtist",
+    "Device",
+    "Disallows",
+    "Episode",
+    "EpisodeBase",
+    "EpisodeObjectType",
+    "EpisodeRestriction",
+    "Error",
+    "ExplicitContentSettings",
+    "ExternalId",
+    "ExternalUrl",
+    "Followers",
+    "HTTPStatusCode",
+    "Image",
+    "Key",
+    "LinkedTrack",
+    "Loudness",
+    "Meta",
+    "Mode",
+    "Mode1",
+    "MusicalKeyValue",
+    "Narrator",
+    "Paging",
+    "PagingArtist",
+    "PagingArtistDiscographyAlbum",
+    "PagingFeaturedPlaylist",
+    "PagingPlaylist",
+    "PagingPlaylistItem",
+    "PagingSavedAlbum",
+    "PagingSavedEpisode",
+    "PagingSavedShow",
+    "PagingSavedTrack",
+    "PagingSimplifiedAlbum",
+    "PagingSimplifiedAudiobook",
+    "PagingSimplifiedChapter",
+    "PagingSimplifiedEpisode",
+    "PagingSimplifiedShow",
+    "PagingSimplifiedTrack",
+    "PagingTrack",
+    "PlayHistory",
+    "PlaybackState",
+    "PlayerQueue",
+    "Playlist",
+    "PlaylistItem",
+    "PlaylistItemsRef",
+    "PlaylistOwner",
+    "PlaylistUser",
+    "PlaylistUserObjectType",
+    "PublicUser",
+    "Queue",
+    "Reason",
+    "ReleaseDatePrecision",
+    "ResumePoint",
+    "SavedAlbum",
+    "SavedEpisode",
+    "SavedShow",
+    "SavedTrack",
+    "Section",
+    "Segment",
+    "Show",
+    "ShowBase",
+    "ShowObjectType",
+    "SimplifiedAlbum",
+    "SimplifiedArtist",
+    "SimplifiedAudiobook",
+    "SimplifiedChapter",
+    "SimplifiedEpisode",
+    "SimplifiedPlaylist",
+    "SimplifiedShow",
+    "SimplifiedTrack",
+    "Tempo",
+    "TimeInterval",
+    "TimeSignature",
+    "TimeSignatureValue",
+    "Track",
+    "TrackObjectType",
+    "TrackRestriction",
+    "User",
+    "UserObjectType",
+    "VolumePercent",
+]
+
+from .playlists import PlaylistProjection, PlaylistItemProjection
+
+__all__ += ["PlaylistProjection", "PlaylistItemProjection"]
+
+for _model in list(globals().values()):
+    if (
+        isinstance(_model, type)
+        and issubclass(_model, _BaseModel)
+        and _model.__module__.startswith("spotifyify.models")
+    ):
+        _model.model_rebuild(_types_namespace=globals())
+
+PlaylistTrack = PlaylistItem
+__all__.append("PlaylistTrack")
+
+PagingPlaylistTrack = PagingPlaylistItem
+__all__.append("PagingPlaylistTrack")
+
+PlaylistTracksRef = PlaylistItemsRef
+__all__.append("PlaylistTracksRef")
