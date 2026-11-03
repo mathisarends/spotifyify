@@ -1,4 +1,4 @@
-"""Pagination helpers shared by SDK iterators and the CLI."""
+"""Pagination helpers for SDK iterators."""
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any

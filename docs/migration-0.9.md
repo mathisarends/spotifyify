@@ -31,16 +31,14 @@ for details. HTTPX and HTTPX2 objects belong to separate class hierarchies.
 
 ## Explicit login
 
-API calls no longer open browsers or prompt. Before user-scoped operations:
+API calls no longer open browsers or prompt. Before user-scoped operations,
+supply a user access/refresh token or use `SpotifyOAuth.authorization_url()` and
+`exchange_code()` with the required scopes. See the
+[Python authorization example](../README.md#user-authorization) for a loopback
+login flow. Use an explicit redirect such as `http://127.0.0.1:8888/callback`.
 
-```bash
-spotifyify auth login --scope user-library-read --scope user-library-modify
-spotifyify auth login --scope user-follow-read --scope user-follow-modify
-```
-
-Login preserves previously granted scopes for the selected profile. Select an
-account with `spotifyify --profile work ...` or `SPOTIFYIFY_PROFILE=work`.
-Use an explicit loopback redirect such as `http://127.0.0.1:8888/callback`.
+Select an account with `SpotifyClient(cache_profile="work")` and the matching
+`CacheFileHandler(client_id=..., profile="work")` during authorization.
 
 Tokens are no longer written into the working directory or back into
 `SpotifyCredentials`. Default cache files are separated by client ID and profile
@@ -57,7 +55,6 @@ credentials. Invalid grants are discarded instead of retried on every request.
 
 The default is `api_mode="development"`, matching the current Development Mode
 contract. Select `api_mode="extended"` only if the app has Extended Quota access.
-The CLI accepts `--api-mode extended` or `SPOTIFYIFY_API_MODE=extended`.
 
 Development Mode uses generic library URI operations, creates playlists through
 `/me/playlists`, and performs bounded individual reads for `get_many()`. Removed
@@ -80,13 +77,9 @@ Large playlist writes can partially apply. `SpotifyBatchError` exposes the
 processed input count and last snapshot; do not blindly repeat completed batches.
 Inputs are validated before authentication or HTTP requests.
 
-## CLI output
+## CLI removal
 
-`playlists items` replaces the visible `playlists tracks` command. The old command
-is a hidden alias. Paged commands accept `--all`, and offset-based commands also
-accept `--offset`. The SDK owns batching for both Python and CLI callers.
-
-Use `--full` or `SPOTIFYIFY_FULL=1` for complete normalized models.
-`SPOTIFYIFY_RAW=1` remains a legacy alias. Full output retains unknown fields and
-explicit nulls, but normalizes model aliases/types and combines requested pages;
-it is not a byte-for-byte HTTP response.
+The optional CLI, its `spotifyify` console command and the `[cli]` extra have
+been removed. Use the Python client for API calls and the OAuth helpers above
+for authorization. Serialize response models with
+`model.model_dump(mode="json", exclude_unset=True)` when JSON output is needed.

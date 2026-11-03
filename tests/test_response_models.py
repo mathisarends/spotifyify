@@ -7,7 +7,6 @@ import httpx2
 import pytest
 
 from spotifyify import SpotifyClient
-from spotifyify.cli.core import as_jsonable, rows
 from spotifyify.models import (
     Album,
     Paging,
@@ -39,7 +38,10 @@ def test_removed_fields_unknown_fields_and_explicit_nulls():
         "display_name": None,
         "new_field": {"value": 1},
     }
-    assert as_jsonable(User.model_validate(payload)) == payload
+    assert (
+        User.model_validate(payload).model_dump(mode="json", exclude_unset=True)
+        == payload
+    )
     assert (
         Paging[Track].model_validate(paging(items=[{"type": "track"}])).items[0].type
         == "track"
@@ -63,9 +65,8 @@ def test_playlist_contracts_normalize_without_losing_compatibility(
     item = model.items.items[0]
     assert isinstance(item, PlaylistItem)
     assert item.item is item.track
-    assert rows(model.items, ("item.id", "item.name")) == [
-        {"item.id": "t", "item.name": "Song"}
-    ]
+    assert item.item.id == "t"
+    assert item.item.name == "Song"
 
 
 @pytest.mark.asyncio

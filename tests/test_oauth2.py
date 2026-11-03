@@ -202,7 +202,7 @@ class TestGetAccessToken(unittest.IsolatedAsyncioTestCase):
     async def test_missing_user_grant_requires_explicit_login(self):
         creds = _make_credentials()
         oauth = SpotifyifyOAuth(creds)
-        with self.assertRaisesRegex(SpotifyAuthError, "auth login"):
+        with self.assertRaisesRegex(SpotifyAuthError, "User authorization required"):
             await oauth.get_access_token(
                 require_user=True, scope="user-modify-playback-state"
             )

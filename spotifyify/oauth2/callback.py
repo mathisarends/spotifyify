@@ -1,4 +1,4 @@
-"""Explicit loopback authorization flow used by the CLI."""
+"""Explicit loopback authorization helpers for Python applications."""
 
 import asyncio
 from collections.abc import Callable
@@ -34,7 +34,7 @@ async def capture_local_code(
         loopback = False
     if parsed.scheme != "http" or not loopback:
         raise SpotifyAuthError(
-            "Automatic login needs an HTTP loopback redirect URI; use --manual for other redirects"
+            "Automatic login needs an HTTP loopback redirect URI; handle other redirects in your application"
         )
     future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
     handlers: set[asyncio.Task] = set()
@@ -103,7 +103,7 @@ async def capture_local_code(
         )
     except OSError as exc:
         raise SpotifyAuthError(
-            "Unable to bind the OAuth callback port; close the other listener or use --manual"
+            "Unable to bind the OAuth callback port; close the other listener or handle the callback in your application"
         ) from exc
     try:
         async with server:

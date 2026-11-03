@@ -51,7 +51,7 @@ async def test_public_query_then_private_query_authorizes_a_user(oauth):
         }
     )
     assert await oauth.get_access_token(False) == "app-token"
-    with pytest.raises(SpotifyAuthError, match="auth login"):
+    with pytest.raises(SpotifyAuthError, match="User authorization required"):
         await oauth.get_access_token(True)
     oauth._save_token(user_token())
     assert await oauth.get_access_token(True) == "user-token"

@@ -1,5 +1,4 @@
-import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from urllib.parse import parse_qs
 
 import httpx2
@@ -57,7 +56,7 @@ async def test_explicit_exchange_refresh_and_revocation_use_real_oauth_serializa
         oauth._token_info.expires_at = 0
         assert await oauth.get_access_token(True, "user-library-read") == "token-2"
         oauth._token_info.expires_at = 0
-        with pytest.raises(SpotifyAuthError, match="auth login"):
+        with pytest.raises(SpotifyAuthError, match="Reauthorize with SpotifyOAuth"):
             await oauth.get_access_token(True)
         assert cache.get_cached_token() is None
         assert requests[0]["grant_type"] == ["authorization_code"]
@@ -97,37 +96,3 @@ def test_cache_replace_failure_preserves_previous_grant_and_cleans_tempfiles(tmp
     assert list(tmp_path.iterdir()) == [cache.cache_path]
     cache.cache_path.write_text("[]")
     assert cache.get_cached_token() is None
-
-
-def test_login_keeps_stdout_json_and_does_not_reveal_tokens():
-    pytest.importorskip("typer")
-    from typer.testing import CliRunner
-
-    from spotifyify.cli import app
-
-    oauth = SpotifyOAuth(credentials(), MemoryCacheHandler())
-    oauth._request_token = AsyncMock(
-        return_value={
-            "access_token": "never-print-this",
-            "refresh_token": "nor-this",
-            "scope": "user-library-read",
-            "expires_at": 9999999999,
-        }
-    )
-
-    async def capture(*args, on_ready, **kwargs):
-        on_ready()
-        return "code"
-
-    with (
-        patch("spotifyify.cli.auth._provider", return_value=oauth),
-        patch("spotifyify.cli.auth.capture_local_code", side_effect=capture),
-    ):
-        result = CliRunner().invoke(
-            app, ["auth", "login", "--no-browser", "--scope", "user-library-read"]
-        )
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)[0]["authenticated"] is True
-    assert "https://accounts.spotify.com/authorize" in result.stderr
-    assert "never-print-this" not in result.output
-    assert "nor-this" not in result.output
