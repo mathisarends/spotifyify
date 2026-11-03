@@ -23,3 +23,6 @@ class SpotifyCredentials(BaseSettings):
     token_expires_at: int | None = Field(
         default=None, validation_alias="SPOTIFY_TOKEN_EXPIRES_AT"
     )
+    token_scopes: str | None = Field(
+        default=None, validation_alias="SPOTIFY_TOKEN_SCOPES"
+    )

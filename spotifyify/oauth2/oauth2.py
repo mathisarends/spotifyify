@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import asyncio
 
-from pydantic import SecretStr
+from pydantic import ValidationError
 
 from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
 import httpx
@@ -16,6 +16,7 @@ import httpx
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError
 from spotifyify.oauth2.views import TokenFormPayload
+from spotifyify.oauth2.token import TokenInfo
 from spotifyify.http import parse_response
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,10 @@ class SpotifyifyOAuth:
         self.cache_handler = cache_handler or MemoryCacheHandler()
         self.timeout = timeout
         self._http = httpx.AsyncClient(timeout=timeout)
+        self._token_info: TokenInfo | None = None
+        self._app_token: TokenInfo | None = None
+        self._cache_loaded = False
+        self._token_lock = asyncio.Lock()
 
     async def close(self) -> None:
         logger.debug("Closing Spotify OAuth HTTP client")
@@ -275,31 +280,41 @@ class SpotifyifyOAuth:
         return token_info
 
     def _cached_token(self) -> dict[str, Any] | None:
+        if self._cache_loaded:
+            return (
+                self._token_info.model_dump(exclude_none=True)
+                if self._token_info
+                else None
+            )
+        self._cache_loaded = True
         if self.credentials.access_token:
-            logger.debug("Using token from credentials")
-            token_info = {
+            token_info: Any = {
                 "access_token": self.credentials.access_token.get_secret_value(),
                 "refresh_token": self.credentials.refresh_token.get_secret_value()
                 if self.credentials.refresh_token
                 else None,
-                "expires_at": self.credentials.token_expires_at or 0,
+                "expires_at": self.credentials.token_expires_at,
+                "scope": self.credentials.token_scopes,
+                "auth_type": "user",
             }
-            return token_info
-        logger.debug("Looking up token in cache handler")
-        return self.cache_handler.get_cached_token()
+        else:
+            token_info = self.cache_handler.get_cached_token()
+        if token_info is not None:
+            try:
+                self._token_info = TokenInfo.model_validate(token_info)
+            except ValidationError:
+                logger.warning("Ignoring invalid OAuth token cache")
+        return (
+            self._token_info.model_dump(exclude_none=True) if self._token_info else None
+        )
 
     def _save_token(self, token_info: dict[str, Any]) -> None:
         logger.debug("Saving Spotify OAuth token")
-        self.cache_handler.save_token_to_cache(token_info)
-        access_token = token_info.get("access_token")
-        self.credentials.access_token = (
-            SecretStr(access_token) if access_token else None
+        self._token_info = TokenInfo.model_validate({**token_info, "auth_type": "user"})
+        self._cache_loaded = True
+        self.cache_handler.save_token_to_cache(
+            self._token_info.model_dump(exclude_none=True)
         )
-        refresh_token = token_info.get("refresh_token")
-        self.credentials.refresh_token = (
-            SecretStr(refresh_token) if refresh_token else None
-        )
-        self.credentials.token_expires_at = token_info.get("expires_at")
 
     async def get_access_token(
         self,
@@ -307,44 +322,53 @@ class SpotifyifyOAuth:
         scope: str | list[str] | tuple[str, ...] | None = None,
     ) -> str:
         desired_scope = self._normalize_scope(scope)
-        token_info = self._cached_token()
+        async with self._token_lock:
+            self._cached_token()
+            token = self._token_info
+            required_scope = desired_scope if require_user else None
+            if token and (not require_user or token.auth_type == "user"):
+                if not token.expired and token.permits(required_scope):
+                    return token.access_token
 
-        if token_info and not self._is_token_expired(token_info):
-            if self._scope_subset(desired_scope, token_info.get("scope")):
-                logger.debug("Using cached Spotify access token")
-                return token_info["access_token"]
-
-        refresh_token = None
-        if token_info:
-            refresh_token = token_info.get("refresh_token")
-        elif self.credentials.refresh_token:
-            refresh_token = self.credentials.refresh_token.get_secret_value()
-
-        if refresh_token:
-            logger.info("Refreshing Spotify access token")
-            refreshed = await self._request_token(
-                TokenFormPayload(
-                    grant_type="refresh_token", refresh_token=refresh_token
+            refresh_token = token.refresh_token if token else None
+            if not refresh_token and not token and self.credentials.refresh_token:
+                refresh_token = self.credentials.refresh_token.get_secret_value()
+            # Refreshing never adds permissions. Reauthorize when known grants
+            # are insufficient instead of repeatedly refreshing the same grant.
+            if refresh_token and (not token or token.permits(required_scope)):
+                refreshed = await self._request_token(
+                    TokenFormPayload(
+                        grant_type="refresh_token", refresh_token=refresh_token
+                    )
                 )
+                refreshed.setdefault("refresh_token", refresh_token)
+                if token and token.scope is not None:
+                    refreshed.setdefault("scope", token.scope)
+                self._save_token(refreshed)
+                if self._token_info and self._token_info.permits(required_scope):
+                    return self._token_info.access_token
+
+            if require_user:
+                granted = token.scope if token else None
+                combined = self._normalize_scope(
+                    f"{granted or ''} {desired_scope or ''}"
+                )
+                user_token = await self._request_user_token(combined)
+                user_token.setdefault("scope", combined)
+                self._save_token(user_token)
+                if not self._token_info or not self._token_info.permits(desired_scope):
+                    raise SpotifyAuthError("Spotify did not grant the requested scopes")
+                return self._token_info.access_token
+
+            if self._app_token and not self._app_token.expired:
+                return self._app_token.access_token
+            client_token = await self._request_token(
+                TokenFormPayload(grant_type="client_credentials")
             )
-            if "refresh_token" not in refreshed:
-                refreshed["refresh_token"] = refresh_token
-            self._save_token(refreshed)
-            return refreshed["access_token"]
-
-        if require_user:
-            logger.info("Requesting interactive Spotify access token")
-            user_token = await self._request_user_token(desired_scope)
-            self._save_token(user_token)
-            return user_token["access_token"]
-
-        logger.info("Requesting Spotify client credentials token")
-        client_token = await self._request_token(
-            TokenFormPayload(grant_type="client_credentials")
-        )
-        client_token["scope"] = desired_scope
-        self._save_token(client_token)
-        return client_token["access_token"]
+            self._app_token = TokenInfo.model_validate(
+                {**client_token, "auth_type": "client_credentials", "scope": ""}
+            )
+            return self._app_token.access_token
 
     def _normalize_scope(
         self, scope: str | list[str] | tuple[str, ...] | None

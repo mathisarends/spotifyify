@@ -224,7 +224,7 @@ class TestGetAccessToken(unittest.IsolatedAsyncioTestCase):
 
 
 class TestSaveToken(unittest.TestCase):
-    def test_updates_credentials_and_cache(self):
+    def test_updates_token_state_and_cache_without_mutating_configuration(self):
         creds = _make_credentials()
         handler = MemoryCacheHandler()
         oauth = SpotifyifyOAuth(creds, cache_handler=handler)
@@ -236,7 +236,10 @@ class TestSaveToken(unittest.TestCase):
         }
         oauth._save_token(token_info)
 
-        self.assertEqual(creds.access_token.get_secret_value(), "new_tok")
-        self.assertEqual(creds.refresh_token.get_secret_value(), "new_ref")
-        self.assertEqual(creds.token_expires_at, 9999999999)
-        self.assertEqual(handler.get_cached_token(), token_info)
+        self.assertIsNone(creds.access_token)
+        self.assertIsNone(creds.refresh_token)
+        self.assertIsNone(creds.token_expires_at)
+        self.assertEqual(oauth._cached_token()["access_token"], "new_tok")
+        self.assertEqual(
+            handler.get_cached_token(), {**token_info, "auth_type": "user"}
+        )
