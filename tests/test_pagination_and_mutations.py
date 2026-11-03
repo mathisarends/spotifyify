@@ -1,7 +1,7 @@
 import json
 from unittest.mock import AsyncMock
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify import SpotifyBatchError, SpotifyClient, SpotifyResponseError
@@ -16,10 +16,10 @@ async def test_playlist_batches_preserve_insert_order_and_report_partial_failure
         payload = json.loads(request.content)
         requests.append(payload)
         if len(requests) == 2:
-            return httpx.Response(503, json={"error": {"message": "failed"}})
-        return httpx.Response(201, json={"snapshot_id": "after-first"})
+            return httpx2.Response(503, json={"error": {"message": "failed"}})
+        return httpx2.Response(201, json={"snapshot_id": "after-first"})
 
-    async with SpotifyClient(transport=httpx.MockTransport(respond)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(respond)) as spotify:
         async with spotify.session(access_token="external"):
             with pytest.raises(SpotifyBatchError) as error:
                 await spotify.playlists.add(
@@ -40,7 +40,7 @@ async def test_offset_iterator_uses_next_offset_and_stops_lazily():
     def respond(request):
         offset = int(request.url.params["offset"])
         offsets.append(offset)
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json=paging(
                 limit=2,
@@ -56,7 +56,7 @@ async def test_offset_iterator_uses_next_offset_and_stops_lazily():
             ),
         )
 
-    async with SpotifyClient(transport=httpx.MockTransport(respond)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(respond)) as spotify:
         async with spotify.session(access_token="external"):
             assert [
                 item.track.id
@@ -76,7 +76,7 @@ async def test_cursor_iterator_reuses_cursor_and_rejects_a_loop():
 
     def respond(request):
         seen.append(request.url.params.get("after"))
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "artists": cursor_paging(
@@ -85,7 +85,7 @@ async def test_cursor_iterator_reuses_cursor_and_rejects_a_loop():
             },
         )
 
-    async with SpotifyClient(transport=httpx.MockTransport(respond)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(respond)) as spotify:
         async with spotify.session(access_token="external"):
             with pytest.raises(SpotifyResponseError, match="advance"):
                 _ = [item async for item in spotify.users.iter_following()]

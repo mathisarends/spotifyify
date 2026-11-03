@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-import httpx
+import httpx2
 from pydantic import BaseModel, ValidationError
 
 from spotifyify.exceptions import (
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_response(
-    response: httpx.Response, *, allow_non_json: bool = False
+    response: httpx2.Response, *, allow_non_json: bool = False
 ) -> JsonResponse:
     if response.status_code == 204:
         return None

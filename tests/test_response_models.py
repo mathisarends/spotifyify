@@ -3,7 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify import SpotifyClient
@@ -71,8 +71,8 @@ def test_playlist_contracts_normalize_without_losing_compatibility(
 @pytest.mark.asyncio
 async def test_field_projection_does_not_require_omitted_metadata_or_discriminator():
     async with SpotifyClient(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(
+        transport=httpx2.MockTransport(
+            lambda request: httpx2.Response(
                 200, json={"items": [{"item": {"uri": "spotify:track:t"}}]}
             )
         )

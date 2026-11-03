@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock
 
-import httpx
+import httpx2
 from pydantic import BaseModel
 
 from spotifyify.client import SpotifyClient
@@ -46,7 +46,7 @@ class TestSpotifyClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_adds_token_serializes_params_and_parses_response(self):
         client, token_provider = self._make_client()
-        client._transport.request.return_value = httpx.Response(
+        client._transport.request.return_value = httpx2.Response(
             200, json={"tracks": []}
         )
 
@@ -77,7 +77,7 @@ class TestSpotifyClient(unittest.IsolatedAsyncioTestCase):
             description: str | None = None
 
         client, _ = self._make_client()
-        client._transport.request.return_value = httpx.Response(204)
+        client._transport.request.return_value = httpx2.Response(204)
 
         await client.post("/playlists", payload=Payload(name="test"))
 
@@ -92,7 +92,7 @@ class TestSpotifyClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_request_uses_context_access_token_without_provider(self):
         client, token_provider = self._make_client()
-        client._transport.request.return_value = httpx.Response(200, json={"ok": True})
+        client._transport.request.return_value = httpx2.Response(200, json={"ok": True})
 
         token = current_access_token.set("user-token")
         try:

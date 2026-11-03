@@ -1,7 +1,7 @@
 import json
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 pytest.importorskip("typer")
@@ -28,7 +28,7 @@ def test_cli_collects_offset_pages_through_the_real_sdk():
     def respond(request):
         offset = int(request.url.params.get("offset", "0"))
         offsets.append(offset)
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "tracks": paging(
@@ -48,7 +48,7 @@ def test_cli_collects_offset_pages_through_the_real_sdk():
 
     with patch(
         "spotifyify.cli.core.SpotifyClient",
-        side_effect=factory(httpx.MockTransport(respond)),
+        side_effect=factory(httpx2.MockTransport(respond)),
     ):
         result = CliRunner().invoke(
             app, ["tracks", "search", "query", "--offset", "2", "--limit", "2", "--all"]
@@ -67,7 +67,7 @@ def test_full_output_preserves_nulls_unknown_fields_and_paging():
     with patch(
         "spotifyify.cli.core.SpotifyClient",
         side_effect=factory(
-            httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+            httpx2.MockTransport(lambda request: httpx2.Response(200, json=payload))
         ),
     ):
         result = CliRunner().invoke(app, ["--full", "tracks", "search", "query"])
@@ -81,7 +81,7 @@ def test_playlist_item_columns_handle_both_server_contracts(key):
     with patch(
         "spotifyify.cli.core.SpotifyClient",
         side_effect=factory(
-            httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+            httpx2.MockTransport(lambda request: httpx2.Response(200, json=payload))
         ),
     ):
         result = CliRunner().invoke(app, ["playlists", "items", "p"])

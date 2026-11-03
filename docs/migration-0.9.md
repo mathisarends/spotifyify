@@ -13,6 +13,22 @@ provider is `spotifyify.oauth2.SpotifyOAuth`, and the base exception is
 the per-request token/retry context; `session()` still works. Use `aclose()` for
 explicit cleanup; `close()` remains an async alias. Closed clients cannot reopen.
 
+## HTTP transport
+
+The API and OAuth clients now use `httpx2>=2.16.0,<3`. Applications that inject
+`transport=` into `SpotifyClient`, `SpotifyAPIClient` or `SpotifyOAuth` must
+construct it from `httpx2`, for example `httpx2.AsyncHTTPTransport()` or
+`httpx2.MockTransport(handler)`. Custom transports should subclass
+`httpx2.AsyncBaseTransport`. `RetryEvent.response` is now an `httpx2.Response`;
+underlying transport exceptions also come from `httpx2`. The SDK's public
+exception classes remain the same.
+
+HTTPX2 uses the operating system's certificate store by default and still honors
+`SSL_CERT_FILE` and `SSL_CERT_DIR`. Its logger names are `httpx2` and `httpcore2.*`,
+and its default User-Agent is `python-httpx2/<version>`. See the
+[upstream migration guide](https://pydantic.dev/docs/httpx2/get-started/migration/)
+for details. HTTPX and HTTPX2 objects belong to separate class hierarchies.
+
 ## Explicit login
 
 API calls no longer open browsers or prompt. Before user-scoped operations:

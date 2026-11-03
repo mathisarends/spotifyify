@@ -2,7 +2,7 @@ import json
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify.cache_handler import (
@@ -33,10 +33,10 @@ async def test_explicit_exchange_refresh_and_revocation_use_real_oauth_serializa
         form = parse_qs(request.content.decode())
         requests.append(form)
         if len(requests) == 3:
-            return httpx.Response(
+            return httpx2.Response(
                 400, json={"error": "invalid_grant", "error_description": "revoked"}
             )
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "access_token": f"token-{len(requests)}",
@@ -50,7 +50,7 @@ async def test_explicit_exchange_refresh_and_revocation_use_real_oauth_serializa
         )
 
     cache = MemoryCacheHandler()
-    oauth = SpotifyOAuth(credentials(), cache, transport=httpx.MockTransport(respond))
+    oauth = SpotifyOAuth(credentials(), cache, transport=httpx2.MockTransport(respond))
     try:
         await oauth.exchange_code("code", scope="user-library-read")
         assert await oauth.get_access_token(True, "user-library-read") == "token-1"

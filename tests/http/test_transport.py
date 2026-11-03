@@ -2,7 +2,7 @@ import unittest
 from datetime import UTC
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 
 from spotifyify.http.retry_context import current_retry_hook
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
@@ -16,7 +16,7 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
             timeout=10.0,
             retry_policy=RetryPolicy(**policy_kwargs),
         )
-        transport._client = AsyncMock(spec=httpx.AsyncClient)
+        transport._client = AsyncMock(spec=httpx2.AsyncClient)
         return transport
 
     async def test_open_creates_http_client(self):
@@ -43,8 +43,8 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
     async def test_request_retries_server_error_with_exponential_backoff(self):
         transport = self._make_transport()
         transport._client.request.side_effect = [
-            httpx.Response(503),
-            httpx.Response(200),
+            httpx2.Response(503),
+            httpx2.Response(200),
         ]
 
         with patch(
@@ -68,8 +68,8 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
     async def test_request_honors_retry_after(self):
         transport = self._make_transport()
         transport._client.request.side_effect = [
-            httpx.Response(429, headers={"Retry-After": "2.5"}),
-            httpx.Response(204),
+            httpx2.Response(429, headers={"Retry-After": "2.5"}),
+            httpx2.Response(204),
         ]
 
         with patch(
@@ -89,10 +89,10 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
 
     async def test_request_calls_retry_hook_with_scheduled_retry_details(self):
         transport = self._make_transport(max_retries=2)
-        failed_response = httpx.Response(429, headers={"Retry-After": "2.5"})
+        failed_response = httpx2.Response(429, headers={"Retry-After": "2.5"})
         transport._client.request.side_effect = [
             failed_response,
-            httpx.Response(204),
+            httpx2.Response(204),
         ]
         events = []
         token = current_retry_hook.set(events.append)
@@ -127,8 +127,8 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
     async def test_request_awaits_async_retry_hook(self):
         transport = self._make_transport()
         transport._client.request.side_effect = [
-            httpx.Response(503),
-            httpx.Response(200),
+            httpx2.Response(503),
+            httpx2.Response(200),
         ]
         hook = AsyncMock()
         token = current_retry_hook.set(hook)
@@ -152,7 +152,7 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
 
     async def test_request_does_not_retry_post_server_error(self):
         transport = self._make_transport()
-        transport._client.request.return_value = httpx.Response(503)
+        transport._client.request.return_value = httpx2.Response(503)
 
         with patch(
             "spotifyify.http.transport.asyncio.sleep", new_callable=AsyncMock
@@ -172,7 +172,7 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
 
     async def test_request_returns_error_after_retry_budget_is_exhausted(self):
         transport = self._make_transport(max_retries=2, backoff_seconds=0.25)
-        transport._client.request.return_value = httpx.Response(503)
+        transport._client.request.return_value = httpx2.Response(503)
 
         with patch(
             "spotifyify.http.transport.asyncio.sleep", new_callable=AsyncMock

@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import httpx
+import httpx2
 
 from spotifyify.exceptions import SpotifyTransportError
 from spotifyify.http.context import RequestContext, default_context
@@ -23,12 +23,12 @@ class HttpTransport:
         timeout: float,
         retry_policy: RetryPolicy,
         context: RequestContext | None = None,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = base_url
         self._timeout = timeout
         self._retry_policy = retry_policy
-        self._client: httpx.AsyncClient | None = None
+        self._client: httpx2.AsyncClient | None = None
         self._context = context if context is not None else default_context
         self._transport = transport
         self._cooldown_until = 0.0
@@ -45,7 +45,7 @@ class HttpTransport:
     async def open(self) -> None:
         if self._client is None:
             logger.debug("Opening HTTP transport: base_url=%s", self._base_url)
-            self._client = httpx.AsyncClient(
+            self._client = httpx2.AsyncClient(
                 base_url=self._base_url,
                 timeout=self._timeout,
                 transport=self._transport,
@@ -68,7 +68,7 @@ class HttpTransport:
         json: SerializedJsonPayload,
         content: str | bytes | None,
         retry_safe: bool | None = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         await self.open()
         if self._client is None:
             raise RuntimeError("HTTP client was not initialized")
@@ -92,7 +92,7 @@ class HttpTransport:
                     json=json,
                     content=content,
                 )
-            except httpx.HTTPError as exc:
+            except httpx2.HTTPError as exc:
                 logger.exception(
                     "HTTP request failed: method=%s path=%s",
                     method.value,

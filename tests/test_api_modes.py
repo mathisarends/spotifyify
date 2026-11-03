@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify import SpotifyClient, SpotifyUnsupportedOperation
@@ -15,18 +15,18 @@ async def test_development_routes_and_uri_batches():
     def respond(request):
         requests.append(request)
         if request.url.path.endswith("/contains"):
-            return httpx.Response(
+            return httpx2.Response(
                 200, json=[True] * len(request.url.params["uris"].split(","))
             )
         if request.method == "GET":
-            return httpx.Response(200, json=paging())
+            return httpx2.Response(200, json=paging())
         return (
-            httpx.Response(200, json={"id": "playlist"})
+            httpx2.Response(200, json={"id": "playlist"})
             if request.method == "POST"
-            else httpx.Response(204)
+            else httpx2.Response(204)
         )
 
-    async with SpotifyClient(transport=httpx.MockTransport(respond)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(respond)) as spotify:
         async with spotify.session(access_token="external"):
             created = await spotify.playlists.create("Mix")
             assert created.id == "playlist"
@@ -63,13 +63,13 @@ async def test_development_bulk_reads_are_bounded_and_keep_missing_positions():
         active -= 1
         item_id = request.url.path.rsplit("/", 1)[-1]
         return (
-            httpx.Response(404, json={})
+            httpx2.Response(404, json={})
             if item_id == "missing"
-            else httpx.Response(200, json={"type": "track", "id": item_id})
+            else httpx2.Response(200, json={"type": "track", "id": item_id})
         )
 
     async with SpotifyClient(
-        transport=httpx.MockTransport(respond), concurrency=2
+        transport=httpx2.MockTransport(respond), concurrency=2
     ) as spotify:
         async with spotify.session(access_token="external"):
             results = await spotify.tracks.get_many(["one", "missing", "two", "three"])
@@ -90,7 +90,7 @@ async def test_extended_mode_batches_at_the_endpoint_limit():
     def respond(request):
         ids = request.url.params["ids"].split(",")
         sizes.append(len(ids))
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "tracks": [
@@ -102,7 +102,7 @@ async def test_extended_mode_batches_at_the_endpoint_limit():
 
     ids = [str(index) for index in range(104)] + ["missing"]
     async with SpotifyClient(
-        api_mode="extended", transport=httpx.MockTransport(respond)
+        api_mode="extended", transport=httpx2.MockTransport(respond)
     ) as spotify:
         async with spotify.session(access_token="external"):
             result = await spotify.tracks.get_many(ids)
@@ -115,7 +115,7 @@ async def test_development_search_limit_and_accidental_single_string_fail_before
     def unexpected(request):
         pytest.fail("Invalid input must not send a request")
 
-    async with SpotifyClient(transport=httpx.MockTransport(unexpected)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(unexpected)) as spotify:
         with pytest.raises(ValueError, match="1..10"):
             await spotify.tracks.search("query", limit=11)
         with pytest.raises(ValueError, match="collection"):

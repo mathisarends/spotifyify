@@ -1,6 +1,6 @@
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from spotifyify import SpotifyClient
@@ -19,10 +19,10 @@ async def test_ambiguous_reorder_failure_is_not_replayed():
 
     def respond(request):
         requests.append(request)
-        return httpx.Response(503, json={"error": {"message": "ambiguous failure"}})
+        return httpx2.Response(503, json={"error": {"message": "ambiguous failure"}})
 
     async with SpotifyClient(
-        transport=httpx.MockTransport(respond), retry_backoff_seconds=0
+        transport=httpx2.MockTransport(respond), retry_backoff_seconds=0
     ) as spotify:
         async with spotify.session(access_token="external"):
             with pytest.raises(SpotifyAPIError):
@@ -33,16 +33,16 @@ async def test_ambiguous_reorder_failure_is_not_replayed():
 @pytest.mark.asyncio
 async def test_network_and_contract_failures_have_library_error_types():
     def fail(request):
-        raise httpx.ConnectError("offline", request=request)
+        raise httpx2.ConnectError("offline", request=request)
 
-    async with SpotifyClient(transport=httpx.MockTransport(fail)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(fail)) as spotify:
         async with spotify.session(access_token="external"):
             with pytest.raises(SpotifyTransportError):
                 await spotify.tracks.get("t")
 
     async with SpotifyClient(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(200, text="unexpected")
+        transport=httpx2.MockTransport(
+            lambda request: httpx2.Response(200, text="unexpected")
         )
     ) as spotify:
         async with spotify.session(access_token="external"):
@@ -57,8 +57,8 @@ async def test_quota_exhaustion_and_long_retry_after_do_not_loop():
         ({"error": {"reason": "QUOTA_EXCEEDED"}}, {}),
         ({"error": {"message": "later"}}, {"Retry-After": "3600"}),
     ]:
-        transport = httpx.MockTransport(
-            lambda request: httpx.Response(429, json=payload, headers=headers)
+        transport = httpx2.MockTransport(
+            lambda request: httpx2.Response(429, json=payload, headers=headers)
         )
         hook = AsyncMock()
         async with SpotifyClient(transport=transport) as spotify:
@@ -84,12 +84,12 @@ async def test_a_rate_limit_cools_other_requests_on_the_same_client():
     def respond(request):
         seen.append(request.url.path)
         return (
-            httpx.Response(429, headers={"Retry-After": "0.1"}, json={})
+            httpx2.Response(429, headers={"Retry-After": "0.1"}, json={})
             if len(seen) == 1
-            else httpx.Response(200, json={"type": "track"})
+            else httpx2.Response(200, json={"type": "track"})
         )
 
-    async with SpotifyClient(transport=httpx.MockTransport(respond)) as spotify:
+    async with SpotifyClient(transport=httpx2.MockTransport(respond)) as spotify:
         async with spotify.session(access_token="external", on_retry=hook):
             with patch(
                 "spotifyify.http.transport.asyncio.sleep", new_callable=AsyncMock

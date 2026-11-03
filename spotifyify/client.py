@@ -2,7 +2,7 @@ import math
 from collections.abc import Iterable
 from typing import Any, Self
 
-import httpx
+import httpx2
 from pydantic import BaseModel
 
 from spotifyify.auth import AccessTokenProvider
@@ -34,7 +34,7 @@ class SpotifyAPIClient:
         max_retries: int = 3,
         retry_backoff_seconds: float = 1.0,
         context: RequestContext | None = None,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: httpx2.AsyncBaseTransport | None = None,
         retry_policy: RetryPolicy | None = None,
         api_mode: ApiMode | str = ApiMode.DEVELOPMENT,
         concurrency: int = 8,
