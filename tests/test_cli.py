@@ -191,17 +191,9 @@ class TestBatching(unittest.TestCase):
         self.assertEqual(_chunked([], 2), [])
 
 
-class TestCommandNaming(unittest.TestCase):
-    def setUp(self):
-        if cli.typer is None:
-            self.skipTest("typer is optional")
-        import click
-
-        self.root = cli.typer.main.get_command(cli.app)
-        self.ctx = click.Context(self.root)
-
+class TestCommandNaming(CliTestCase):
     def _resolves(self, name):
-        return self.root.get_command(self.ctx, name)
+        return self.run_cli([name, "--help"]).exit_code == 0
 
     def test_resource_groups_use_plural_names(self):
         resource_groups = (
@@ -214,23 +206,18 @@ class TestCommandNaming(unittest.TestCase):
             "users",
         )
         for name in resource_groups:
-            self.assertIsNotNone(self._resolves(name))
+            self.assertTrue(self._resolves(name))
 
     def test_singular_group_names_do_not_resolve(self):
-        self.assertIsNone(self._resolves("artist"))
-        self.assertIsNone(self._resolves("track"))
+        self.assertFalse(self._resolves("artist"))
+        self.assertFalse(self._resolves("track"))
 
     def test_unknown_names_still_fail(self):
-        self.assertIsNone(self._resolves("definitely-not-a-command"))
+        self.assertFalse(self._resolves("definitely-not-a-command"))
 
     def test_get_is_the_only_bulk_fetch_command_name(self):
-        import click
-
-        artists = self._resolves("artists")
-        context = click.Context(artists)
-
-        self.assertIsNotNone(artists.get_command(context, "get"))
-        self.assertIsNone(artists.get_command(context, "get-many"))
+        self.assertEqual(self.run_cli(["artists", "get", "--help"]).exit_code, 0)
+        self.assertEqual(self.run_cli(["artists", "get-many", "--help"]).exit_code, 2)
 
 
 class TestEndToEnd(CliTestCase):

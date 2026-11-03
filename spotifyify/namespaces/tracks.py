@@ -1,18 +1,16 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
-from spotifyify.pagination import iter_offset_items
-from spotifyify.schemas import Track
-from spotifyify.validation import spotify_id as validate_id
-from spotifyify.validation import market as validate_market
-from spotifyify.validation import page as validate_page
-from spotifyify.namespaces.base import Resource
+
 from spotifyify.http.response import validate_model
-
-from collections.abc import Iterable
-
+from spotifyify.namespaces.base import Resource
+from spotifyify.pagination import iter_offset_items
 from spotifyify.schemas import (
     PagingTrack,
+    Track,
 )
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
+from spotifyify.validation import spotify_id as validate_id
 
 
 class Tracks(Resource):
@@ -33,13 +31,10 @@ class Tracks(Resource):
     async def get(self, track_id: str, *, market: str | None = None) -> Track:
         market = validate_market(market)
         track_id = validate_id(track_id)
-        data = (
-            await self._http.get(
-                f"/tracks/{track_id}",
-                params={"market": market} if market else None,
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/tracks/{track_id}",
+            params={"market": market} if market else None,
+            require_user=False,
         )
         return validate_model(Track, data)
 

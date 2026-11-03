@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
 from enum import Enum
-from pydantic import Field
 from typing import Annotated
 
+from pydantic import Field
+
+from .base import SpotifyModel
 
 HTTPStatusCode = Annotated[int, Field(ge=400, le=599)]
 

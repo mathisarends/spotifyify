@@ -10,7 +10,12 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -20,10 +25,24 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.13
+        run: uv python install ${{ matrix.python }}
 
       - name: Install dependencies
-        run: uv sync --frozen --python 3.13 --group dev
+        run: uv sync --frozen --python ${{ matrix.python }} --group dev --extra cli
+
+      - name: Lint and formatting
+        run: |
+          uv run --no-sync ruff check spotifyify tests examples tools
+          uv run --no-sync ruff format --check spotifyify tests examples tools
+
+      - name: Typecheck public package
+        run: uv run --no-sync pyright
+
+      - name: Verify pinned schema
+        run: uv run --no-sync python tools/generate_models.py --verify-only
 
       - name: Run tests
-        run: uv run --frozen --python 3.13 pytest
+        run: uv run --no-sync pytest -q
+
+      - name: Build distributions
+        run: uv build

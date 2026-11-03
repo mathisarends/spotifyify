@@ -1,21 +1,21 @@
-from spotifyify.cli.core import fetch_pages
-from spotifyify.cli.options import OffsetOption, AllOption
 from typing import Annotated
 
 import typer
 
 from spotifyify import SpotifyScope
-
 from spotifyify.cli.core import (
     default_market,
+    fetch_pages,
     merge_scopes,
     split_values,
     spotify_client,
 )
 from spotifyify.cli.options import (
+    AllOption,
     FieldsOption,
     IdsArgument,
     LimitOption,
+    OffsetOption,
     async_command,
     print_result,
 )

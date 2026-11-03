@@ -1,8 +1,7 @@
-from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import episode, paging, show, simplified_show
+from spotifyify.config import ApiMode
 from spotifyify.namespaces.shows import Shows
 from spotifyify.schemas import (
     PagingSimplifiedEpisode,
@@ -10,6 +9,7 @@ from spotifyify.schemas import (
     Show,
     SimplifiedShow,
 )
+from tests.conftest import episode, paging, show, simplified_show
 
 
 class TestShows(unittest.IsolatedAsyncioTestCase):
@@ -60,7 +60,7 @@ class TestShows(unittest.IsolatedAsyncioTestCase):
             items=[episode(type="episode", audio_preview_url=None)]
         )
         result = await self.shows.episodes("s1")
-        self.assertIsNone(result.items[0].audio_preview_url)
+        self.assertIsNone(result.items[0].model_dump()["audio_preview_url"])
 
     async def test_get_tolerates_null_episode_data(self):
         """shows get embeds an episodes paging that may carry null/preview gaps."""

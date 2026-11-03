@@ -15,8 +15,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 
-from spotifyify import RetryEvent, SpotifyAPIError, SpotifyRateLimitError, Spotifyify
-
+from spotifyify import RetryEvent, SpotifyAPIError, Spotifyify, SpotifyRateLimitError
 
 DEFAULT_TRACK_ID = "4uLU6hMCjMI75M1A2tKUQC"
 

@@ -9,8 +9,8 @@ import pytest_asyncio
 
 from spotifyify.cache_handler import MemoryCacheHandler
 from spotifyify.credentials import SpotifyCredentials
-from spotifyify.oauth2 import SpotifyifyOAuth
 from spotifyify.exceptions import SpotifyAuthError
+from spotifyify.oauth2 import SpotifyifyOAuth
 
 
 def user_token(scope="user-library-read", **overrides):

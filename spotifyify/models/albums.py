@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
-from pydantic import AwareDatetime
-from pydantic import Field
 from typing import TYPE_CHECKING
 
+from pydantic import AwareDatetime, Field
+
+from .base import SpotifyModel
+
 if TYPE_CHECKING:
-    from .common import AlbumGroup
-    from .common import AlbumObjectType
-    from .common import AlbumRestriction
-    from .common import AlbumType
-    from .common import Copyright
-    from .common import ExternalId
-    from .common import ExternalUrl
-    from .common import Image
-    from .paging import PagingSimplifiedTrack
-    from .common import ReleaseDatePrecision
     from .artists import SimplifiedArtist
+    from .common import (
+        AlbumGroup,
+        AlbumObjectType,
+        AlbumRestriction,
+        AlbumType,
+        Copyright,
+        ExternalId,
+        ExternalUrl,
+        Image,
+        ReleaseDatePrecision,
+    )
+    from .paging import PagingSimplifiedTrack
 
 
 class AlbumBase(SpotifyModel):

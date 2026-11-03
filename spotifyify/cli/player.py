@@ -1,31 +1,28 @@
-from spotifyify.cli.core import fetch_cursor_pages
-from spotifyify.cli.options import AllOption
 from typing import Annotated, Any
 
 import typer
 
 from spotifyify import SpotifyClient, SpotifyScope
-from spotifyify.exceptions import SpotifyAPIError
-from spotifyify.schemas import Device
-
 from spotifyify.cli.core import (
     PLAYBACK_COLUMNS,
     default_device_id,
     default_market,
+    fetch_cursor_pages,
+    is_fresh_track,
+    is_paused,
+    is_playing,
     is_raw_output,
     merge_scopes,
     parse_json_object,
     playback_summary,
+    plays_uri,
     settled_playback,
     sort_items,
     split_values,
-    is_fresh_track,
-    is_paused,
-    is_playing,
-    plays_uri,
     spotify_client,
 )
 from spotifyify.cli.options import (
+    AllOption,
     FieldsOption,
     LimitOption,
     UrisArgument,
@@ -33,6 +30,8 @@ from spotifyify.cli.options import (
     async_command,
     print_result,
 )
+from spotifyify.exceptions import SpotifyAPIError
+from spotifyify.schemas import Device
 
 app = typer.Typer(
     help="Control and inspect Spotify playback.",

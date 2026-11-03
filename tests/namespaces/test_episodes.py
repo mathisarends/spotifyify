@@ -1,10 +1,10 @@
-from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import episode, paging
+from spotifyify.config import ApiMode
 from spotifyify.namespaces.episodes import Episodes
 from spotifyify.schemas import Episode, PagingSimplifiedEpisode
+from tests.conftest import episode, paging
 
 
 class TestEpisodes(unittest.IsolatedAsyncioTestCase):

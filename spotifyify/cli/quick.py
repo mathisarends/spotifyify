@@ -6,10 +6,10 @@ from spotifyify.cli.core import (
     PLAYBACK_COLUMNS,
     default_device_id,
     default_market,
-    playback_summary,
-    settled_playback,
     is_fresh_track,
+    playback_summary,
     plays_uri,
+    settled_playback,
     spotify_client,
 )
 from spotifyify.cli.options import (

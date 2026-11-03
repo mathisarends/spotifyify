@@ -1,20 +1,12 @@
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Coroutine, Sequence
 from functools import wraps
 from typing import Annotated, Any, Callable, ParamSpec
-from collections.abc import Awaitable
 
 import typer
-
-from spotifyify import SpotifyAPIError, SpotifyAuthError
-from spotifyify.exceptions import (
-    SpotifyResponseError,
-    SpotifyTransportError,
-    SpotifyUnsupportedOperation,
-    SpotifyBatchError,
-)
 from pydantic import ValidationError
 
+from spotifyify import SpotifyAPIError, SpotifyAuthError
 from spotifyify.cli.core import (
     Jsonable,
     as_jsonable,
@@ -22,6 +14,12 @@ from spotifyify.cli.core import (
     print_json,
     rows,
     split_values,
+)
+from spotifyify.exceptions import (
+    SpotifyBatchError,
+    SpotifyResponseError,
+    SpotifyTransportError,
+    SpotifyUnsupportedOperation,
 )
 
 DEFAULT_LIMIT = 10
@@ -66,7 +64,7 @@ UrisArgument = Annotated[
 P = ParamSpec("P")
 
 
-def async_command(command: Callable[P, Awaitable[None]]) -> Callable[P, None]:
+def async_command(command: Callable[P, Coroutine[Any, Any, None]]) -> Callable[P, None]:
     """Bridge one async command into Typer and translate expected API failures."""
 
     @wraps(command)

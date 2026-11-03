@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
-from pydantic import Field
-from pydantic import RootModel
-from .common import MusicalKeyValue
-from .common import TimeSignatureValue
 from typing import TYPE_CHECKING
 
+from pydantic import Field, RootModel
+
+from .base import SpotifyModel
+from .common import MusicalKeyValue, TimeSignatureValue
+
 if TYPE_CHECKING:
-    from .common import Confidence
-    from .common import Mode1
+    from .common import Confidence, Mode1
 
 
 class Meta(SpotifyModel):

@@ -1,8 +1,17 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
+
+from spotifyify.http.response import validate_model
+from spotifyify.namespaces.base import Resource
 from spotifyify.pagination import iter_offset_items
 from spotifyify.schemas import (
     Artist,
+    PagingArtist,
+    PagingSavedAlbum,
+    PagingSavedEpisode,
+    PagingSavedShow,
+    PagingSavedTrack,
+    PagingTrack,
     SavedAlbum,
     SavedEpisode,
     SavedShow,
@@ -11,19 +20,6 @@ from spotifyify.schemas import (
 )
 from spotifyify.validation import market as validate_market
 from spotifyify.validation import page as validate_page
-from spotifyify.namespaces.base import Resource
-from spotifyify.http.response import validate_model
-
-from collections.abc import Iterable
-
-from spotifyify.schemas import (
-    PagingArtist,
-    PagingSavedAlbum,
-    PagingSavedEpisode,
-    PagingSavedShow,
-    PagingSavedTrack,
-    PagingTrack,
-)
 
 
 class Library(Resource):
@@ -39,7 +35,7 @@ class Library(Resource):
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
-        data = await self._http.get("/me/tracks", params=params) or {}
+        data = await self._http.get("/me/tracks", params=params)
         return validate_model(PagingSavedTrack, data)
 
     async def saved_albums(
@@ -54,7 +50,7 @@ class Library(Resource):
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
-        data = await self._http.get("/me/albums", params=params) or {}
+        data = await self._http.get("/me/albums", params=params)
         return validate_model(PagingSavedAlbum, data)
 
     async def saved_shows(
@@ -65,7 +61,7 @@ class Library(Resource):
     ) -> PagingSavedShow:
         validate_page(limit, offset)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        data = await self._http.get("/me/shows", params=params) or {}
+        data = await self._http.get("/me/shows", params=params)
         return validate_model(PagingSavedShow, data)
 
     async def saved_episodes(
@@ -76,7 +72,7 @@ class Library(Resource):
     ) -> PagingSavedEpisode:
         validate_page(limit, offset)
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        data = await self._http.get("/me/episodes", params=params) or {}
+        data = await self._http.get("/me/episodes", params=params)
         return validate_model(PagingSavedEpisode, data)
 
     async def save_tracks(self, track_ids: Iterable[str]) -> None:
@@ -125,12 +121,9 @@ class Library(Resource):
         validate_page(limit, offset)
         if time_range not in {"short_term", "medium_term", "long_term"}:
             raise ValueError("time_range must be short_term, medium_term, or long_term")
-        data = (
-            await self._http.get(
-                "/me/top/tracks",
-                params={"time_range": time_range, "limit": limit, "offset": offset},
-            )
-            or {}
+        data = await self._http.get(
+            "/me/top/tracks",
+            params={"time_range": time_range, "limit": limit, "offset": offset},
         )
         return validate_model(PagingTrack, data)
 
@@ -144,12 +137,9 @@ class Library(Resource):
         validate_page(limit, offset)
         if time_range not in {"short_term", "medium_term", "long_term"}:
             raise ValueError("time_range must be short_term, medium_term, or long_term")
-        data = (
-            await self._http.get(
-                "/me/top/artists",
-                params={"time_range": time_range, "limit": limit, "offset": offset},
-            )
-            or {}
+        data = await self._http.get(
+            "/me/top/artists",
+            params={"time_range": time_range, "limit": limit, "offset": offset},
         )
         return validate_model(PagingArtist, data)
 

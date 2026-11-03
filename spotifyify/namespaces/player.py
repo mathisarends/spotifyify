@@ -1,23 +1,23 @@
 from collections.abc import AsyncIterator
 from typing import Any
-from spotifyify.pagination import iter_cursor_items
-from spotifyify.schemas import PlayHistory
-from spotifyify.validation import spotify_id as validate_id
-from spotifyify.validation import integer as validate_integer
-from spotifyify.validation import market as validate_market
-from spotifyify.validation import playback_offset as validate_offset
-from spotifyify.validation import page as validate_page
-from spotifyify.validation import uri as validate_uri
-from spotifyify.utils import coalesce_items
-from spotifyify.http.response import validate_model
 
 from spotifyify.client import SpotifyAPIClient
+from spotifyify.http.response import list_response, validate_model
+from spotifyify.pagination import iter_cursor_items
 from spotifyify.schemas import (
     CursorPagingPlayHistory,
     Device,
     PlaybackState,
     PlayerQueue,
+    PlayHistory,
 )
+from spotifyify.utils import coalesce_items
+from spotifyify.validation import integer as validate_integer
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
+from spotifyify.validation import playback_offset as validate_offset
+from spotifyify.validation import spotify_id as validate_id
+from spotifyify.validation import uri as validate_uri
 
 
 class Player:
@@ -136,7 +136,7 @@ class Player:
         await self._http.put("/me/player/volume", params=params)
 
     async def queue(self) -> PlayerQueue:
-        data = await self._http.get("/me/player/queue") or {}
+        data = await self._http.get("/me/player/queue")
         return validate_model(PlayerQueue, data)
 
     async def add_to_queue(self, uri: str, *, device_id: str | None = None) -> None:
@@ -156,11 +156,8 @@ class Player:
         )
 
     async def devices(self) -> list[Device]:
-        data = await self._http.get("/me/player/devices") or {}
-        return [
-            validate_model(Device, item)
-            for item in (data.get("devices", []) if isinstance(data, dict) else [])
-        ]
+        data = await self._http.get("/me/player/devices")
+        return [validate_model(Device, item) for item in list_response(data, "devices")]
 
     async def recently_played(
         self,
@@ -181,7 +178,7 @@ class Player:
             params["after"] = after
         if before is not None:
             params["before"] = before
-        data = await self._http.get("/me/player/recently-played", params=params) or {}
+        data = await self._http.get("/me/player/recently-played", params=params)
         return validate_model(CursorPagingPlayHistory, data)
 
     async def iter_recently_played(

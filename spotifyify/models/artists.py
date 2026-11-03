@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
-from pydantic import Field
 from typing import TYPE_CHECKING
 
+from pydantic import Field
+
+from .base import SpotifyModel
+
 if TYPE_CHECKING:
-    from .common import ArtistObjectType
-    from .common import ExternalUrl
-    from .common import Followers
-    from .common import Image
+    from .common import ArtistObjectType, ExternalUrl, Followers, Image
 
 
 class Artist(SpotifyModel):

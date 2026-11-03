@@ -1,6 +1,7 @@
 """Smoke test for the shows namespace: find, get, episodes."""
 
 import asyncio
+
 from spotifyify import Spotifyify
 
 

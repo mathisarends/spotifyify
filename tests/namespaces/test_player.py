@@ -1,8 +1,7 @@
-from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import cursor_paging
+from spotifyify.config import ApiMode
 from spotifyify.namespaces.player import Player
 from spotifyify.schemas import (
     CursorPagingPlayHistory,
@@ -10,6 +9,7 @@ from spotifyify.schemas import (
     PlaybackState,
     PlayerQueue,
 )
+from tests.conftest import cursor_paging
 
 
 class TestPlayer(unittest.IsolatedAsyncioTestCase):

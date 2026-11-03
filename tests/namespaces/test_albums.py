@@ -1,10 +1,10 @@
-from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import album, paging
+from spotifyify.config import ApiMode
 from spotifyify.namespaces.albums import Albums
 from spotifyify.schemas import Album, PagingSimplifiedAlbum, PagingSimplifiedTrack
+from tests.conftest import album, paging
 
 
 class TestAlbums(unittest.IsolatedAsyncioTestCase):

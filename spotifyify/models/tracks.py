@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Literal
+
+from pydantic import AwareDatetime, Field
+
 from .base import SpotifyModel
-from pydantic import AwareDatetime
-from pydantic import Field
-from typing import Any
-from typing import Literal
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .player import Context
-    from .common import ExternalId
-    from .common import ExternalUrl
     from .albums import SimplifiedAlbum
     from .artists import SimplifiedArtist
-    from .common import TrackRestriction
+    from .common import ExternalId, ExternalUrl, TrackRestriction
+    from .player import Context
 
 
 class LinkedTrack(SpotifyModel):

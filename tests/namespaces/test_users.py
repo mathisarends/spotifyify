@@ -1,11 +1,11 @@
-from spotifyify.config import ApiMode
-from spotifyify.exceptions import SpotifyResponseError
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import cursor_paging
+from spotifyify.config import ApiMode
+from spotifyify.exceptions import SpotifyResponseError
 from spotifyify.namespaces.users import Users
 from spotifyify.schemas import CursorPagingSimplifiedArtist, PublicUser, User
+from tests.conftest import cursor_paging
 
 
 class TestUsers(unittest.IsolatedAsyncioTestCase):

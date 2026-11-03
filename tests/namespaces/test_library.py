@@ -1,9 +1,8 @@
-from spotifyify.config import ApiMode
-from spotifyify.exceptions import SpotifyResponseError
 import unittest
 from unittest.mock import AsyncMock
 
-from tests.conftest import paging
+from spotifyify.config import ApiMode
+from spotifyify.exceptions import SpotifyResponseError
 from spotifyify.namespaces.library import Library
 from spotifyify.schemas import (
     PagingArtist,
@@ -13,6 +12,7 @@ from spotifyify.schemas import (
     PagingSavedTrack,
     PagingTrack,
 )
+from tests.conftest import paging
 
 
 class TestLibrary(unittest.IsolatedAsyncioTestCase):

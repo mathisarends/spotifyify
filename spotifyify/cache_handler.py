@@ -1,7 +1,7 @@
 import abc
+import hashlib
 import json
 import logging
-import hashlib
 import os
 import tempfile
 from copy import deepcopy

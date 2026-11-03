@@ -1,7 +1,8 @@
-from dataclasses import dataclass
-from enum import StrEnum
 import math
 import random
+from dataclasses import dataclass
+from enum import StrEnum
+
 from spotifyify.validation import integer
 
 _RETRYABLE_SERVER_ERROR_STATUS_CODES = frozenset({500, 502, 503, 504})

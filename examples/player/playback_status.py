@@ -1,6 +1,7 @@
 """Smoke test for the player namespace: state, devices, queue, recently_played."""
 
 import asyncio
+
 from spotifyify import Spotifyify, SpotifyScope
 
 

@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
-from pydantic import AwareDatetime
-from pydantic import Field
 from typing import TYPE_CHECKING
 
+from pydantic import AwareDatetime, Field
+
+from .base import SpotifyModel
+
 if TYPE_CHECKING:
-    from .common import Copyright
-    from .common import ExternalUrl
-    from .common import Image
+    from .common import Copyright, ExternalUrl, Image, ShowObjectType
     from .paging import PagingSimplifiedEpisode
-    from .common import ShowObjectType
 
 
 class ShowBase(SpotifyModel):

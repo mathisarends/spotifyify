@@ -3,7 +3,6 @@ import time
 import unittest
 import unittest.mock
 
-
 from spotifyify.cache_handler import MemoryCacheHandler
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError

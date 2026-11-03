@@ -1,4 +1,4 @@
-from .oauth2 import SpotifyOAuth, SpotifyifyOAuth
+from .oauth2 import SpotifyifyOAuth, SpotifyOAuth
 from .views import SpotifyScope, TokenFormPayload
 
 __all__ = [

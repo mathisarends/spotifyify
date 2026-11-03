@@ -10,8 +10,8 @@ import httpx
 from spotifyify.auth import AccessTokenProvider
 from spotifyify.cache_handler import CacheFileHandler, CacheHandler
 from spotifyify.client import SpotifyAPIClient
-from spotifyify.credentials import SpotifyCredentials
 from spotifyify.config import ApiMode
+from spotifyify.credentials import SpotifyCredentials
 from spotifyify.http import OnRetryHook, RetryPolicy
 from spotifyify.http.context import RequestContext
 from spotifyify.namespaces import (
@@ -52,23 +52,21 @@ class SpotifyClient:
         api_mode: ApiMode | str = ApiMode.DEVELOPMENT,
         concurrency: int = 8,
     ) -> None:
-        self._credentials = (
-            credentials if credentials is not None else SpotifyCredentials()
-        )
         self._scopes = normalize_scopes(scopes)
-        self._oauth = (
-            None
-            if token_provider is not None
-            else SpotifyOAuth(
-                self._credentials,
+        self._oauth: SpotifyOAuth | None = None
+        if token_provider is None:
+            configuration = (
+                credentials if credentials is not None else SpotifyCredentials()
+            )
+            self._oauth = SpotifyOAuth(
+                configuration,
                 cache_handler=cache_handler
                 if cache_handler is not None
                 else CacheFileHandler(
-                    client_id=self._credentials.client_id, profile=cache_profile
+                    client_id=configuration.client_id, profile=cache_profile
                 ),
                 timeout=timeout,
             )
-        )
         provider = token_provider if token_provider is not None else self._oauth
         assert provider is not None
         self._http = SpotifyAPIClient(

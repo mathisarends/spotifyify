@@ -5,7 +5,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from spotifyify.exceptions import SpotifyResponseError
-from spotifyify.models import Paging, CursorPaging
+from spotifyify.models import CursorPaging, Paging
 from spotifyify.validation import page as validate_page
 
 

@@ -1,10 +1,11 @@
-from spotifyify.config import ApiMode
 import unittest
 from unittest.mock import AsyncMock, MagicMock, call
 
-from tests.conftest import paging, playlist, track
+from spotifyify.config import ApiMode
+from spotifyify.exceptions import SpotifyResponseError
 from spotifyify.namespaces.playlists import Playlists
 from spotifyify.schemas import Image, PagingPlaylist, PagingPlaylistTrack, Playlist
+from tests.conftest import paging, playlist, track
 
 
 class TestPlaylists(unittest.IsolatedAsyncioTestCase):
@@ -194,7 +195,7 @@ class TestPlaylists(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 1)
         self.assertIsInstance(result[0], Image)
 
-    async def test_cover_image_non_list_returns_empty(self):
+    async def test_cover_image_rejects_unexpected_response(self):
         self.http.get.return_value = None
-        result = await self.playlists.cover_image("p1")
-        self.assertEqual(result, [])
+        with self.assertRaises(SpotifyResponseError):
+            await self.playlists.cover_image("p1")

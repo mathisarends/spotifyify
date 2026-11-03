@@ -1,20 +1,19 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
-from spotifyify.pagination import iter_offset_items
-from spotifyify.schemas import SimplifiedAlbum, SimplifiedTrack
-from spotifyify.validation import spotify_id as validate_id
-from spotifyify.validation import market as validate_market
-from spotifyify.validation import page as validate_page
-from spotifyify.namespaces.base import Resource
+
 from spotifyify.http.response import validate_model
-
-from collections.abc import Iterable
-
+from spotifyify.namespaces.base import Resource
+from spotifyify.pagination import iter_offset_items
 from spotifyify.schemas import (
     Album,
     PagingSimplifiedAlbum,
     PagingSimplifiedTrack,
+    SimplifiedAlbum,
+    SimplifiedTrack,
 )
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
+from spotifyify.validation import spotify_id as validate_id
 
 
 class Albums(Resource):
@@ -35,13 +34,10 @@ class Albums(Resource):
     async def get(self, album_id: str, *, market: str | None = None) -> Album:
         album_id = validate_id(album_id)
         market = validate_market(market)
-        data = (
-            await self._http.get(
-                f"/albums/{album_id}",
-                params={"market": market} if market else None,
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/albums/{album_id}",
+            params={"market": market} if market else None,
+            require_user=False,
         )
         return validate_model(Album, data)
 
@@ -66,13 +62,8 @@ class Albums(Resource):
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if market:
             params["market"] = market
-        data = (
-            await self._http.get(
-                f"/albums/{album_id}/tracks",
-                params=params,
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/albums/{album_id}/tracks", params=params, require_user=False
         )
         return validate_model(PagingSimplifiedTrack, data)
 
@@ -89,13 +80,8 @@ class Albums(Resource):
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if country:
             params["country"] = country
-        data = (
-            await self._http.get(
-                "/browse/new-releases",
-                params=params,
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            "/browse/new-releases", params=params, require_user=False
         )
         albums = data.get("albums", {}) if isinstance(data, dict) else {}
         return validate_model(PagingSimplifiedAlbum, albums)

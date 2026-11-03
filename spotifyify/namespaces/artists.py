@@ -1,21 +1,20 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
-from spotifyify.pagination import iter_offset_items
-from spotifyify.schemas import Artist, ArtistDiscographyAlbum
-from spotifyify.validation import spotify_id as validate_id
-from spotifyify.validation import market as validate_market
-from spotifyify.validation import page as validate_page
+
+from spotifyify.http.response import list_response, validate_model
 from spotifyify.namespaces.base import Resource
-from spotifyify.http.response import validate_model
-
-from collections.abc import Iterable
-
+from spotifyify.pagination import iter_offset_items
 from spotifyify.schemas import (
-    PagingArtistDiscographyAlbum,
+    Artist,
+    ArtistDiscographyAlbum,
     PagingArtist,
+    PagingArtistDiscographyAlbum,
     Track,
 )
 from spotifyify.utils import deprecated
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
+from spotifyify.validation import spotify_id as validate_id
 
 
 class Artists(Resource):
@@ -32,7 +31,7 @@ class Artists(Resource):
 
     async def get(self, artist_id: str) -> Artist:
         artist_id = validate_id(artist_id)
-        data = await self._http.get(f"/artists/{artist_id}", require_user=False) or {}
+        data = await self._http.get(f"/artists/{artist_id}", require_user=False)
         return validate_model(Artist, data)
 
     async def get_many(self, artist_ids: Iterable[str]) -> list[Artist | None]:
@@ -41,18 +40,14 @@ class Artists(Resource):
 
     async def top_tracks(self, artist_id: str, *, market: str = "US") -> list[Track]:
         artist_id = validate_id(artist_id)
-        market = validate_market(market)
+        market = validate_market(market) or "US"
         self._require_extended("Artist top tracks")
-        data = (
-            await self._http.get(
-                f"/artists/{artist_id}/top-tracks",
-                params={"market": market},
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/artists/{artist_id}/top-tracks",
+            params={"market": market},
+            require_user=False,
         )
-        tracks = data.get("tracks", []) if isinstance(data, dict) else []
-        return [validate_model(Track, item) for item in tracks if item]
+        return [validate_model(Track, item) for item in list_response(data, "tracks")]
 
     async def albums(
         self,
@@ -71,13 +66,8 @@ class Artists(Resource):
             params["include_groups"] = include_groups
         if market:
             params["market"] = market
-        data = (
-            await self._http.get(
-                f"/artists/{artist_id}/albums",
-                params=params,
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/artists/{artist_id}/albums", params=params, require_user=False
         )
         return validate_model(PagingArtistDiscographyAlbum, data)
 
@@ -88,15 +78,10 @@ class Artists(Resource):
     async def related(self, artist_id: str) -> list[Artist]:
         artist_id = validate_id(artist_id)
         self._require_extended("Related artists")
-        data = (
-            await self._http.get(
-                f"/artists/{artist_id}/related-artists",
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/artists/{artist_id}/related-artists", require_user=False
         )
-        artists = data.get("artists", []) if isinstance(data, dict) else []
-        return [validate_model(Artist, item) for item in artists if item]
+        return [validate_model(Artist, item) for item in list_response(data, "artists")]
 
     async def iter_search(
         self, query: str, *, limit: int = 10, offset: int = 0, **kwargs: Any

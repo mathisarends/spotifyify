@@ -1,6 +1,7 @@
 """Smoke test for the tracks namespace: find, get, get_many."""
 
 import asyncio
+
 from spotifyify import Spotifyify
 
 

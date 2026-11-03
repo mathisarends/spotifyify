@@ -1,6 +1,6 @@
 import unittest
 
-from spotifyify.utils import coalesce_items, coalesce_csv
+from spotifyify.utils import coalesce_csv, coalesce_items
 
 
 class TestCoalesceItems(unittest.TestCase):

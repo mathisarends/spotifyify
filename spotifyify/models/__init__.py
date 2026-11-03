@@ -1,6 +1,7 @@
 """Typed Spotify responses, normalized across supported API modes."""
 
 from pydantic import BaseModel as _BaseModel
+
 from .albums import (
     Album,
     AlbumBase,
@@ -11,58 +12,6 @@ from .albums import (
 from .artists import (
     Artist,
     SimplifiedArtist,
-)
-from .users import (
-    PlaylistOwner,
-    PlaylistUser,
-    PublicUser,
-    User,
-)
-from .tracks import (
-    LinkedTrack,
-    PlayHistory,
-    SavedTrack,
-    SimplifiedTrack,
-    Track,
-)
-from .shows import (
-    SavedShow,
-    Show,
-    ShowBase,
-    SimplifiedShow,
-)
-from .episodes import (
-    Episode,
-    EpisodeBase,
-    EpisodeRestriction,
-    ResumePoint,
-    SavedEpisode,
-    SimplifiedEpisode,
-)
-from .playlists import (
-    Playlist,
-    PlaylistItem,
-    PlaylistItemsRef,
-    SimplifiedPlaylist,
-)
-from .player import (
-    Context,
-    Device,
-    Disallows,
-    PlaybackState,
-    PlayerQueue,
-    Queue,
-)
-from .audiobooks import (
-    Audiobook,
-    AudiobookBase,
-    Author,
-    Chapter,
-    ChapterBase,
-    ChapterRestriction,
-    Narrator,
-    SimplifiedAudiobook,
-    SimplifiedChapter,
 )
 from .audio import (
     AudioAnalysis,
@@ -77,28 +26,16 @@ from .audio import (
     TimeInterval,
     TimeSignature,
 )
-from .paging import (
-    Cursor,
-    CursorPaging,
-    CursorPagingPlayHistory,
-    CursorPagingSimplifiedArtist,
-    Paging,
-    PagingArtist,
-    PagingArtistDiscographyAlbum,
-    PagingFeaturedPlaylist,
-    PagingPlaylist,
-    PagingPlaylistItem,
-    PagingSavedAlbum,
-    PagingSavedEpisode,
-    PagingSavedShow,
-    PagingSavedTrack,
-    PagingSimplifiedAlbum,
-    PagingSimplifiedAudiobook,
-    PagingSimplifiedChapter,
-    PagingSimplifiedEpisode,
-    PagingSimplifiedShow,
-    PagingSimplifiedTrack,
-    PagingTrack,
+from .audiobooks import (
+    Audiobook,
+    AudiobookBase,
+    Author,
+    Chapter,
+    ChapterBase,
+    ChapterRestriction,
+    Narrator,
+    SimplifiedAudiobook,
+    SimplifiedChapter,
 )
 from .common import (
     AlbumGroup,
@@ -130,6 +67,70 @@ from .common import (
     TrackRestriction,
     UserObjectType,
     VolumePercent,
+)
+from .episodes import (
+    Episode,
+    EpisodeBase,
+    EpisodeRestriction,
+    ResumePoint,
+    SavedEpisode,
+    SimplifiedEpisode,
+)
+from .paging import (
+    Cursor,
+    CursorPaging,
+    CursorPagingPlayHistory,
+    CursorPagingSimplifiedArtist,
+    Paging,
+    PagingArtist,
+    PagingArtistDiscographyAlbum,
+    PagingFeaturedPlaylist,
+    PagingPlaylist,
+    PagingPlaylistItem,
+    PagingSavedAlbum,
+    PagingSavedEpisode,
+    PagingSavedShow,
+    PagingSavedTrack,
+    PagingSimplifiedAlbum,
+    PagingSimplifiedAudiobook,
+    PagingSimplifiedChapter,
+    PagingSimplifiedEpisode,
+    PagingSimplifiedShow,
+    PagingSimplifiedTrack,
+    PagingTrack,
+)
+from .player import (
+    Context,
+    Device,
+    Disallows,
+    PlaybackState,
+    PlayerQueue,
+    Queue,
+)
+from .playlists import (
+    Playlist,
+    PlaylistItem,
+    PlaylistItemsRef,
+    SimplifiedPlaylist,
+)
+from .shows import (
+    SavedShow,
+    Show,
+    ShowBase,
+    SimplifiedShow,
+)
+from .tracks import (
+    LinkedTrack,
+    PlayHistory,
+    SavedTrack,
+    SimplifiedTrack,
+    Track,
+)
+from .users import (
+    PlaylistOwner,
+    PlaylistUser,
+    PublicUser,
+    User,
 )
 
 __all__ = [
@@ -241,7 +242,7 @@ __all__ = [
     "VolumePercent",
 ]
 
-from .playlists import PlaylistProjection, PlaylistItemProjection
+from .playlists import PlaylistItemProjection, PlaylistProjection
 
 __all__ += ["PlaylistProjection", "PlaylistItemProjection"]
 

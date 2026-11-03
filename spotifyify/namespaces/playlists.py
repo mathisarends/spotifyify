@@ -1,35 +1,28 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import Any
-from spotifyify.pagination import iter_offset_items
-from spotifyify.schemas import PlaylistItem, SimplifiedPlaylist
+from collections.abc import AsyncIterator, Iterable
+from typing import TYPE_CHECKING, Any, overload
 
-from spotifyify.validation import spotify_id as validate_id
-from spotifyify.validation import integer as validate_integer
-from spotifyify.validation import market as validate_market
-from spotifyify.validation import page as validate_page
-
-from spotifyify.namespaces.base import Resource
+from spotifyify.batching import chunks
 from spotifyify.config import ApiMode
-from spotifyify.exceptions import SpotifyResponseError, SpotifyBatchError, SpotifyError
-
-from spotifyify.http.response import validate_model
-
-from typing import TYPE_CHECKING
-
-from collections.abc import Iterable
-
+from spotifyify.exceptions import SpotifyBatchError, SpotifyError, SpotifyResponseError
+from spotifyify.http.response import list_response, object_response, validate_model
+from spotifyify.namespaces.base import Resource
+from spotifyify.pagination import iter_offset_items
 from spotifyify.schemas import (
     Image,
     PagingPlaylist,
     PagingPlaylistTrack,
     Playlist,
+    PlaylistItem,
     PlaylistProjection,
+    SimplifiedPlaylist,
 )
 from spotifyify.utils import coalesce_csv, coalesce_items
-from spotifyify.batching import chunks
-from spotifyify.http.response import object_response
+from spotifyify.validation import integer as validate_integer
+from spotifyify.validation import market as validate_market
+from spotifyify.validation import page as validate_page
+from spotifyify.validation import spotify_id as validate_id
 from spotifyify.validation import uri as validate_uri
 
 if TYPE_CHECKING:
@@ -59,13 +52,8 @@ class Playlists(Resource):
         market = validate_market(market)
         playlist_id = validate_id(playlist_id)
         params = {"market": market} if market else None
-        data = (
-            await self._http.get(
-                f"/playlists/{playlist_id}",
-                params=params,
-                require_user=False,
-            )
-            or {}
+        data = await self._http.get(
+            f"/playlists/{playlist_id}", params=params, require_user=False
         )
         return validate_model(Playlist, data)
 
@@ -85,8 +73,32 @@ class Playlists(Resource):
         else:
             path = "/me/playlists"
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        data = await self._http.get(path, params=params) or {}
+        data = await self._http.get(path, params=params)
         return validate_model(PagingPlaylist, data)
+
+    @overload
+    async def items(
+        self,
+        playlist_id: str,
+        *,
+        fields: None = None,
+        market: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        additional_types: Iterable[str] | None = None,
+    ) -> PagingPlaylistTrack: ...
+
+    @overload
+    async def items(
+        self,
+        playlist_id: str,
+        *,
+        fields: str,
+        market: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        additional_types: Iterable[str] | None = None,
+    ) -> PlaylistProjection: ...
 
     async def items(
         self,
@@ -147,17 +159,14 @@ class Playlists(Resource):
             if not target_user:
                 raise SpotifyResponseError("Current user response is missing an ID")
             path = f"/users/{target_user}/playlists"
-        data = (
-            await self._http.post(
-                path,
-                payload={
-                    "name": name,
-                    "public": public,
-                    "collaborative": collaborative,
-                    "description": description,
-                },
-            )
-            or {}
+        data = await self._http.post(
+            path,
+            payload={
+                "name": name,
+                "public": public,
+                "collaborative": collaborative,
+                "description": description,
+            },
         )
         return validate_model(Playlist, data)
 
@@ -235,23 +244,17 @@ class Playlists(Resource):
         }
         if snapshot_id:
             payload["snapshot_id"] = snapshot_id
-        data = (
-            await self._http.put(
-                f"/playlists/{playlist_id}/items", payload=payload, retry_safe=False
-            )
-            or {}
+        data = await self._http.put(
+            f"/playlists/{playlist_id}/items", payload=payload, retry_safe=False
         )
         return data.get("snapshot_id") if isinstance(data, dict) else None
 
     async def cover_image(self, playlist_id: str) -> list[Image]:
         playlist_id = validate_id(playlist_id)
-        data = (
-            await self._http.get(f"/playlists/{playlist_id}/images", require_user=False)
-            or []
+        data = await self._http.get(
+            f"/playlists/{playlist_id}/images", require_user=False
         )
-        if isinstance(data, list):
-            return [validate_model(Image, item) for item in data]
-        return []
+        return [validate_model(Image, item) for item in list_response(data)]
 
     async def _write_batches(
         self,
@@ -314,6 +317,10 @@ class Playlists(Resource):
         self, playlist_id: str, *, limit: int = 50, offset: int = 0, **kwargs: Any
     ) -> AsyncIterator[PlaylistItem]:
         """Yield results across pages, stopping without prefetch when the caller stops."""
+        if kwargs.get("fields") is not None:
+            raise ValueError(
+                "iter_items requires complete item pages; use items(fields=...) for projections"
+            )
         async for item in iter_offset_items(
             self.items, limit=limit, offset=offset, playlist_id=playlist_id, **kwargs
         ):

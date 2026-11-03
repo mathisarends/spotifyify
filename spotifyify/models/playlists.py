@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+from pydantic import AwareDatetime, Field
+
 from .base import SpotifyModel
-from pydantic import AwareDatetime
-from pydantic import Field
-from typing import TYPE_CHECKING
-from typing import Any
 
 if TYPE_CHECKING:
+    from .common import ExternalUrl, Image
     from .episodes import Episode
-    from .common import ExternalUrl
-    from .common import Image
     from .paging import PagingPlaylistItem
-    from .users import PlaylistOwner
-    from .users import PlaylistUser
     from .tracks import Track
+    from .users import PlaylistOwner, PlaylistUser
 
 
 class PlaylistItemsRef(SpotifyModel):

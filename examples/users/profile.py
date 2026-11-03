@@ -1,6 +1,7 @@
 """Smoke test for the users namespace: me, get, following, check_following."""
 
 import asyncio
+
 from spotifyify import Spotifyify
 
 

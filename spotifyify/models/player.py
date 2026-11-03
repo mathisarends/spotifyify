@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
-from pydantic import Field
-from pydantic import RootModel
-from .episodes import Episode
-from .tracks import Track
 from typing import TYPE_CHECKING
 
+from pydantic import Field, RootModel
+
+from .base import SpotifyModel
+from .episodes import Episode
+from .tracks import Track
+
 if TYPE_CHECKING:
-    from .common import ExternalUrl
-    from .common import VolumePercent
+    from .common import ExternalUrl, VolumePercent
 
 
 class Disallows(SpotifyModel):

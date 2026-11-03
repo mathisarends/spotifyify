@@ -1,29 +1,27 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
-from spotifyify.pagination import iter_cursor_items
-from spotifyify.schemas import Artist
-from spotifyify.validation import spotify_id as validate_id
-from spotifyify.validation import page as validate_page
-from collections.abc import Iterable
+
 from spotifyify.batching import chunks
 from spotifyify.config import ApiMode
 from spotifyify.exceptions import SpotifyResponseError
-from spotifyify.http.response import list_response
+from spotifyify.http.response import list_response, object_response, validate_model
 from spotifyify.namespaces.base import Resource
+from spotifyify.pagination import iter_cursor_items
+from spotifyify.schemas import Artist, CursorPagingSimplifiedArtist, PublicUser, User
 from spotifyify.utils import coalesce_items
-from spotifyify.http.response import validate_model
-from spotifyify.schemas import CursorPagingSimplifiedArtist, PublicUser, User
+from spotifyify.validation import page as validate_page
+from spotifyify.validation import spotify_id as validate_id
 
 
 class Users(Resource):
     async def me(self) -> User:
-        data = await self._http.get("/me") or {}
+        data = await self._http.get("/me")
         return validate_model(User, data)
 
     async def get(self, user_id: str) -> PublicUser:
         user_id = validate_id(user_id)
         self._require_extended("Other user profiles")
-        data = await self._http.get(f"/users/{user_id}", require_user=False) or {}
+        data = await self._http.get(f"/users/{user_id}", require_user=False)
         return validate_model(PublicUser, data)
 
     async def following(
@@ -39,8 +37,8 @@ class Users(Resource):
         params: dict[str, str | int] = {"type": type, "limit": limit}
         if after:
             params["after"] = after
-        data = await self._http.get("/me/following", params=params) or {}
-        artists = data.get("artists", {}) if isinstance(data, dict) else {}
+        data = await self._http.get("/me/following", params=params)
+        artists = object_response(object_response(data).get("artists"))
         return validate_model(CursorPagingSimplifiedArtist, artists)
 
     async def follow(self, type: str, ids: Iterable[str]) -> None:

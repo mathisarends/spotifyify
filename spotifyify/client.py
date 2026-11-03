@@ -1,15 +1,12 @@
+import math
+from collections.abc import Iterable
 from typing import Any, Self
 
-from collections.abc import Iterable
-
-from pydantic import BaseModel
 import httpx
+from pydantic import BaseModel
 
 from spotifyify.auth import AccessTokenProvider
 from spotifyify.config import ApiMode
-from spotifyify.utils import normalize_scopes
-from spotifyify.validation import integer
-import math
 from spotifyify.http import (
     HttpMethod,
     HttpTransport,
@@ -22,6 +19,8 @@ from spotifyify.http import (
     validate_response_model,
 )
 from spotifyify.http.context import RequestContext, default_context
+from spotifyify.utils import normalize_scopes
+from spotifyify.validation import integer
 
 
 class SpotifyAPIClient:

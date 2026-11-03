@@ -102,6 +102,7 @@ def test_cache_replace_failure_preserves_previous_grant_and_cleans_tempfiles(tmp
 def test_login_keeps_stdout_json_and_does_not_reveal_tokens():
     pytest.importorskip("typer")
     from typer.testing import CliRunner
+
     from spotifyify.cli import app
 
     oauth = SpotifyOAuth(credentials(), MemoryCacheHandler())

@@ -2,13 +2,29 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
+from typing import TYPE_CHECKING, Any
+
 from pydantic import Field
-from typing import Any
-from typing import TYPE_CHECKING
+
+from .base import SpotifyModel
 
 if TYPE_CHECKING:
-    pass
+    from .albums import ArtistDiscographyAlbum as ArtistDiscographyAlbum
+    from .albums import SavedAlbum as SavedAlbum
+    from .albums import SimplifiedAlbum as SimplifiedAlbum
+    from .artists import Artist as Artist
+    from .audiobooks import SimplifiedAudiobook as SimplifiedAudiobook
+    from .audiobooks import SimplifiedChapter as SimplifiedChapter
+    from .episodes import SavedEpisode as SavedEpisode
+    from .episodes import SimplifiedEpisode as SimplifiedEpisode
+    from .playlists import PlaylistItem as PlaylistItem
+    from .playlists import SimplifiedPlaylist as SimplifiedPlaylist
+    from .shows import SavedShow as SavedShow
+    from .shows import SimplifiedShow as SimplifiedShow
+    from .tracks import PlayHistory as PlayHistory
+    from .tracks import SavedTrack as SavedTrack
+    from .tracks import SimplifiedTrack as SimplifiedTrack
+    from .tracks import Track as Track
 
 
 class Cursor(SpotifyModel):

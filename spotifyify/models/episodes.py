@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Literal
+
+from pydantic import AwareDatetime, Field
+
 from .base import SpotifyModel
-from pydantic import AwareDatetime
-from pydantic import Field
-from typing import Literal
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .common import EpisodeObjectType
-    from .common import ExternalUrl
-    from .common import Image
-    from .common import ReleaseDatePrecision
+    from .common import EpisodeObjectType, ExternalUrl, Image, ReleaseDatePrecision
     from .shows import SimplifiedShow
 
 

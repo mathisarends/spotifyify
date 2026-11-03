@@ -1,5 +1,6 @@
 import sys
 from typing import Annotated
+
 from spotifyify.config import ApiMode
 
 try:
@@ -15,10 +16,10 @@ from .core import (
     get_path,
     playback_summary,
     rows,
+    set_api_mode,
     set_default_device_id,
     set_default_market,
     set_default_profile,
-    set_api_mode,
     set_full_output,
     sort_items,
     split_values,
@@ -61,8 +62,8 @@ def main() -> None:
 if typer is not None:
     from . import (
         albums,
-        auth,
         artists,
+        auth,
         episodes,
         library,
         player,

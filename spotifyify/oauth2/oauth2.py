@@ -1,22 +1,25 @@
+import asyncio
 import base64
 import logging
 import time
+from ipaddress import ip_address
 from typing import Any
 from urllib.parse import quote, urlparse
-from ipaddress import ip_address
 
-import asyncio
-
+import httpx
 from pydantic import ValidationError
 
 from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
-import httpx
-
 from spotifyify.credentials import SpotifyCredentials
-from spotifyify.exceptions import SpotifyAuthError, SpotifyAPIError
-from spotifyify.oauth2.views import TokenFormPayload
-from spotifyify.oauth2.token import TokenInfo
+from spotifyify.exceptions import (
+    SpotifyAPIError,
+    SpotifyAuthError,
+    SpotifyResponseError,
+)
 from spotifyify.http import parse_response
+from spotifyify.oauth2.token import TokenInfo
+from spotifyify.oauth2.views import TokenFormPayload
+from spotifyify.utils import normalize_scopes
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,9 @@ class SpotifyOAuth:
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.credentials = credentials
-        self.cache_handler = cache_handler or MemoryCacheHandler()
+        self.cache_handler = (
+            cache_handler if cache_handler is not None else MemoryCacheHandler()
+        )
         self.timeout = timeout
         self._http: httpx.AsyncClient | None = None
         self._transport = transport
@@ -42,6 +47,7 @@ class SpotifyOAuth:
         self._token_info: TokenInfo | None = None
         self._app_token: TokenInfo | None = None
         self._cache_loaded = False
+        self._refresh_revoked = False
         self._token_lock = asyncio.Lock()
 
     async def close(self) -> None:
@@ -168,6 +174,10 @@ class SpotifyOAuth:
             parsed = parse_response(response)
         except SpotifyAuthError:
             raise
+        except SpotifyResponseError as exc:
+            raise SpotifyAuthError(
+                "Token request returned an invalid response"
+            ) from exc
         except SpotifyAPIError as exc:
             error_code = exc.details.get("error")
             if not isinstance(error_code, str):
@@ -192,9 +202,16 @@ class SpotifyOAuth:
 
         logger.debug("Received Spotify OAuth token: grant_type=%s", payload.grant_type)
         token_info = parsed
-        token_info["expires_at"] = int(time.time()) + int(
-            token_info.get("expires_in", 0)
-        )
+        try:
+            expires_in = token_info.get("expires_in")
+            if type(expires_in) is not int or expires_in < 0:
+                raise ValueError("Invalid expires_in")
+            token_info["expires_at"] = int(time.time()) + expires_in
+            TokenInfo.model_validate(token_info)
+        except (ValueError, TypeError, ValidationError) as exc:
+            raise SpotifyAuthError(
+                "Token request returned invalid token fields"
+            ) from exc
         return token_info
 
     def _cached_token(self) -> dict[str, Any] | None:
@@ -235,9 +252,13 @@ class SpotifyOAuth:
         except ValidationError as exc:
             raise SpotifyAuthError("Invalid OAuth token response") from exc
         self._cache_loaded = True
-        self.cache_handler.save_token_to_cache(
-            self._token_info.model_dump(exclude_none=True)
-        )
+        self._refresh_revoked = False
+        try:
+            self.cache_handler.save_token_to_cache(
+                self._token_info.model_dump(exclude_none=True)
+            )
+        except OSError as exc:
+            raise SpotifyAuthError("Unable to persist the user token cache") from exc
 
     @property
     def token_info(self) -> TokenInfo | None:
@@ -250,6 +271,8 @@ class SpotifyOAuth:
         require_user: bool,
         scope: str | list[str] | tuple[str, ...] | None = None,
     ) -> str:
+        if self._closed:
+            raise SpotifyAuthError("OAuth provider is closed")
         desired_scope = self._normalize_scope(scope)
         async with self._token_lock:
             self._cached_token()
@@ -260,7 +283,12 @@ class SpotifyOAuth:
                     return token.access_token
 
             refresh_token = token.refresh_token if token else None
-            if not refresh_token and not token and self.credentials.refresh_token:
+            if (
+                not refresh_token
+                and not token
+                and self.credentials.refresh_token
+                and not self._refresh_revoked
+            ):
                 refresh_token = self.credentials.refresh_token.get_secret_value()
             # Refreshing never adds permissions. Reauthorize when known grants
             # are insufficient instead of repeatedly refreshing the same grant.
@@ -274,7 +302,14 @@ class SpotifyOAuth:
                 except SpotifyAuthError as exc:
                     if exc.code == "invalid_grant":
                         self._token_info = None
-                        self.cache_handler.delete_cached_token()
+                        self._refresh_revoked = True
+                        try:
+                            self.cache_handler.delete_cached_token()
+                        except OSError as cache_error:
+                            raise SpotifyAuthError(
+                                "The user grant was revoked and its cache could not be removed",
+                                code="invalid_grant",
+                            ) from cache_error
                         raise SpotifyAuthError(
                             "The user grant expired or was revoked. Run spotifyify auth login.",
                             code="invalid_grant",
@@ -307,15 +342,7 @@ class SpotifyOAuth:
     def _normalize_scope(
         self, scope: str | list[str] | tuple[str, ...] | None
     ) -> str | None:
-        if scope is None:
-            return None
-        if isinstance(scope, str):
-            chunks = [part.strip() for part in scope.replace(",", " ").split()]
-            return " ".join(sorted(set(filter(None, chunks)))) or None
-        if isinstance(scope, (list, tuple)):
-            chunks = [str(part).strip() for part in scope]
-            return " ".join(sorted(set(filter(None, chunks)))) or None
-        raise TypeError("scope must be str, list[str], tuple[str, ...], or None")
+        return " ".join(normalize_scopes(scope)) or None
 
 
 SpotifyifyOAuth = SpotifyOAuth

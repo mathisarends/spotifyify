@@ -1,16 +1,16 @@
 import asyncio
 import inspect
 import logging
-from typing import Any
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 
+from spotifyify.exceptions import SpotifyTransportError
 from spotifyify.http.context import RequestContext, default_context
 from spotifyify.http.retry_event import RetryEvent
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
 from spotifyify.http.serialization import SerializedJsonPayload
-from spotifyify.exceptions import SpotifyTransportError
 
 logger = logging.getLogger(__name__)
 

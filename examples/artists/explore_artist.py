@@ -1,6 +1,7 @@
 """Smoke test for the artists namespace: find, get, top_tracks, albums, related."""
 
 import asyncio
+
 from spotifyify import Spotifyify
 
 

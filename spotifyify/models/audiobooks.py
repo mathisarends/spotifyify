@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-from .base import SpotifyModel
-from pydantic import Field
 from typing import TYPE_CHECKING
 
+from pydantic import Field
+
+from .base import SpotifyModel
+
 if TYPE_CHECKING:
-    from .common import AudiobookObjectType
-    from .common import ChapterObjectType
-    from .common import Copyright
-    from .common import ExternalUrl
-    from .common import Image
-    from .paging import PagingSimplifiedChapter
-    from .common import ReleaseDatePrecision
+    from .common import (
+        AudiobookObjectType,
+        ChapterObjectType,
+        Copyright,
+        ExternalUrl,
+        Image,
+        ReleaseDatePrecision,
+    )
     from .episodes import ResumePoint
+    from .paging import PagingSimplifiedChapter
 
 
 class ChapterRestriction(SpotifyModel):

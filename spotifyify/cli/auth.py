@@ -10,6 +10,7 @@ from spotifyify.cache_handler import CacheFileHandler
 from spotifyify.cli.core import default_profile, print_json, split_values
 from spotifyify.cli.options import async_command
 from spotifyify.credentials import SpotifyCredentials
+from spotifyify.exceptions import SpotifyAuthError
 from spotifyify.oauth2 import SpotifyOAuth
 from spotifyify.oauth2.callback import capture_local_code, parse_callback_url
 
@@ -57,14 +58,23 @@ async def login(
         def announce() -> None:
             print(f"Open this URL to authorize Spotify access:\n{url}", file=sys.stderr)
             if browser:
-                webbrowser.open(url)
+                try:
+                    webbrowser.open(url)
+                except OSError:
+                    print(
+                        "Unable to open a browser; open the URL above manually.",
+                        file=sys.stderr,
+                    )
 
         if manual:
             announce()
             print(
                 "Paste the full redirect URL:\n> ", end="", file=sys.stderr, flush=True
             )
-            code = parse_callback_url(await asyncio.to_thread(input), state)
+            try:
+                code = parse_callback_url(await asyncio.to_thread(input), state)
+            except EOFError as exc:
+                raise SpotifyAuthError("No redirect URL received") from exc
         else:
             code = await capture_local_code(
                 oauth.credentials.redirect_uri or "",
@@ -87,12 +97,16 @@ async def login(
 
 
 @app.command("logout")
-def logout() -> None:
+@async_command
+async def logout() -> None:
     """Remove the selected profile's cached grant. Environment tokens are external."""
     credentials = SpotifyCredentials()
-    CacheFileHandler(
-        client_id=credentials.client_id, profile=default_profile()
-    ).delete_cached_token()
+    try:
+        CacheFileHandler(
+            client_id=credentials.client_id, profile=default_profile()
+        ).delete_cached_token()
+    except OSError as exc:
+        raise SpotifyAuthError("Unable to remove the selected token cache") from exc
     print_json([{"profile": default_profile(), "cache_removed": True}])
 
 

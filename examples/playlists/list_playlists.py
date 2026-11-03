@@ -1,6 +1,7 @@
 """Smoke test for the playlists namespace: find, list, get, cover_image."""
 
 import asyncio
+
 from spotifyify import Spotifyify, SpotifyScope
 
 

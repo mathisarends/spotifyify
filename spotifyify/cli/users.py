@@ -1,17 +1,16 @@
-from spotifyify.cli.core import fetch_cursor_pages
-from spotifyify.cli.options import AllOption
 from typing import Annotated
 
 import typer
 
 from spotifyify import SpotifyScope
-
 from spotifyify.cli.core import (
+    fetch_cursor_pages,
     merge_scopes,
     split_values,
     spotify_client,
 )
 from spotifyify.cli.options import (
+    AllOption,
     FieldsOption,
     IdsArgument,
     LimitOption,

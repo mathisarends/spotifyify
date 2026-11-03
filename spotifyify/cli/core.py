@@ -1,27 +1,27 @@
-from spotifyify.batching import BATCH_TRACKS as BATCH_TRACKS
-from spotifyify.batching import BATCH_ARTISTS as BATCH_ARTISTS
-from spotifyify.batching import BATCH_ALBUMS as BATCH_ALBUMS
-from spotifyify.batching import BATCH_SHOWS as BATCH_SHOWS
-from spotifyify.batching import BATCH_EPISODES as BATCH_EPISODES
-from spotifyify.batching import BATCH_FOLLOW as BATCH_FOLLOW
-from spotifyify.batching import gather_batches as gather_batches
-from spotifyify.batching import sequential_batches as sequential_batches
 import asyncio
 import json
 import os
 import re
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, TypeGuard
+from urllib.parse import parse_qs, urlparse
 
 from pydantic import BaseModel
 
 from spotifyify import SpotifyClient, SpotifyScope
+from spotifyify.batching import BATCH_ALBUMS as BATCH_ALBUMS
+from spotifyify.batching import BATCH_ARTISTS as BATCH_ARTISTS
+from spotifyify.batching import BATCH_EPISODES as BATCH_EPISODES
+from spotifyify.batching import BATCH_FOLLOW as BATCH_FOLLOW
+from spotifyify.batching import BATCH_SHOWS as BATCH_SHOWS
+from spotifyify.batching import BATCH_TRACKS as BATCH_TRACKS
+from spotifyify.batching import gather_batches as gather_batches
+from spotifyify.batching import sequential_batches as sequential_batches
+from spotifyify.config import ApiMode
 from spotifyify.exceptions import SpotifyResponseError
 from spotifyify.pagination import next_offset
-from urllib.parse import parse_qs, urlparse
 from spotifyify.schemas import PlaybackState
-from spotifyify.config import ApiMode
 
 try:
     import typer
@@ -380,7 +380,7 @@ async def spotify_client(
 
 
 # --------------------------------------------------------------------------- #
-# Playback summaries — mutations answer with the state they produced.
+# Playback summaries â€” mutations answer with the state they produced.
 # --------------------------------------------------------------------------- #
 
 PLAYBACK_COLUMNS = ("state", "track", "artists", "device")
@@ -426,7 +426,7 @@ def playback_summary(state: Any) -> dict[str, Any]:
     }
 
 
-def is_playing(state: PlaybackState | None) -> bool:
+def is_playing(state: PlaybackState | None) -> TypeGuard[PlaybackState]:
     return bool(state and state.is_playing)
 
 
