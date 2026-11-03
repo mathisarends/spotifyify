@@ -4,6 +4,8 @@ An async-first Spotify client built on HTTPX2, with a namespaced API and fully t
 
 See [the 0.9 migration guide](docs/migration-0.9.md) for renamed APIs, explicit
 login, API modes and output changes. `Spotifyify` remains a compatibility alias.
+The [0.9.0 release notes](CHANGELOG.md) summarize the changes, including the
+removal of the optional CLI and the switch to HTTPX2.
 
 ## Requirements
 
@@ -407,3 +409,6 @@ The CI tests Windows and Linux with Python 3.13 and 3.14, including the Python
 client and MCP example. [Model maintenance](docs/models.md) documents the pinned schema and
 comparison generator. [The migration guide](docs/migration-0.9.md) describes
 compatibility changes in 0.9.
+
+Maintainers can follow the [release checklist](docs/releasing.md) to validate
+and publish a version. CI builds distributions but does not publish them.

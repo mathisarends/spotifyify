@@ -1,5 +1,20 @@
 # Migrating from 0.8 to 0.9
 
+## Upgrade checklist
+
+1. Use Python 3.13 or later and upgrade with `pip install --upgrade "spotifyify==0.9.0"`
+   once 0.9.0 is published.
+2. Replace CLI integrations with Python calls; the console command and `[cli]`
+   extra are removed.
+3. Authorize user operations explicitly and select the matching token-cache
+   profile. API calls no longer start interactive login.
+4. Check the app's quota mode before choosing `api_mode`; Development Mode is
+   the default. Handle missing `get_many()` entries and partial batch failures.
+5. Replace injected HTTPX transports and response type checks with their HTTPX2
+   equivalents.
+
+See the [release notes](../CHANGELOG.md) for the full 0.9.0 summary.
+
 ## Public names
 
 Use `from spotifyify import SpotifyClient`. `Spotifyify` remains an alias for
