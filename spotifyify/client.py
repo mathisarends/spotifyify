@@ -32,6 +32,7 @@ class SpotifyAPIClient:
         retry_backoff_seconds: float = 1.0,
         context: RequestContext | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         self._token_provider = token_provider
         self._scopes = list(scopes or [])
@@ -40,9 +41,12 @@ class SpotifyAPIClient:
         self._transport = HttpTransport(
             base_url=base_url,
             timeout=timeout,
-            retry_policy=RetryPolicy(
+            retry_policy=retry_policy
+            if retry_policy is not None
+            else RetryPolicy(
                 max_retries=max_retries,
                 backoff_seconds=retry_backoff_seconds,
+                jitter=0.1,
             ),
             context=self._context,
             transport=transport,
@@ -77,6 +81,7 @@ class SpotifyAPIClient:
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
+        retry_safe: bool | None = None,
     ) -> Any:
         if self._closed:
             raise RuntimeError("Spotify client is closed; create a new instance")
@@ -97,8 +102,13 @@ class SpotifyAPIClient:
             params=dump_params(params),
             json=None if content is not None else dump_payload(payload),
             content=content,
+            **({"retry_safe": retry_safe} if retry_safe is not None else {}),
         )
-        return validate_response_model(parse_response(response), response_model)
+        parsed = parse_response(
+            response,
+            allow_non_json=path.startswith("/me/player") and method != HttpMethod.GET,
+        )
+        return validate_response_model(parsed, response_model)
 
     async def get(
         self,
@@ -108,6 +118,7 @@ class SpotifyAPIClient:
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
+        retry_safe: bool | None = None,
     ) -> Any:
         return await self._request_json(
             HttpMethod.GET,
@@ -116,6 +127,7 @@ class SpotifyAPIClient:
             require_user=require_user,
             headers=headers,
             response_model=response_model,
+            retry_safe=retry_safe,
         )
 
     async def post(
@@ -128,6 +140,7 @@ class SpotifyAPIClient:
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
+        retry_safe: bool | None = None,
     ) -> Any:
         return await self._request_json(
             HttpMethod.POST,
@@ -138,6 +151,7 @@ class SpotifyAPIClient:
             require_user=require_user,
             headers=headers,
             response_model=response_model,
+            retry_safe=retry_safe,
         )
 
     async def put(
@@ -150,6 +164,7 @@ class SpotifyAPIClient:
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
+        retry_safe: bool | None = None,
     ) -> Any:
         return await self._request_json(
             HttpMethod.PUT,
@@ -160,6 +175,7 @@ class SpotifyAPIClient:
             require_user=require_user,
             headers=headers,
             response_model=response_model,
+            retry_safe=retry_safe,
         )
 
     async def patch(
@@ -172,6 +188,7 @@ class SpotifyAPIClient:
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
+        retry_safe: bool | None = None,
     ) -> Any:
         return await self._request_json(
             HttpMethod.PATCH,
@@ -182,6 +199,7 @@ class SpotifyAPIClient:
             require_user=require_user,
             headers=headers,
             response_model=response_model,
+            retry_safe=retry_safe,
         )
 
     async def delete(
@@ -194,6 +212,7 @@ class SpotifyAPIClient:
         require_user: bool = True,
         headers: dict[str, str] | None = None,
         response_model: type[BaseModel] | None = None,
+        retry_safe: bool | None = None,
     ) -> Any:
         return await self._request_json(
             HttpMethod.DELETE,
@@ -204,6 +223,7 @@ class SpotifyAPIClient:
             require_user=require_user,
             headers=headers,
             response_model=response_model,
+            retry_safe=retry_safe,
         )
 
 

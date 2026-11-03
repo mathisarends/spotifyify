@@ -1,3 +1,4 @@
+from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
@@ -34,7 +35,7 @@ class Shows:
             params["market"] = market
         data = await self._http.get("/search", params=params, require_user=False) or {}
         shows = data.get("shows", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedShow.model_validate(shows)
+        return validate_model(PagingSimplifiedShow, shows)
 
     async def get(self, show_id: str, *, market: str | None = None) -> Show:
         data = (
@@ -45,7 +46,7 @@ class Shows:
             )
             or {}
         )
-        return Show.model_validate(data)
+        return validate_model(Show, data)
 
     async def get_many(
         self, show_ids: Iterable[str], *, market: str | None = None
@@ -55,7 +56,7 @@ class Shows:
             params["market"] = market
         data = await self._http.get("/shows", params=params, require_user=False)
         shows = data.get("shows", []) if isinstance(data, dict) else []
-        return [SimplifiedShow.model_validate(item) for item in shows if item]
+        return [validate_model(SimplifiedShow, item) for item in shows if item]
 
     async def episodes(
         self,
@@ -76,4 +77,4 @@ class Shows:
             )
             or {}
         )
-        return PagingSimplifiedEpisode.model_validate(data)
+        return validate_model(PagingSimplifiedEpisode, data)

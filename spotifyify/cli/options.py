@@ -7,6 +7,12 @@ from collections.abc import Awaitable
 import typer
 
 from spotifyify import SpotifyAPIError, SpotifyAuthError
+from spotifyify.exceptions import (
+    SpotifyResponseError,
+    SpotifyTransportError,
+    SpotifyUnsupportedOperation,
+)
+from pydantic import ValidationError
 
 from spotifyify.cli.core import (
     Jsonable,
@@ -65,9 +71,20 @@ def async_command(command: Callable[P, Awaitable[None]]) -> Callable[P, None]:
         except SpotifyAuthError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(EXIT_AUTH_ERROR) from exc
-        except SpotifyAPIError as exc:
+        except (
+            SpotifyAPIError,
+            SpotifyTransportError,
+            SpotifyResponseError,
+            SpotifyUnsupportedOperation,
+        ) as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(EXIT_API_ERROR) from exc
+        except ValidationError as exc:
+            typer.echo("Invalid configuration or command parameters", err=True)
+            raise typer.Exit(EXIT_AUTH_ERROR) from exc
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(2) from exc
 
     return run
 

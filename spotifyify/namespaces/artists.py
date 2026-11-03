@@ -1,3 +1,4 @@
+from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
@@ -31,17 +32,17 @@ class Artists:
         }
         data = await self._http.get("/search", params=params, require_user=False) or {}
         artists = data.get("artists", {}) if isinstance(data, dict) else {}
-        return PagingArtist.model_validate(artists)
+        return validate_model(PagingArtist, artists)
 
     async def get(self, artist_id: str) -> Artist:
         data = await self._http.get(f"/artists/{artist_id}", require_user=False) or {}
-        return Artist.model_validate(data)
+        return validate_model(Artist, data)
 
     async def get_many(self, artist_ids: Iterable[str]) -> list[Artist]:
         params: dict[str, Any] = {"ids": coalesce_csv(artist_ids)}
         data = await self._http.get("/artists", params=params, require_user=False)
         artists = data.get("artists", []) if isinstance(data, dict) else []
-        return [Artist.model_validate(item) for item in artists if item]
+        return [validate_model(Artist, item) for item in artists if item]
 
     async def top_tracks(self, artist_id: str, *, market: str = "US") -> list[Track]:
         data = (
@@ -53,7 +54,7 @@ class Artists:
             or {}
         )
         tracks = data.get("tracks", []) if isinstance(data, dict) else []
-        return [Track.model_validate(item) for item in tracks if item]
+        return [validate_model(Track, item) for item in tracks if item]
 
     async def albums(
         self,
@@ -77,7 +78,7 @@ class Artists:
             )
             or {}
         )
-        return PagingArtistDiscographyAlbum.model_validate(data)
+        return validate_model(PagingArtistDiscographyAlbum, data)
 
     @deprecated(
         "Spotify retired the Related Artists endpoint for most apps in "
@@ -92,4 +93,4 @@ class Artists:
             or {}
         )
         artists = data.get("artists", []) if isinstance(data, dict) else []
-        return [Artist.model_validate(item) for item in artists if item]
+        return [validate_model(Artist, item) for item in artists if item]

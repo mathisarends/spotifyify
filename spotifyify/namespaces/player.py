@@ -1,3 +1,4 @@
+from spotifyify.http.response import validate_model
 from typing import Any
 
 from spotifyify.client import SpotifyAPIClient
@@ -18,7 +19,7 @@ class Player:
             "/me/player",
             params={"market": market} if market else None,
         )
-        return PlaybackState.model_validate(data) if data else None
+        return validate_model(PlaybackState, data) if data else None
 
     async def play(
         self,
@@ -90,7 +91,7 @@ class Player:
 
     async def queue(self) -> PlayerQueue:
         data = await self._http.get("/me/player/queue") or {}
-        return PlayerQueue.model_validate(data)
+        return validate_model(PlayerQueue, data)
 
     async def add_to_queue(self, uri: str, *, device_id: str | None = None) -> None:
         params: dict[str, Any] = {"uri": uri}
@@ -107,7 +108,7 @@ class Player:
     async def devices(self) -> list[Device]:
         data = await self._http.get("/me/player/devices") or {}
         return [
-            Device.model_validate(item)
+            validate_model(Device, item)
             for item in (data.get("devices", []) if isinstance(data, dict) else [])
         ]
 
@@ -124,4 +125,4 @@ class Player:
         if before is not None:
             params["before"] = before
         data = await self._http.get("/me/player/recently-played", params=params) or {}
-        return CursorPagingPlayHistory.model_validate(data)
+        return validate_model(CursorPagingPlayHistory, data)

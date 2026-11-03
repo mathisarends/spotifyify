@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 import httpx
 from pydantic import BaseModel
 
-from spotifyify.exceptions import SpotifyAPIError, SpotifyRateLimitError
+from spotifyify.exceptions import (
+    SpotifyAPIError,
+    SpotifyRateLimitError,
+    SpotifyResponseError,
+)
 from spotifyify.http.response import parse_response, validate_response_model
 
 
@@ -39,7 +43,9 @@ class TestParseResponse(unittest.TestCase):
         # Some playback endpoints answer 200 with an opaque, non-JSON body.
         response = self._make_response(200, content=b"0YcilXzZl6EEW9kWEytjWC7bsX4")
 
-        self.assertIsNone(parse_response(response))
+        self.assertIsNone(parse_response(response, allow_non_json=True))
+        with self.assertRaises(SpotifyResponseError):
+            parse_response(response)
 
     def test_successful_json_is_returned(self):
         self.assertEqual(
@@ -114,12 +120,13 @@ class TestValidateResponseModel(unittest.TestCase):
         self.assertIs(validate_response_model(parsed, None), parsed)
 
     def test_none_response_returns_none(self):
-        self.assertIsNone(validate_response_model(None, self.ResponseModel))
+        with self.assertRaises(SpotifyResponseError):
+            validate_response_model(None, self.ResponseModel)
 
     def test_dict_is_validated(self):
         result = validate_response_model({"name": "test"}, self.ResponseModel)
         self.assertEqual(result, self.ResponseModel(name="test"))
 
     def test_list_raises_api_error_for_object_model(self):
-        with self.assertRaises(SpotifyAPIError):
+        with self.assertRaises(SpotifyResponseError):
             validate_response_model([], self.ResponseModel)

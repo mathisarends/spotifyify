@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from spotifyify.http.response import validate_model
+
 from typing import TYPE_CHECKING, Any
 
 from collections.abc import Iterable
@@ -34,7 +36,7 @@ class Playlists:
         }
         data = await self._http.get("/search", params=params, require_user=False) or {}
         playlists = data.get("playlists", {}) if isinstance(data, dict) else {}
-        return PagingPlaylist.model_validate(playlists)
+        return validate_model(PagingPlaylist, playlists)
 
     async def get(self, playlist_id: str, *, market: str | None = None) -> Playlist:
         params = {"market": market} if market else None
@@ -46,7 +48,7 @@ class Playlists:
             )
             or {}
         )
-        return Playlist.model_validate(data)
+        return validate_model(Playlist, data)
 
     async def list(
         self,
@@ -61,7 +63,7 @@ class Playlists:
             path = "/me/playlists"
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get(path, params=params) or {}
-        return PagingPlaylist.model_validate(data)
+        return validate_model(PagingPlaylist, data)
 
     async def tracks(
         self,
@@ -86,7 +88,7 @@ class Playlists:
             params=params,
             require_user=False,
         )
-        return PagingPlaylistTrack.model_validate(data or {})
+        return validate_model(PagingPlaylistTrack, data or {})
 
     async def create(
         self,
@@ -113,7 +115,7 @@ class Playlists:
             )
             or {}
         )
-        return Playlist.model_validate(data)
+        return validate_model(Playlist, data)
 
     async def update(
         self,
@@ -192,7 +194,9 @@ class Playlists:
         if snapshot_id:
             payload["snapshot_id"] = snapshot_id
         data = (
-            await self._http.put(f"/playlists/{playlist_id}/items", payload=payload)
+            await self._http.put(
+                f"/playlists/{playlist_id}/items", payload=payload, retry_safe=False
+            )
             or {}
         )
         return data.get("snapshot_id") if isinstance(data, dict) else None
@@ -203,5 +207,5 @@ class Playlists:
             or []
         )
         if isinstance(data, list):
-            return [Image.model_validate(item) for item in data]
+            return [validate_model(Image, item) for item in data]
         return []

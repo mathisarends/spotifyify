@@ -11,9 +11,12 @@ from .exceptions import (
     SpotifyError,
     SpotifyifyError,
     SpotifyRateLimitError,
+    SpotifyResponseError,
+    SpotifyTransportError,
+    SpotifyUnsupportedOperation,
 )
 from .oauth2 import SpotifyScope
-from .http import OnRetryHook, RetryEvent
+from .http import OnRetryHook, RetryEvent, RetryPolicy
 from .schemas import (
     # Core models
     Track,
@@ -83,9 +86,13 @@ __all__ = [
     "SpotifyScope",
     "OnRetryHook",
     "RetryEvent",
+    "RetryPolicy",
     "SpotifyAPIError",
     "SpotifyAuthError",
     "SpotifyRateLimitError",
+    "SpotifyResponseError",
+    "SpotifyTransportError",
+    "SpotifyUnsupportedOperation",
     # Core models
     "Track",
     "Album",

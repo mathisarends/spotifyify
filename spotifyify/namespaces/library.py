@@ -1,3 +1,4 @@
+from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
@@ -29,7 +30,7 @@ class Library:
         if market:
             params["market"] = market
         data = await self._http.get("/me/tracks", params=params) or {}
-        return PagingSavedTrack.model_validate(data)
+        return validate_model(PagingSavedTrack, data)
 
     async def saved_albums(
         self,
@@ -42,7 +43,7 @@ class Library:
         if market:
             params["market"] = market
         data = await self._http.get("/me/albums", params=params) or {}
-        return PagingSavedAlbum.model_validate(data)
+        return validate_model(PagingSavedAlbum, data)
 
     async def saved_shows(
         self,
@@ -52,7 +53,7 @@ class Library:
     ) -> PagingSavedShow:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get("/me/shows", params=params) or {}
-        return PagingSavedShow.model_validate(data)
+        return validate_model(PagingSavedShow, data)
 
     async def saved_episodes(
         self,
@@ -62,7 +63,7 @@ class Library:
     ) -> PagingSavedEpisode:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         data = await self._http.get("/me/episodes", params=params) or {}
-        return PagingSavedEpisode.model_validate(data)
+        return validate_model(PagingSavedEpisode, data)
 
     async def save_tracks(self, track_ids: Iterable[str]) -> None:
         await self._http.put("/me/tracks", params={"ids": coalesce_csv(track_ids)})
@@ -128,7 +129,7 @@ class Library:
             )
             or {}
         )
-        return PagingTrack.model_validate(data)
+        return validate_model(PagingTrack, data)
 
     async def top_artists(
         self,
@@ -144,4 +145,4 @@ class Library:
             )
             or {}
         )
-        return PagingArtist.model_validate(data)
+        return validate_model(PagingArtist, data)

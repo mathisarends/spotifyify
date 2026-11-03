@@ -1,3 +1,4 @@
+from spotifyify.http.response import validate_model
 from spotifyify.client import SpotifyAPIClient
 from spotifyify.schemas import CursorPagingSimplifiedArtist, PublicUser, User
 
@@ -8,11 +9,11 @@ class Users:
 
     async def me(self) -> User:
         data = await self._http.get("/me") or {}
-        return User.model_validate(data)
+        return validate_model(User, data)
 
     async def get(self, user_id: str) -> PublicUser:
         data = await self._http.get(f"/users/{user_id}", require_user=False) or {}
-        return PublicUser.model_validate(data)
+        return validate_model(PublicUser, data)
 
     async def following(
         self,
@@ -26,7 +27,7 @@ class Users:
             params["after"] = after
         data = await self._http.get("/me/following", params=params) or {}
         artists = data.get("artists", {}) if isinstance(data, dict) else {}
-        return CursorPagingSimplifiedArtist.model_validate(artists)
+        return validate_model(CursorPagingSimplifiedArtist, artists)
 
     async def follow(self, type: str, ids: list[str]) -> None:
         await self._http.put(

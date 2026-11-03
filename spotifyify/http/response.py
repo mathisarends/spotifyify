@@ -2,28 +2,26 @@ import logging
 from typing import Any
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from spotifyify.exceptions import SpotifyAPIError, SpotifyRateLimitError
+from spotifyify.exceptions import (
+    SpotifyAPIError,
+    SpotifyRateLimitError,
+    SpotifyResponseError,
+)
+from spotifyify.http.retry_policy import parse_retry_after
 
 JsonResponse = dict[str, Any] | list[Any] | None
 logger = logging.getLogger(__name__)
 
 
-def _parse_retry_after(value: str | None) -> float | None:
-    if value is None:
-        return None
-    try:
-        return max(0.0, float(value))
-    except ValueError:
-        return None
-
-
-def parse_response(response: httpx.Response) -> JsonResponse:
+def parse_response(
+    response: httpx.Response, *, allow_non_json: bool = False
+) -> JsonResponse:
     if response.status_code == 204:
         return None
 
-    if response.status_code >= 400:
+    if not 200 <= response.status_code < 300:
         try:
             data = response.json()
             error = data.get("error", data) if isinstance(data, dict) else data
@@ -32,6 +30,8 @@ def parse_response(response: httpx.Response) -> JsonResponse:
                 if isinstance(error, dict)
                 else str(error)
             )
+            if isinstance(data, dict) and isinstance(error, str):
+                message = data.get("error_description", message)
         except ValueError:
             data = None
             message = response.text
@@ -44,7 +44,7 @@ def parse_response(response: httpx.Response) -> JsonResponse:
             raise SpotifyRateLimitError(
                 message,
                 data if isinstance(data, dict) else None,
-                retry_after=_parse_retry_after(response.headers.get("Retry-After")),
+                retry_after=parse_retry_after(response.headers.get("Retry-After")),
             )
         raise SpotifyAPIError(
             response.status_code,
@@ -57,27 +57,47 @@ def parse_response(response: httpx.Response) -> JsonResponse:
 
     try:
         return response.json()
-    except ValueError:
-        # Some playback endpoints answer 200 with an opaque, non-JSON body and
-        # no content type. There is nothing structured to hand back, but it is
-        # a success and must not surface as a decoding error.
-        logger.debug(
-            "Ignoring non-JSON success body: status_code=%d content_type=%s",
-            response.status_code,
-            response.headers.get("Content-Type"),
+    except ValueError as exc:
+        if allow_non_json:
+            return None
+        raise SpotifyResponseError(
+            f"Expected JSON response, received HTTP {response.status_code}"
+        ) from exc
+
+
+def validate_model[T: BaseModel](model: type[T], data: Any) -> T:
+    try:
+        return model.model_validate(data)
+    except ValidationError as exc:
+        fields = ", ".join(
+            ".".join(map(str, error["loc"]))
+            for error in exc.errors(include_input=False)[:5]
         )
-        return None
+        raise SpotifyResponseError(
+            f"Invalid {model.__name__} response ({fields or 'unexpected shape'})"
+        ) from exc
+
+
+def object_response(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise SpotifyResponseError("Expected an object response")
+    return data
+
+
+def list_response(data: Any, key: str | None = None) -> list[Any]:
+    if key is not None:
+        data = object_response(data).get(key)
+    if not isinstance(data, list):
+        raise SpotifyResponseError(
+            f"Expected a list response{f' in {key}' if key else ''}"
+        )
+    return data
 
 
 def validate_response_model(
     parsed: JsonResponse,
     response_model: type[BaseModel] | None,
 ) -> Any:
-    if response_model is None or parsed is None:
+    if response_model is None:
         return parsed
-    if isinstance(parsed, list):
-        logger.warning(
-            "Unable to validate Spotify API response: expected object, got list"
-        )
-        raise SpotifyAPIError(500, "Expected object response but got list")
-    return response_model.model_validate(parsed)
+    return validate_model(response_model, parsed)

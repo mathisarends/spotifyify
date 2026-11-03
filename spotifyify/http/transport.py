@@ -10,6 +10,7 @@ from spotifyify.http.context import RequestContext, default_context
 from spotifyify.http.retry_event import RetryEvent
 from spotifyify.http.retry_policy import HttpMethod, RetryPolicy
 from spotifyify.http.serialization import SerializedJsonPayload
+from spotifyify.exceptions import SpotifyTransportError
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,16 @@ class HttpTransport:
         self._client: httpx.AsyncClient | None = None
         self._context = context if context is not None else default_context
         self._transport = transport
+        self._cooldown_until = 0.0
+
+    async def _wait_cooldown(self) -> None:
+        while True:
+            deadline = self._cooldown_until
+            delay = deadline - asyncio.get_running_loop().time()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            if deadline == self._cooldown_until:
+                return
 
     async def open(self) -> None:
         if self._client is None:
@@ -56,6 +67,7 @@ class HttpTransport:
         params: dict[str, Any] | None,
         json: SerializedJsonPayload,
         content: str | bytes | None,
+        retry_safe: bool | None = None,
     ) -> httpx.Response:
         await self.open()
         if self._client is None:
@@ -63,6 +75,7 @@ class HttpTransport:
 
         retries_used = 0
         while True:
+            await self._wait_cooldown()
             logger.debug(
                 "Sending HTTP request: method=%s path=%s attempt=%d/%d",
                 method.value,
@@ -79,27 +92,42 @@ class HttpTransport:
                     json=json,
                     content=content,
                 )
-            except httpx.HTTPError:
+            except httpx.HTTPError as exc:
                 logger.exception(
                     "HTTP request failed: method=%s path=%s",
                     method.value,
                     path,
                 )
-                raise
+                raise SpotifyTransportError(
+                    f"HTTP request failed: {method.value} {path} ({type(exc).__name__})"
+                ) from exc
             logger.debug(
                 "Received HTTP response: method=%s path=%s status_code=%d",
                 method.value,
                 path,
                 response.status_code,
             )
+            if response.status_code == 429:
+                try:
+                    error = response.json().get("error", {})
+                except (ValueError, AttributeError):
+                    error = {}
+                if isinstance(error, dict) and error.get("reason") == "QUOTA_EXCEEDED":
+                    return response
             retry = self._retry_policy.next_retry(
                 method=method,
                 status_code=response.status_code,
                 retry_after=response.headers.get("Retry-After"),
                 retries_used=retries_used,
+                retry_safe=retry_safe,
             )
             if retry is None:
                 return response
+            if response.status_code == 429:
+                self._cooldown_until = max(
+                    self._cooldown_until,
+                    asyncio.get_running_loop().time() + retry.delay_seconds,
+                )
             retry_event = RetryEvent(
                 method=method,
                 path=path,
@@ -124,4 +152,5 @@ class HttpTransport:
                 if inspect.isawaitable(result):
                     await result
             retries_used += 1
-            await asyncio.sleep(retry.delay_seconds)
+            if response.status_code != 429:
+                await asyncio.sleep(retry.delay_seconds)

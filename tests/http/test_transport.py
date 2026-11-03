@@ -84,7 +84,8 @@ class TestHttpTransport(unittest.IsolatedAsyncioTestCase):
                 content=None,
             )
 
-        sleep.assert_awaited_once_with(2.5)
+        sleep.assert_awaited_once()
+        self.assertAlmostEqual(sleep.await_args.args[0], 2.5, delta=0.1)
 
     async def test_request_calls_retry_hook_with_scheduled_retry_details(self):
         transport = self._make_transport(max_retries=2)

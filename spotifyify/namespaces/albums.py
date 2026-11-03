@@ -1,3 +1,4 @@
+from spotifyify.http.response import validate_model
 from typing import Any
 
 from collections.abc import Iterable
@@ -33,7 +34,7 @@ class Albums:
             params["market"] = market
         data = await self._http.get("/search", params=params, require_user=False) or {}
         albums = data.get("albums", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedAlbum.model_validate(albums)
+        return validate_model(PagingSimplifiedAlbum, albums)
 
     async def get(self, album_id: str, *, market: str | None = None) -> Album:
         data = (
@@ -44,7 +45,7 @@ class Albums:
             )
             or {}
         )
-        return Album.model_validate(data)
+        return validate_model(Album, data)
 
     async def get_many(
         self, album_ids: Iterable[str], *, market: str | None = None
@@ -54,7 +55,7 @@ class Albums:
             params["market"] = market
         data = await self._http.get("/albums", params=params, require_user=False)
         albums = data.get("albums", []) if isinstance(data, dict) else []
-        return [Album.model_validate(item) for item in albums if item]
+        return [validate_model(Album, item) for item in albums if item]
 
     async def tracks(
         self,
@@ -75,7 +76,7 @@ class Albums:
             )
             or {}
         )
-        return PagingSimplifiedTrack.model_validate(data)
+        return validate_model(PagingSimplifiedTrack, data)
 
     async def new_releases(
         self,
@@ -96,4 +97,4 @@ class Albums:
             or {}
         )
         albums = data.get("albums", {}) if isinstance(data, dict) else {}
-        return PagingSimplifiedAlbum.model_validate(albums)
+        return validate_model(PagingSimplifiedAlbum, albums)

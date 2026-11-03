@@ -38,4 +38,16 @@ class SpotifyAuthError(SpotifyError):
         super().__init__(message)
 
 
+class SpotifyTransportError(SpotifyError):
+    """The request could not be completed at the HTTP transport layer."""
+
+
+class SpotifyResponseError(SpotifyError):
+    """A successful HTTP response did not match the expected API contract."""
+
+
+class SpotifyUnsupportedOperation(SpotifyError):
+    """An operation is unavailable in the selected Spotify API mode."""
+
+
 SpotifyifyError = SpotifyError
