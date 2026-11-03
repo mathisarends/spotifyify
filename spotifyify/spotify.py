@@ -45,6 +45,7 @@ class SpotifyClient:
         *,
         token_provider: AccessTokenProvider | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        cache_profile: str = "default",
     ) -> None:
         self._credentials = (
             credentials if credentials is not None else SpotifyCredentials()
@@ -57,7 +58,9 @@ class SpotifyClient:
                 self._credentials,
                 cache_handler=cache_handler
                 if cache_handler is not None
-                else CacheFileHandler(),
+                else CacheFileHandler(
+                    client_id=self._credentials.client_id, profile=cache_profile
+                ),
                 timeout=timeout,
             )
         )

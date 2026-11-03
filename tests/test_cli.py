@@ -74,6 +74,7 @@ class TestCli(unittest.TestCase):
                 "library",
                 "player",
                 "users",
+                "auth",
             },
         )
 

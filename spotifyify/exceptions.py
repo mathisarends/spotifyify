@@ -33,7 +33,9 @@ class SpotifyRateLimitError(SpotifyAPIError):
 
 
 class SpotifyAuthError(SpotifyError):
-    pass
+    def __init__(self, message: str, *, code: str | None = None) -> None:
+        self.code = code
+        super().__init__(message)
 
 
 SpotifyifyError = SpotifyError

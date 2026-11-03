@@ -1,10 +1,9 @@
 import base64
 import logging
-import secrets
 import time
-import webbrowser
 from typing import Any
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import quote, urlparse
+from ipaddress import ip_address
 
 import asyncio
 
@@ -14,7 +13,7 @@ from spotifyify.cache_handler import CacheHandler, MemoryCacheHandler
 import httpx
 
 from spotifyify.credentials import SpotifyCredentials
-from spotifyify.exceptions import SpotifyAuthError
+from spotifyify.exceptions import SpotifyAuthError, SpotifyAPIError
 from spotifyify.oauth2.views import TokenFormPayload
 from spotifyify.oauth2.token import TokenInfo
 from spotifyify.http import parse_response
@@ -31,11 +30,15 @@ class SpotifyOAuth:
         credentials: SpotifyCredentials,
         cache_handler: CacheHandler | None = None,
         timeout: float = 10.0,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.credentials = credentials
         self.cache_handler = cache_handler or MemoryCacheHandler()
         self.timeout = timeout
-        self._http = httpx.AsyncClient(timeout=timeout)
+        self._http: httpx.AsyncClient | None = None
+        self._transport = transport
+        self._closed = False
         self._token_info: TokenInfo | None = None
         self._app_token: TokenInfo | None = None
         self._cache_loaded = False
@@ -43,7 +46,9 @@ class SpotifyOAuth:
 
     async def close(self) -> None:
         logger.debug("Closing Spotify OAuth HTTP client")
-        await self._http.aclose()
+        if self._http is not None:
+            await self._http.aclose()
+        self._closed = True
 
     @staticmethod
     def _require_redirect_uri(credentials: SpotifyCredentials) -> str:
@@ -51,6 +56,23 @@ class SpotifyOAuth:
             raise SpotifyAuthError(
                 "Missing SPOTIFY_REDIRECT_URI for interactive user authorization."
             )
+        parsed = urlparse(credentials.redirect_uri)
+        try:
+            loopback = ip_address(parsed.hostname or "").is_loopback
+        except ValueError:
+            loopback = False
+        if (
+            parsed.hostname == "localhost"
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.fragment
+        ):
+            raise SpotifyAuthError(
+                "Use an HTTPS redirect URI or an explicit loopback IP such as http://127.0.0.1:8888/callback"
+            )
+        if parsed.scheme != "https" and not (parsed.scheme == "http" and loopback):
+            raise SpotifyAuthError("HTTP redirect URIs require an explicit loopback IP")
         return credentials.redirect_uri
 
     def _build_authorize_url(self, scope: str | None, state: str) -> str:
@@ -72,149 +94,32 @@ class SpotifyOAuth:
         query = "&".join(f"{key}={quote(value, safe='')}" for key, value in params)
         return f"{self._SPOTIFY_OAUTH_AUTHORIZE_URL}?{query}"
 
-    async def _capture_code_from_local_callback(
-        self, redirect_uri: str, state: str, timeout: float = 180.0
-    ) -> str | None:
-        parsed = urlparse(redirect_uri)
-        if parsed.scheme != "http" or parsed.hostname not in {"localhost", "127.0.0.1"}:
-            logger.debug("OAuth redirect URI does not support a local callback server")
-            return None
+    def authorization_url(
+        self, *, state: str, scope: str | list[str] | tuple[str, ...] | None = None
+    ) -> str:
+        """Build a consent URL without opening a browser or reading input."""
+        if not state:
+            raise ValueError("state must not be empty")
+        return self._build_authorize_url(self._normalize_scope(scope), state)
 
-        host = parsed.hostname
-        port = parsed.port or 80
-        expected_path = parsed.path or "/"
-        code_future: asyncio.Future[str | None] = (
-            asyncio.get_running_loop().create_future()
-        )
-
-        async def _handler(
-            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-        ) -> None:
-            try:
-                request_line = await reader.readline()
-                if not request_line:
-                    return
-
-                parts = request_line.decode("utf-8", errors="replace").strip().split()
-                if len(parts) < 2:
-                    return
-
-                request_target = parts[1]
-                parsed_target = urlparse(request_target)
-
-                while True:
-                    header_line = await reader.readline()
-                    if not header_line or header_line in {b"\r\n", b"\n"}:
-                        break
-
-                response_body = "Authorization completed. You can close this window."
-                status_line = "HTTP/1.1 200 OK"
-
-                if parsed_target.path == expected_path:
-                    query = parse_qs(parsed_target.query)
-                    returned_state = query.get("state", [None])[0]
-                    code = query.get("code", [None])[0]
-                    error = query.get("error", [None])[0]
-
-                    if error:
-                        logger.warning(
-                            "Spotify OAuth callback reported an error: error=%s",
-                            error,
-                        )
-                        response_body = f"Spotify authorization failed: {error}"
-                        status_line = "HTTP/1.1 400 Bad Request"
-                        if not code_future.done():
-                            code_future.set_exception(
-                                SpotifyAuthError(
-                                    f"Spotify authorization failed: {error}"
-                                )
-                            )
-                    elif returned_state != state:
-                        logger.warning("State mismatch during Spotify OAuth callback")
-                        response_body = "State mismatch during OAuth callback."
-                        status_line = "HTTP/1.1 400 Bad Request"
-                        if not code_future.done():
-                            code_future.set_exception(
-                                SpotifyAuthError("State mismatch during OAuth callback")
-                            )
-                    else:
-                        logger.info("Received Spotify OAuth callback")
-                        if not code_future.done():
-                            code_future.set_result(code)
-
-                payload = response_body.encode("utf-8")
-                content_length = len(payload)
-                writer.write(
-                    (
-                        f"{status_line}\r\n"
-                        "Content-Type: text/plain; charset=utf-8\r\n"
-                        f"Content-Length: {content_length}\r\n"
-                        "Connection: close\r\n\r\n"
-                    ).encode()
-                    + payload
+    async def exchange_code(
+        self, code: str, *, scope: str | list[str] | tuple[str, ...] | None = None
+    ) -> TokenInfo:
+        """Exchange an explicitly obtained authorization code and persist its grant."""
+        if not code.strip():
+            raise ValueError("code must not be empty")
+        async with self._token_lock:
+            result = await self._request_token(
+                TokenFormPayload(
+                    grant_type="authorization_code",
+                    code=code,
+                    redirect_uri=self._require_redirect_uri(self.credentials),
                 )
-                await writer.drain()
-            finally:
-                writer.close()
-                await writer.wait_closed()
-
-        logger.info(
-            "Waiting for Spotify OAuth callback: host=%s port=%d path=%s",
-            host,
-            port,
-            expected_path,
-        )
-        server = await asyncio.start_server(_handler, host=host, port=port)
-        try:
-            async with server:
-                return await asyncio.wait_for(code_future, timeout=timeout)
-        except TimeoutError:
-            logger.warning("Timed out waiting for Spotify OAuth callback")
-            return None
-
-    async def _capture_code_from_user_prompt(self, state: str) -> str:
-        logger.info("Waiting for Spotify OAuth redirect URL from user input")
-        prompt = (
-            "Paste the full redirect URL from your browser after Spotify login:\n> "
-        )
-        redirect_response = await asyncio.to_thread(input, prompt)
-        parsed = urlparse(redirect_response.strip())
-        query = parse_qs(parsed.query)
-        returned_state = query.get("state", [None])[0]
-        code = query.get("code", [None])[0]
-        error = query.get("error", [None])[0]
-
-        if error:
-            raise SpotifyAuthError(f"Spotify authorization failed: {error}")
-        if returned_state != state:
-            raise SpotifyAuthError("State mismatch during OAuth callback")
-        if not code:
-            raise SpotifyAuthError("No authorization code received from redirect URL")
-        return code
-
-    async def _request_user_token(self, scope: str | None) -> dict[str, Any]:
-        logger.info("Starting interactive Spotify authorization")
-        redirect_uri = self._require_redirect_uri(self.credentials)
-        state = secrets.token_urlsafe(24)
-        authorize_url = self._build_authorize_url(scope=scope, state=state)
-
-        opened = webbrowser.open(authorize_url)
-        if not opened:
-            logger.warning("Unable to open a browser for Spotify authorization")
-            print("Open this URL to authorize Spotify access:")
-            print(authorize_url)
-
-        code = await self._capture_code_from_local_callback(redirect_uri, state=state)
-        if not code:
-            code = await self._capture_code_from_user_prompt(state=state)
-
-        return await self._request_token(
-            TokenFormPayload(
-                grant_type="authorization_code",
-                code=code,
-                redirect_uri=redirect_uri,
             )
-        )
+            result.setdefault("scope", self._normalize_scope(scope))
+            self._save_token(result)
+            assert self._token_info is not None
+            return self._token_info
 
     @staticmethod
     def _is_token_expired(token_info: dict[str, Any]) -> bool:
@@ -249,6 +154,12 @@ class SpotifyOAuth:
         )
         try:
             form_data = payload.model_dump(mode="json", exclude_none=True)
+            if self._closed:
+                raise SpotifyAuthError("OAuth provider is closed")
+            if self._http is None:
+                self._http = httpx.AsyncClient(
+                    timeout=self.timeout, transport=self._transport
+                )
             response = await self._http.post(
                 self._SPOTIFY_OAUTH_TOKEN_URL,
                 data=form_data,
@@ -257,7 +168,14 @@ class SpotifyOAuth:
             parsed = parse_response(response)
         except SpotifyAuthError:
             raise
-        except Exception as exc:
+        except SpotifyAPIError as exc:
+            error_code = exc.details.get("error")
+            if not isinstance(error_code, str):
+                error_code = None
+            raise SpotifyAuthError(
+                f"Token request failed: {exc.message}", code=error_code
+            ) from exc
+        except httpx.HTTPError as exc:
             logger.exception(
                 "Spotify OAuth token request failed: grant_type=%s",
                 payload.grant_type,
@@ -310,11 +228,22 @@ class SpotifyOAuth:
 
     def _save_token(self, token_info: dict[str, Any]) -> None:
         logger.debug("Saving Spotify OAuth token")
-        self._token_info = TokenInfo.model_validate({**token_info, "auth_type": "user"})
+        try:
+            self._token_info = TokenInfo.model_validate(
+                {**token_info, "auth_type": "user"}
+            )
+        except ValidationError as exc:
+            raise SpotifyAuthError("Invalid OAuth token response") from exc
         self._cache_loaded = True
         self.cache_handler.save_token_to_cache(
             self._token_info.model_dump(exclude_none=True)
         )
+
+    @property
+    def token_info(self) -> TokenInfo | None:
+        """A copy of the local grant; this does not refresh or authorize."""
+        self._cached_token()
+        return self._token_info.model_copy(deep=True) if self._token_info else None
 
     async def get_access_token(
         self,
@@ -336,11 +265,21 @@ class SpotifyOAuth:
             # Refreshing never adds permissions. Reauthorize when known grants
             # are insufficient instead of repeatedly refreshing the same grant.
             if refresh_token and (not token or token.permits(required_scope)):
-                refreshed = await self._request_token(
-                    TokenFormPayload(
-                        grant_type="refresh_token", refresh_token=refresh_token
+                try:
+                    refreshed = await self._request_token(
+                        TokenFormPayload(
+                            grant_type="refresh_token", refresh_token=refresh_token
+                        )
                     )
-                )
+                except SpotifyAuthError as exc:
+                    if exc.code == "invalid_grant":
+                        self._token_info = None
+                        self.cache_handler.delete_cached_token()
+                        raise SpotifyAuthError(
+                            "The user grant expired or was revoked. Run spotifyify auth login.",
+                            code="invalid_grant",
+                        ) from exc
+                    raise
                 refreshed.setdefault("refresh_token", refresh_token)
                 if token and token.scope is not None:
                     refreshed.setdefault("scope", token.scope)
@@ -349,16 +288,11 @@ class SpotifyOAuth:
                     return self._token_info.access_token
 
             if require_user:
-                granted = token.scope if token else None
-                combined = self._normalize_scope(
-                    f"{granted or ''} {desired_scope or ''}"
+                missing = desired_scope or "a user token"
+                raise SpotifyAuthError(
+                    f"User authorization required ({missing}). Run spotifyify auth login "
+                    "with the required --scope options, or supply a user token."
                 )
-                user_token = await self._request_user_token(combined)
-                user_token.setdefault("scope", combined)
-                self._save_token(user_token)
-                if not self._token_info or not self._token_info.permits(desired_scope):
-                    raise SpotifyAuthError("Spotify did not grant the requested scopes")
-                return self._token_info.access_token
 
             if self._app_token and not self._app_token.expired:
                 return self._app_token.access_token

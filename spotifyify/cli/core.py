@@ -26,6 +26,7 @@ MARKET_ENV_VAR = "SPOTIFYIFY_MARKET"
 DEVICE_ENV_VAR = "SPOTIFYIFY_DEVICE_ID"
 
 _market_override: str | None = None
+_profile_override: str | None = None
 _device_override: str | None = None
 
 # Table cells are single-line by construction, so anything that could forge a
@@ -227,6 +228,15 @@ def default_market() -> str | None:
     return _market_override or os.environ.get(MARKET_ENV_VAR) or None
 
 
+def set_default_profile(value: str | None) -> None:
+    global _profile_override
+    _profile_override = value
+
+
+def default_profile() -> str:
+    return _profile_override or os.environ.get("SPOTIFYIFY_PROFILE") or "default"
+
+
 def default_device_id() -> str | None:
     """Root --device-id flag, then the environment, then no device at all."""
     return _device_override or os.environ.get(DEVICE_ENV_VAR) or None
@@ -252,7 +262,7 @@ async def spotify_client(
     scopes: Sequence[SpotifyScope] = (),
 ) -> AsyncGenerator[Spotifyify, None]:
     """Open the async Spotify client used by one explicit CLI command."""
-    async with Spotifyify(scopes=scopes) as spotify:
+    async with Spotifyify(scopes=scopes, cache_profile=default_profile()) as spotify:
         yield spotify
 
 

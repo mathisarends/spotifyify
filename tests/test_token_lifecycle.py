@@ -10,6 +10,7 @@ import pytest_asyncio
 from spotifyify.cache_handler import MemoryCacheHandler
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.oauth2 import SpotifyifyOAuth
+from spotifyify.exceptions import SpotifyAuthError
 
 
 def user_token(scope="user-library-read", **overrides):
@@ -34,11 +35,10 @@ async def oauth():
 
 @pytest.mark.asyncio
 async def test_repeated_scoped_requests_reuse_the_grant(oauth):
-    oauth._request_user_token = AsyncMock(return_value=user_token())
+    oauth._save_token(user_token())
     oauth._request_token = AsyncMock(side_effect=AssertionError("Unexpected refresh"))
     for _ in range(3):
         assert await oauth.get_access_token(True, "user-library-read") == "user-token"
-    assert oauth._request_user_token.await_count == 1
     assert oauth.credentials.access_token is None
 
 
@@ -50,10 +50,11 @@ async def test_public_query_then_private_query_authorizes_a_user(oauth):
             "expires_at": int(time.time()) + 3600,
         }
     )
-    oauth._request_user_token = AsyncMock(return_value=user_token())
     assert await oauth.get_access_token(False) == "app-token"
+    with pytest.raises(SpotifyAuthError, match="auth login"):
+        await oauth.get_access_token(True)
+    oauth._save_token(user_token())
     assert await oauth.get_access_token(True) == "user-token"
-    assert oauth._request_user_token.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -62,13 +63,9 @@ async def test_new_scopes_require_consent_and_preserve_previous_grants(oauth):
     oauth._request_token = AsyncMock(
         side_effect=AssertionError("Refresh cannot add scopes")
     )
-    oauth._request_user_token = AsyncMock(
-        return_value=user_token("user-library-read user-library-modify")
-    )
-    await oauth.get_access_token(True, "user-library-modify")
-    oauth._request_user_token.assert_awaited_once_with(
-        "user-library-modify user-library-read"
-    )
+    with pytest.raises(SpotifyAuthError, match="user-library-modify"):
+        await oauth.get_access_token(True, "user-library-modify")
+    assert oauth.token_info.scope == "user-library-read"
 
 
 @pytest.mark.asyncio

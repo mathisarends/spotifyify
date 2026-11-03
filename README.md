@@ -40,24 +40,39 @@ Credentials are loaded from environment variables (or a `.env` file via `pydanti
 | `SPOTIFY_ACCESS_TOKEN`     | Optional      | Pre-existing access token             |
 | `SPOTIFY_REFRESH_TOKEN`    | Optional      | Refresh token for automatic renewal   |
 | `SPOTIFY_TOKEN_EXPIRES_AT` | Optional      | Unix timestamp when the token expires |
+| `SPOTIFY_TOKEN_SCOPES`     | Optional      | Known space-separated token scopes |
 
 **.env example:**
 
 ```env
 SPOTIFY_CLIENT_ID=your_client_id
 SPOTIFY_CLIENT_SECRET=your_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:8888/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
 SPOTIFY_REFRESH_TOKEN=your_refresh_token
 ```
 
 If `SPOTIFY_REFRESH_TOKEN` (or `SPOTIFY_ACCESS_TOKEN`) is present the client operates in user mode. Without them it falls back to the [Client Credentials flow](https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow), which only allows access to public data.
 
-If a user-scoped endpoint is called and no user token is available, spotifyify starts an interactive Authorization Code login:
+User-scoped calls require an existing user grant. API calls never open a browser
+or prompt for input. Log in explicitly with the optional CLI:
 
-1. Opens the Spotify consent page in your browser.
-2. Waits for the redirect on your configured `SPOTIFY_REDIRECT_URI` (for example `http://localhost:8888/callback`).
-3. Exchanges the code for access and refresh tokens.
-4. Stores tokens in `.spotify_cache` by default (already git-ignored in this project).
+```bash
+spotifyify auth login --scope user-read-playback-state --scope user-modify-playback-state
+spotifyify auth status
+spotifyify auth logout
+```
+
+Use `spotifyify --profile work auth login --scope user-library-read` to keep
+accounts separate. Tokens are cached per client ID and profile under the user's
+application data directory on Windows or `$XDG_CACHE_HOME/spotifyify` on Unix.
+Cache files are written atomically, with owner-only permissions on Unix and
+inherited user-profile ACLs on Windows. They contain unencrypted credentials.
+Existing project-local caches can be selected explicitly with
+`CacheFileHandler(".cache")`; the client does not import them automatically.
+
+Login starts its loopback listener before opening the browser. Use
+`--no-browser` to open the printed URL yourself, or `--manual` to explicitly
+paste the redirect URL. Login hints go to stderr; stdout remains JSON.
 
 ### Bring your own user token
 

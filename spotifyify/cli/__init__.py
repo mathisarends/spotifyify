@@ -16,6 +16,7 @@ from .core import (
     rows,
     set_default_device_id,
     set_default_market,
+    set_default_profile,
     sort_items,
     split_values,
 )
@@ -57,6 +58,7 @@ def main() -> None:
 if typer is not None:
     from . import (
         albums,
+        auth,
         artists,
         episodes,
         library,
@@ -82,6 +84,7 @@ if typer is not None:
         context_settings={"help_option_names": ["-h", "--help"], "color": False},
     )
     app.add_typer(tracks.app, name="tracks")
+    app.add_typer(auth.app, name="auth")
     app.add_typer(artists.app, name="artists")
     app.add_typer(albums.app, name="albums")
     app.add_typer(playlists.app, name="playlists")
@@ -94,6 +97,13 @@ if typer is not None:
 
     @app.callback(invoke_without_command=True)
     def _root(
+        profile: Annotated[
+            str | None,
+            typer.Option(
+                "--profile",
+                help="Named account cache; defaults to SPOTIFYIFY_PROFILE or default.",
+            ),
+        ] = None,
         market: Annotated[
             str | None,
             typer.Option(
@@ -112,6 +122,7 @@ if typer is not None:
             ),
         ] = None,
     ) -> None:
+        set_default_profile(profile)
         set_default_market(market)
         set_default_device_id(device_id)
 

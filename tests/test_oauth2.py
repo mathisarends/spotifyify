@@ -8,13 +8,14 @@ from spotifyify.cache_handler import MemoryCacheHandler
 from spotifyify.credentials import SpotifyCredentials
 from spotifyify.exceptions import SpotifyAuthError
 from spotifyify.oauth2 import SpotifyifyOAuth
+from spotifyify.oauth2.callback import capture_local_code
 
 
 def _make_credentials(**env_overrides):
     env = {
         "SPOTIFY_CLIENT_ID": "test_id",
         "SPOTIFY_CLIENT_SECRET": "test_secret",
-        "SPOTIFY_REDIRECT_URI": "http://localhost:8080",
+        "SPOTIFY_REDIRECT_URI": "http://127.0.0.1:8080",
     }
     env.update(env_overrides)
     # Remove keys set to None
@@ -87,12 +88,13 @@ class TestLocalCallback(unittest.IsolatedAsyncioTestCase):
             return server
 
         with unittest.mock.patch(
-            "spotifyify.oauth2.oauth2.asyncio.start_server",
+            "spotifyify.oauth2.callback.asyncio.start_server",
             side_effect=start_server,
         ):
-            code = await oauth._capture_code_from_local_callback(
-                "http://localhost:8080",
+            code = await capture_local_code(
+                "http://127.0.0.1:8080",
                 state="test-state",
+                on_ready=lambda: None,
             )
 
         self.assertEqual(code, "test-code")
@@ -198,21 +200,13 @@ class TestGetAccessToken(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(token, "valid_token")
         await oauth.close()
 
-    async def test_requests_user_token_when_user_required_no_token(self):
+    async def test_missing_user_grant_requires_explicit_login(self):
         creds = _make_credentials()
         oauth = SpotifyifyOAuth(creds)
-        oauth._request_user_token = unittest.mock.AsyncMock(
-            return_value={
-                "access_token": "interactive-token",
-                "refresh_token": "interactive-refresh",
-                "expires_at": int(time.time()) + 3600,
-                "scope": "user-modify-playback-state",
-            }
-        )
-        token = await oauth.get_access_token(
-            require_user=True, scope="user-modify-playback-state"
-        )
-        self.assertEqual(token, "interactive-token")
+        with self.assertRaisesRegex(SpotifyAuthError, "auth login"):
+            await oauth.get_access_token(
+                require_user=True, scope="user-modify-playback-state"
+            )
         await oauth.close()
 
     async def test_missing_redirect_uri_raises_for_interactive_login(self):
