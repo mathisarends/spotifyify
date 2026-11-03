@@ -28,7 +28,7 @@ jobs:
         run: uv python install ${{ matrix.python }}
 
       - name: Install dependencies
-        run: uv sync --frozen --python ${{ matrix.python }} --group dev --group examples --extra cli
+        run: uv sync --frozen --python ${{ matrix.python }} --group dev --group examples
 
       - name: Lint and formatting
         run: |

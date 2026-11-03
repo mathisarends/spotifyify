@@ -24,15 +24,6 @@ With [uv](https://github.com/astral-sh/uv):
 uv add spotifyify
 ```
 
-Optional CLI:
-
-```bash
-uv add "spotifyify[cli]"
-spotifyify --help
-```
-
-See [CLI](#cli) for global installation and usage examples.
-
 ## Configuration
 
 Credentials are loaded from environment variables (or a `.env` file via `pydantic-settings`):
@@ -58,26 +49,57 @@ SPOTIFY_REFRESH_TOKEN=your_refresh_token
 
 If `SPOTIFY_REFRESH_TOKEN` (or `SPOTIFY_ACCESS_TOKEN`) is present the client operates in user mode. Without them it falls back to the [Client Credentials flow](https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow), which only allows access to public data.
 
-User-scoped calls require an existing user grant. API calls never open a browser
-or prompt for input. Log in explicitly with the optional CLI:
+### User authorization
 
-```bash
-spotifyify auth login --scope user-read-playback-state --scope user-modify-playback-state
-spotifyify auth status
-spotifyify auth logout
+User-scoped calls require an existing user grant. API calls never open a browser
+or prompt for input. Supply a user access/refresh token through the environment,
+or authorize explicitly with the Python OAuth helpers:
+
+```python
+import asyncio
+import secrets
+import webbrowser
+
+from spotifyify import SpotifyCredentials
+from spotifyify.cache_handler import CacheFileHandler
+from spotifyify.oauth2 import SpotifyOAuth
+from spotifyify.oauth2.callback import capture_local_code
+
+async def login():
+    credentials = SpotifyCredentials()
+    if not credentials.redirect_uri:
+        raise ValueError("Set SPOTIFY_REDIRECT_URI before authorizing")
+    cache = CacheFileHandler(client_id=credentials.client_id, profile="default")
+    oauth = SpotifyOAuth(credentials, cache)
+    try:
+        state = secrets.token_urlsafe(32)
+        scopes = ["user-read-playback-state", "user-modify-playback-state"]
+        url = oauth.authorization_url(state=state, scope=scopes)
+        code = await capture_local_code(
+            credentials.redirect_uri,
+            state=state,
+            on_ready=lambda: webbrowser.open(url),
+        )
+        await oauth.exchange_code(code, scope=scopes)
+    finally:
+        await oauth.close()
+
+asyncio.run(login())
 ```
 
-Use `spotifyify --profile work auth login --scope user-library-read` to keep
-accounts separate. Tokens are cached per client ID and profile under the user's
-application data directory on Windows or `$XDG_CACHE_HOME/spotifyify` on Unix.
-Cache files are written atomically, with owner-only permissions on Unix and
-inherited user-profile ACLs on Windows. They contain unencrypted credentials.
-Existing project-local caches can be selected explicitly with
-`CacheFileHandler(".cache")`; the client does not import them automatically.
+Configure an explicit loopback redirect such as
+`http://127.0.0.1:8888/callback` for this example. The listener starts before the
+browser opens. Applications with their own callback handler can validate the
+redirect with `parse_callback_url()` and pass the code to `exchange_code()`.
 
-Login starts its loopback listener before opening the browser. Use
-`--no-browser` to open the printed URL yourself, or `--manual` to explicitly
-paste the redirect URL. Login hints go to stderr; stdout remains JSON.
+Use the same profile in `CacheFileHandler(profile="work", ...)` and
+`SpotifyClient(cache_profile="work")` to keep accounts separate. Tokens are cached
+per client ID and profile under the user's application data directory on Windows
+or `$XDG_CACHE_HOME/spotifyify` on Unix. Cache files are written atomically, with
+owner-only permissions on Unix and inherited user-profile ACLs on Windows. They
+contain unencrypted credentials. Existing project-local caches can be selected
+explicitly with `CacheFileHandler(".cache")`; the client does not import them
+automatically.
 
 ### Bring your own user token
 
@@ -119,8 +141,7 @@ at most 10 items per request in this mode. Endpoints Spotify removed from this
 mode fail locally with `SpotifyUnsupportedOperation`.
 
 Apps that already have Extended Quota access can select the legacy-compatible
-contract with `SpotifyClient(api_mode="extended")`, or use
-`spotifyify --api-mode extended ...` / `SPOTIFYIFY_API_MODE=extended` in the CLI.
+contract with `SpotifyClient(api_mode="extended")`.
 This option selects endpoints; it does not change the app's Spotify quota mode.
 
 `get_many()` accepts any number of IDs, batches where supported, and returns one
@@ -362,250 +383,10 @@ SpotifyScope.PLAYLIST_READ_PRIVATE
 
 Scopes can also be passed as plain strings.
 
-## CLI
-
-spotifyify ships with an optional Typer-based command line interface. It uses
-the same environment variables and `.env` loading as the Python client, so the
-configuration from above also applies to terminal usage.
-
-Install it for the current project:
-
-```bash
-uv add "spotifyify[cli]"
-```
-
-Install it globally so `spotifyify --help` works from any directory:
-
-```bash
-uv tool install "spotifyify[cli]"
-spotifyify --help
-```
-
-For local development from this checkout, install the current working tree as a
-global uv tool:
-
-```bash
-uv tool install --from . "spotifyify[cli]"
-spotifyify --help
-```
-
-Or run the checkout directly without installing a global command:
-
-```bash
-uv sync --extra cli
-uv run spotifyify --help
-```
-
-### Output contract
-
-Every command writes JSON to stdout and nothing else, regardless of whether
-stdout is a terminal — so piping through `tee` or capturing the output cannot
-change its shape.
-
-| | |
-| --- | --- |
-| Format | Always JSON |
-| Shape | A JSON array of row objects whose keys are the command's declared columns, in a fixed order |
-| Encoding | UTF-8, no ANSI escapes, no pager, no prompts |
-| Errors | Plain text on stderr |
-| Exit codes | `0` ok, `1` API error, `2` usage error, `3` auth error, `4` no match |
-
-```bash
-spotifyify tracks search "Ikkimel" --limit 2
-```
-
-```json
-[
-  {
-    "id": "4H0ly29pj5g6vMKum5kkhu",
-    "name": "WHO'S THAT",
-    "artists": ["Ikkimel"],
-    "album.name": "WHO'S THAT",
-    "uri": "spotify:track:4H0ly29pj5g6vMKum5kkhu"
-  }
-]
-```
-
-Use the root flag `--full` or `SPOTIFYIFY_FULL=1` to get complete normalized
-response models, including paging metadata, unknown fields and explicit nulls.
-This is model serialization, not the original HTTP body: aliases and timestamps
-normalize, and `--all` combines pages. `SPOTIFYIFY_RAW=1` remains a legacy alias.
-
-```bash
-spotifyify --full tracks search "Daft Punk" --limit 1
-```
-
-PowerShell:
-
-```powershell
-$env:SPOTIFYIFY_FULL = "1"
-spotifyify tracks search "Daft Punk" --limit 1
-Remove-Item Env:SPOTIFYIFY_FULL
-```
-
-### Command discovery
-
-Use the standard `--help` option at the root, group, or command level:
-
-```bash
-spotifyify --help
-spotifyify artists --help
-spotifyify artists get --help
-```
-
-The short form `-h` works at every level as well.
-
-Paged commands expose `--offset` and `--all`; cursor-based history/following
-commands expose `--all` alongside their cursor options. For example:
-
-```bash
-spotifyify tracks search "ambient" --limit 10 --offset 10 --all
-spotifyify library saved-tracks --all
-spotifyify playlists items PLAYLIST_ID --all
-```
-
-`playlists items` is the canonical command for tracks and episodes. The previous
-`playlists tracks` spelling remains a hidden compatibility alias.
-
-Resource groups use plural names consistently (`artists`, `tracks`, `albums`),
-and each command has one canonical spelling.
-
-### Everyday usage
-
-The CLI mirrors the public namespace API from `spotifyify.namespaces`:
-
-```bash
-spotifyify tracks search "Daft Punk" --limit 5
-spotifyify albums get 4aawyAB9vmqN3uQ7FjRGTy
-spotifyify playlists list
-spotifyify player state
-```
-
-To find something and play it without a separate lookup:
-
-```bash
-spotifyify play --artist Ikkimel --track "WHO'S THAT"
-```
-
-A track name (or free text) plays that one track; without one, `--album` plays
-the album and `--artist` alone plays the artist. If Spotify reports no active
-device, the CLI picks a controllable one and retries.
-
-### Mutations return the new state
-
-Commands that change something report the state they produced, so no follow-up
-read is needed:
-
-```bash
-spotifyify player play --uri spotify:track:TRACK_ID
-```
-
-```json
-[{"state": "playing", "track": "HAMPELMANN", "artists": ["Ikkimel"], "device": "Wohnzimmer"}]
-```
-
-Playback commands briefly wait for Spotify to apply the change before reporting;
-pass `--no-wait` to skip that and read immediately. Library and follow mutations
-report the resulting saved/following state, and playlist mutations report the new
-snapshot and length.
-
-### Filtering
-
-```bash
-spotifyify tracks search "Daft Punk" --limit 3 --field id,name,uri
-spotifyify playlists items PLAYLIST_ID --spotify-fields "items(item(id,name))"
-```
-
-| Option | Effect |
-| --- | --- |
-| `--field`, `-f` | Replace the declared columns with the given field paths |
-| `--spotify-fields` | Server-side filter applied by Spotify before it sends the response |
-
-Rows otherwise keep the order Spotify returned them in.
-
-`--field` is a client-side output projection and can be repeated or receive a
-comma-separated list. Nested values use dotted paths:
-
-```bash
-spotifyify tracks get TRACK_ID --field id --field name --field album.name
-```
-
-### Batching
-
-Commands that take IDs or URIs are variadic and accept repeated or
-comma-separated values. One call fans out to as many API requests as Spotify's
-per-endpoint id limits require:
-
-```bash
-spotifyify tracks get ID_1 ID_2 ID_3
-spotifyify albums get ID_1,ID_2
-spotifyify playlists add PLAYLIST_ID spotify:track:ID_1 spotify:track:ID_2
-spotifyify player add-to-queue spotify:track:ID_1 spotify:track:ID_2
-spotifyify library save-tracks ID_1,ID_2,ID_3
-```
-
-### Common options
-
-| Option | Description |
-| ------ | ----------- |
-| `--field`, `--fields`, `-f` | Include only selected field paths |
-| `--limit`, `-l` | Number of items to fetch, capped at Spotify's per-endpoint limits |
-| `--offset`, `--all` | Select a starting offset or fetch remaining pages |
-| `--wait` / `--no-wait` | Whether playback mutations wait for the change to take effect |
-
-Each command already requests the OAuth scopes it needs — there is no way to
-override that per call. When a command needs user authorization, run `spotifyify auth login --scope ...`
-first. Normal commands never open browsers or prompt for input.
-
-### Global options
-
-`--market` and `--device-id` apply to the whole invocation, so they go before
-the group name rather than on the individual command:
-
-```bash
-spotifyify --market DE tracks search "Daft Punk"
-spotifyify --device-id kitchen player play --uri spotify:track:TRACK_ID
-```
-
-| Option | Description | Env var fallback |
-| ------ | ----------- | ----------------- |
-| `--profile` | Named account cache | `SPOTIFYIFY_PROFILE` |
-| `--api-mode` | Development or Extended Quota API contract | `SPOTIFYIFY_API_MODE` |
-| `--full` / `--compact` | Complete models or selected columns | `SPOTIFYIFY_FULL` |
-| `--market`, `-m` | ISO 3166-1 alpha-2 market code | `SPOTIFYIFY_MARKET` |
-| `--device-id` | Target Spotify Connect device for playback commands | `SPOTIFYIFY_DEVICE_ID` |
-
-A flag always wins over its env var. Neither is required — omit both and
-Spotify falls back to its own default market and active device.
-
-### Command overview
-
-| Namespace | Commands |
-| --------- | -------- |
-| *(top level)* | `play` |
-| `auth` | `login`, `status`, `logout` |
-| `tracks` | `search`, `get` |
-| `artists` | `search`, `get`, `top-tracks`, `albums`, `related` |
-| `albums` | `search`, `get`, `tracks`, `new-releases` |
-| `playlists` | `search`, `get`, `list`, `items`, `create`, `update`, `add`, `replace`, `remove`, `reorder`, `cover-image` |
-| `shows` | `search`, `get`, `episodes` |
-| `episodes` | `search`, `get` |
-| `library` | `saved-tracks`, `saved-albums`, `saved-shows`, `saved-episodes`, `top-tracks`, `top-artists`, `save-*`, `remove-*`, `check-*` for tracks/albums/shows/episodes |
-| `player` | `state`, `play`, `pause`, `skip`, `previous`, `seek`, `repeat`, `shuffle`, `volume`, `queue`, `add-to-queue`, `transfer`, `devices`, `recently-played` |
-| `users` | `me`, `get`, `following`, `follow`, `unfollow`, `check-following` |
-
-```bash
-spotifyify --help
-spotifyify playlists create --help
-spotifyify player play --help
-```
-
 ## Examples
 
-See the [`examples/`](./examples) directory for CLI recipes and runnable Python
-scripts:
+See the [`examples/`](./examples) directory for runnable Python scripts:
 
-- [`examples/cli/README.md`](./examples/cli/README.md) — copy-paste CLI workflows for search, playback, playlists, library, batching, and JSON output
 - [`examples/player/search_and_play.py`](./examples/player/search_and_play.py) — search for tracks and control playback with the Python API
 - [`examples/playlists/manage_playlist.py`](./examples/playlists/manage_playlist.py) — create and manage a playlist with the Python API
 - [`examples/playlists/user_token_playlist.py`](./examples/playlists/user_token_playlist.py) — create playlists with caller-supplied user tokens
@@ -614,7 +395,7 @@ scripts:
 ## Development
 
 ```bash
-uv sync --frozen --extra cli --group schema --group examples
+uv sync --frozen --group schema --group examples
 uv run --no-sync pytest -q
 uv run --no-sync ruff check spotifyify tests examples tools
 uv run --no-sync ruff format --check spotifyify tests examples tools
@@ -622,7 +403,7 @@ uv run --no-sync pyright
 uv build
 ```
 
-The CI tests Windows and Linux with Python 3.13 and 3.14, including the CLI and
-MCP example. [Model maintenance](docs/models.md) documents the pinned schema and
+The CI tests Windows and Linux with Python 3.13 and 3.14, including the Python
+client and MCP example. [Model maintenance](docs/models.md) documents the pinned schema and
 comparison generator. [The migration guide](docs/migration-0.9.md) describes
 compatibility changes in 0.9.

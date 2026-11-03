@@ -311,7 +311,8 @@ class SpotifyOAuth:
                                 code="invalid_grant",
                             ) from cache_error
                         raise SpotifyAuthError(
-                            "The user grant expired or was revoked. Run spotifyify auth login.",
+                            "The user grant expired or was revoked. Reauthorize with "
+                            "SpotifyOAuth.authorization_url() and exchange_code().",
                             code="invalid_grant",
                         ) from exc
                     raise
@@ -325,8 +326,9 @@ class SpotifyOAuth:
             if require_user:
                 missing = desired_scope or "a user token"
                 raise SpotifyAuthError(
-                    f"User authorization required ({missing}). Run spotifyify auth login "
-                    "with the required --scope options, or supply a user token."
+                    f"User authorization required ({missing}). Use "
+                    "SpotifyOAuth.authorization_url() and exchange_code() with the "
+                    "required scopes, or supply a user token."
                 )
 
             if self._app_token and not self._app_token.expired:
