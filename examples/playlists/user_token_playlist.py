@@ -3,7 +3,7 @@
 import asyncio
 import os
 
-from spotifyify import Spotifyify
+from spotifyify import SpotifyClient, SpotifyResponseError
 
 TRACK_URIS = [
     "spotify:track:6rqhFgbbKwnb9MLmUQDhG6",
@@ -12,7 +12,7 @@ TRACK_URIS = [
 
 
 async def create_playlist_for_user(
-    spotify: Spotifyify,
+    spotify: SpotifyClient,
     *,
     access_token: str,
     name: str,
@@ -24,6 +24,8 @@ async def create_playlist_for_user(
             public=False,
             description=f"Created for {me.display_name or me.id}",
         )
+        if playlist.id is None:
+            raise SpotifyResponseError("Created playlist is missing its ID")
         await spotify.playlists.replace(playlist.id, TRACK_URIS)
         await spotify.playlists.update(
             playlist.id,
@@ -39,7 +41,7 @@ async def main() -> None:
         if token.strip()
     ]
 
-    async with Spotifyify() as spotify:
+    async with SpotifyClient() as spotify:
         playlist_ids = await asyncio.gather(
             *(
                 create_playlist_for_user(

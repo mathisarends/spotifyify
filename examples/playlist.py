@@ -1,25 +1,20 @@
-"""Load the first page of items from a public Spotify playlist."""
+"""Read a playlist the authenticated user owns or collaborates on."""
 
+import argparse
 import asyncio
 
-from spotifyify import Spotifyify
-from spotifyify.cache_handler import MemoryCacheHandler
-
-PLAYLIST_ID = "2hmLDliFT9mW84XHxRUzwx"
+from spotifyify import SpotifyClient
 
 
-async def main() -> None:
-    async with Spotifyify(cache_handler=MemoryCacheHandler()) as sp:
-        page = await sp.playlists.tracks(PLAYLIST_ID, limit=10)
-        print(f"Public playlist: {PLAYLIST_ID}")
-        print(f"Items: {page.total}")
-
-        for playlist_item in page.items or []:
-            item = playlist_item.item or playlist_item.track
-            if item is None:
-                continue
-            print(f"  {item.type}: {item.name}")
+async def main(playlist_id: str) -> None:
+    async with SpotifyClient() as spotify:
+        async for playlist_item in spotify.playlists.iter_items(playlist_id):
+            item = playlist_item.item
+            if item is not None:
+                print(f"{item.type}: {item.name}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("playlist_id", help="A playlist you own or collaborate on")
+    asyncio.run(main(parser.parse_args().playlist_id))

@@ -15,7 +15,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 
-from spotifyify import RetryEvent, SpotifyAPIError, Spotifyify, SpotifyRateLimitError
+from spotifyify import RetryEvent, SpotifyAPIError, SpotifyClient, SpotifyRateLimitError
 
 DEFAULT_TRACK_ID = "4uLU6hMCjMI75M1A2tKUQC"
 
@@ -92,7 +92,7 @@ async def main() -> None:
             flush=True,
         )
 
-    async def fetch_once(sp: Spotifyify, index: int) -> None:
+    async def fetch_once(sp: SpotifyClient, index: int) -> None:
         async with semaphore:
             try:
                 await sp.tracks.get(args.track_id)
@@ -143,7 +143,7 @@ async def main() -> None:
         flush=True,
     )
 
-    async with Spotifyify(
+    async with SpotifyClient(
         max_retries=args.max_retries,
         retry_backoff_seconds=args.retry_backoff_seconds,
     ) as sp:

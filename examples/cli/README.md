@@ -11,7 +11,7 @@ uv run spotifyify --help
 
 The same Spotify credentials described in the project
 [README](../../README.md#configuration) apply here. Commands that require a
-user scope open the interactive login flow when necessary.
+user scope require an explicit `spotifyify auth login --scope ...` first.
 
 ## Discover commands
 
@@ -53,14 +53,14 @@ and comma-separated field paths are accepted. Nested fields use dot notation:
 ```bash
 spotifyify tracks search "Daft Punk" -f id,name,uri
 spotifyify tracks get TRACK_ID -f id -f name -f album.name
-spotifyify playlists tracks PLAYLIST_ID -f track.id,track.name,added_at
+spotifyify playlists items PLAYLIST_ID -f item.id,item.name,added_at
 ```
 
-`playlists tracks` additionally supports Spotify's server-side field filter:
+`playlists items` additionally supports Spotify's server-side field filter:
 
 ```bash
-spotifyify playlists tracks PLAYLIST_ID \
-  --spotify-fields "items(track(id,name)),next,total"
+spotifyify playlists items PLAYLIST_ID \
+  --spotify-fields "items(item(id,name)),next,total"
 ```
 
 `--spotify-fields` controls what Spotify sends. `--field` controls the final
@@ -128,7 +128,7 @@ spotifyify playlists add PLAYLIST_ID \
   spotify:track:TRACK_ID_1 \
   spotify:track:TRACK_ID_2
 
-spotifyify playlists tracks PLAYLIST_ID
+spotifyify playlists items PLAYLIST_ID
 spotifyify playlists remove PLAYLIST_ID spotify:track:TRACK_ID_1
 ```
 
@@ -168,24 +168,24 @@ example:
 ]
 ```
 
-## Raw Spotify responses
+## Complete response models
 
 The default output deliberately contains only useful, stable columns. Set
-`SPOTIFYIFY_RAW=1` to inspect the untouched Spotify payload, including paging
+`SPOTIFYIFY_FULL=1` to inspect complete normalized response models, including paging
 metadata and undeclared fields.
 
 Bash:
 
 ```bash
-SPOTIFYIFY_RAW=1 spotifyify tracks search "Daft Punk" --limit 1
+SPOTIFYIFY_FULL=1 spotifyify tracks search "Daft Punk" --limit 1
 ```
 
 PowerShell:
 
 ```powershell
-$env:SPOTIFYIFY_RAW = "1"
+$env:SPOTIFYIFY_FULL = "1"
 spotifyify tracks search "Daft Punk" --limit 1
-Remove-Item Env:SPOTIFYIFY_RAW
+Remove-Item Env:SPOTIFYIFY_FULL
 ```
 
 Every successful normal command writes JSON to stdout, so its output can be

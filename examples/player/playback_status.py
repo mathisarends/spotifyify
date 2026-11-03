@@ -2,11 +2,11 @@
 
 import asyncio
 
-from spotifyify import Spotifyify, SpotifyScope
+from spotifyify import SpotifyClient, SpotifyScope
 
 
 async def main() -> None:
-    async with Spotifyify(
+    async with SpotifyClient(
         scopes=[
             SpotifyScope.USER_READ_PLAYBACK_STATE,
             SpotifyScope.USER_READ_RECENTLY_PLAYED,
@@ -39,9 +39,11 @@ async def main() -> None:
 
         history = await sp.player.recently_played(limit=5)
         print("\nRecently played:")
-        for item in history.items:
+        for item in history.items or []:
             track = item.track
-            print(f"  {track.name} — played at {item.played_at}")
+            if track is not None:
+                print(f"  {track.name} — played at {item.played_at}")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

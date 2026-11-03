@@ -380,7 +380,7 @@ async def spotify_client(
 
 
 # --------------------------------------------------------------------------- #
-# Playback summaries â€” mutations answer with the state they produced.
+# Playback summaries: mutations answer with the state they produced.
 # --------------------------------------------------------------------------- #
 
 PLAYBACK_COLUMNS = ("state", "track", "artists", "device")

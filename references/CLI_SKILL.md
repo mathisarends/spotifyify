@@ -18,10 +18,14 @@ Translate the request directly into the shortest valid command. Do not use `--he
 ## Shared syntax
 
 ```text
-spotifyify [--market CODE] [--device-id ID] GROUP COMMAND ...
+spotifyify [--market CODE] [--device-id ID] [--profile NAME] [--api-mode development|extended] [--full] GROUP COMMAND ...
 ```
 
-Global options precede the group and override `SPOTIFYIFY_MARKET` and `SPOTIFYIFY_DEVICE_ID`. Quote free text. Every command accepts `--field PATHS` (`--fields`, `-f`) with repeated or comma-separated dotted paths. Commands shown with `--limit N` accept `1..50`.
+Global options precede the group and override `SPOTIFYIFY_MARKET` and `SPOTIFYIFY_DEVICE_ID`. Quote free text. Every command accepts `--field PATHS` (`--fields`, `-f`) with repeated or comma-separated dotted paths. Commands shown with `--limit N` accept `1..50`; searches in the default Development Mode accept at most `10`. Offset-based list/search commands also accept `--offset N` and `--all`; cursor lists accept `--all`.
+
+## Authentication and API mode
+
+Normal commands never prompt. Run `spotifyify auth login --scope SCOPE ...` explicitly when user authorization is required; `auth status` inspects the selected profile. Following requires `user-follow-read`/`user-follow-modify`. Development Mode is the default; other-user profiles/playlists, new releases and artist top tracks require an app with Extended Quota access and `--api-mode extended`. `--full` emits normalized models, preserving unknown fields and explicit nulls.
 
 ## Catalog
 
@@ -56,7 +60,7 @@ spotifyify episodes get ID...
 spotifyify playlists search QUERY [--limit N]
 spotifyify playlists get PLAYLIST_ID
 spotifyify playlists list [--user-id USER_ID] [--limit N]
-spotifyify playlists tracks PLAYLIST_ID [--spotify-fields EXPR] [--limit N] [--additional-type TYPE]...
+spotifyify playlists items PLAYLIST_ID [--spotify-fields EXPR] [--limit N] [--additional-type TYPE]...
 spotifyify playlists cover-image PLAYLIST_ID
 
 spotifyify playlists create NAME [--public|--private] [--collaborative|--not-collaborative] [--description TEXT] [--user-id USER_ID]

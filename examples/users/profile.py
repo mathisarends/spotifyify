@@ -1,28 +1,22 @@
-"""Smoke test for the users namespace: me, get, following, check_following."""
+"""Read the current user's profile and followed artists."""
 
 import asyncio
 
-from spotifyify import Spotifyify
+from spotifyify import SpotifyClient, SpotifyScope
 
 
 async def main() -> None:
-    async with Spotifyify() as sp:
-        me = await sp.users.me()
-        print(f"Current user: {me.display_name} ({me.id})")
+    async with SpotifyClient(scopes=[SpotifyScope.USER_FOLLOW_READ]) as spotify:
+        me = await spotify.users.me()
+        print(f"Current user: {me.display_name} ({me.account_id or me.id})")
 
-        public = await sp.users.get(me.id)
-        print(f"\nPublic profile for '{public.display_name}':  ({public.id})")
-
-        following = await sp.users.following(limit=5)
-        print(f"\nFollowed artists ({following.total} total):")
-        for artist in following.items:
-            print(f"  {artist.name}")
-
-        if following.items:
-            ids = [a.id for a in following.items[:3]]
-            checks = await sp.users.check_following(type="artist", ids=ids)
-            for artist, is_following in zip(following.items[:3], checks):
-                print(f"  Following {artist.name}? {is_following}")
+        following = await spotify.users.following(limit=5)
+        selected = [artist for artist in following.items or [] if artist.id is not None]
+        ids = [artist.id for artist in selected if artist.id is not None]
+        checks = await spotify.users.check_following("artist", ids)
+        for artist, follows in zip(selected, checks, strict=True):
+            print(f"Following {artist.name}? {follows}")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

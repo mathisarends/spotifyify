@@ -1,36 +1,33 @@
-"""Smoke test for the artists namespace: find, get, top_tracks, albums, related."""
+"""Smoke test for the artists namespace: search, get, albums."""
 
 import asyncio
 
-from spotifyify import Spotifyify
+from spotifyify import SpotifyClient
 
 
 async def main() -> None:
-    async with Spotifyify() as sp:
-        results = await sp.artists.find("Radiohead", limit=3)
+    async with SpotifyClient() as sp:
+        results = await sp.artists.search("Radiohead", limit=3)
         print(f"Found {results.total} artists for 'Radiohead':\n")
 
-        for artist in results.items:
+        for artist in results.items or []:
             print(f"  {artist.name}")
 
-        first = results.items[0]
+        items = [item for item in results.items or [] if item is not None]
+        if not items:
+            print("No results")
+            return
+        first = items[0]
+        if not first.id:
+            return
         full_artist = await sp.artists.get(first.id)
         print(f"\nArtist details for '{full_artist.name}':")
 
-        top = await sp.artists.top_tracks(first.id)
-        print(f"\nTop tracks ({len(top)}):")
-        for i, track in enumerate(top[:5], 1):
-            print(f"  {i}. {track.name}")
-
         discography = await sp.artists.albums(first.id, limit=5, include_groups="album")
         print(f"\nAlbums ({discography.total} total):")
-        for album in discography.items:
+        for album in discography.items or []:
             print(f"  {album.name} ({album.release_date})")
 
-        related = await sp.artists.related(first.id)
-        print(f"\nRelated artists ({len(related)}):")
-        for artist in related[:5]:
-            print(f"  {artist.name}")
 
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

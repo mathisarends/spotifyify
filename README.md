@@ -2,10 +2,15 @@
 
 An async-first Spotify client with a namespaced API and fully typed response models maintained in the codebase and aligned with the [official Spotify OpenAPI specification](https://developer.spotify.com/reference/web-api/open-api-schema.yaml).
 
+See [the 0.9 migration guide](docs/migration-0.9.md) for renamed APIs, explicit
+login, API modes and output changes. `Spotifyify` remains a compatibility alias.
+
 ## Requirements
 
 - Python 3.13+
 - A Spotify app registered at [developer.spotify.com](https://developer.spotify.com/dashboard)
+- Development Mode requires an active Premium subscription for the app owner;
+  see [Spotify's API-mode requirements](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide).
 
 ## Installation
 
@@ -34,8 +39,8 @@ Credentials are loaded from environment variables (or a `.env` file via `pydanti
 
 | Variable                   | Required      | Description                           |
 | -------------------------- | ------------- | ------------------------------------- |
-| `SPOTIFY_CLIENT_ID`        | Yes           | Your app's client ID                  |
-| `SPOTIFY_CLIENT_SECRET`    | Yes           | Your app's client secret              |
+| `SPOTIFY_CLIENT_ID`        | App auth/refresh           | Your app's client ID                  |
+| `SPOTIFY_CLIENT_SECRET`    | App auth/refresh           | Your app's client secret              |
 | `SPOTIFY_REDIRECT_URI`     | For user auth | OAuth redirect URI                    |
 | `SPOTIFY_ACCESS_TOKEN`     | Optional      | Pre-existing access token             |
 | `SPOTIFY_REFRESH_TOKEN`    | Optional      | Refresh token for automatic renewal   |
@@ -78,11 +83,11 @@ paste the redirect URL. Login hints go to stderr; stdout remains JSON.
 
 Multi-user backends can pass an already minted end-user access token for one request scope. While the context is active, spotifyify sends that token directly and skips its configured OAuth provider, app credentials, cache, refresh, and scope checks. Expired or insufficient tokens surface as Spotify API errors.
 
-The token context is isolated per async task, so one shared `Spotifyify` instance can serve concurrent users:
+The token context is isolated per client instance and async task, so one shared `SpotifyClient` instance can serve concurrent users:
 
 ```python
-async with Spotifyify() as spotify:
-    async with spotify.session(access_token=end_user_access_token):
+async with SpotifyClient() as spotify:
+    async with spotify.request_context(access_token=end_user_access_token):
         playlist = await spotify.playlists.create("Weekly Mix", public=False)
         await spotify.playlists.replace(
             playlist.id,
@@ -94,10 +99,10 @@ async with Spotifyify() as spotify:
 
 ```python
 import asyncio
-from spotifyify import Spotifyify, SpotifyScope
+from spotifyify import SpotifyClient, SpotifyScope
 
 async def main():
-    async with Spotifyify(scopes=[SpotifyScope.USER_READ_PLAYBACK_STATE]) as sp:
+    async with SpotifyClient(scopes=[SpotifyScope.USER_READ_PLAYBACK_STATE]) as sp:
         state = await sp.player.state()
         if state and state.item:
             print(f"Now playing: {state.item.name}")
@@ -139,10 +144,10 @@ fails, `SpotifyBatchError` exposes `completed_items`, `total_items` and the last
 input URIs, not the number of playlist entries removed. Restarting the whole
 operation can duplicate already applied changes, so recover using that progress.
 
-The `Spotifyify` class is the entry point. It exposes all Spotify resources as lazy-loaded namespace properties. Every method is a coroutine and must be awaited.
+The `SpotifyClient` class is the entry point. It exposes all Spotify resources as lazy-loaded namespace properties. Request methods are awaited; iter_* methods are consumed with async for.
 
 ```
-Spotifyify
+SpotifyClient
 ├── .tracks      # Tracks, search
 ├── .artists     # Artists, top tracks, discography, related artists
 ├── .albums      # Albums, new releases
@@ -158,17 +163,17 @@ Spotifyify
 
 | Method                                                                      | Description               |
 | --------------------------------------------------------------------------- | ------------------------- |
-| `find(query, *, limit, offset, market)`                                     | Search for tracks         |
+| `search(query, *, limit, offset, market)`                                     | Search for tracks         |
 | `get(track_id, *, market)`                                                  | Get a single track        |
-| `get_many(track_ids, *, market)`                                            | Get up to 50 tracks       |
+| `get_many(track_ids, *, market)`                                            | Get multiple tracks       |
 
 ### Artists — `sp.artists`
 
 | Method                                                        | Description          |
 | ------------------------------------------------------------- | -------------------- |
-| `find(query, *, limit, offset)`                               | Search for artists   |
+| `search(query, *, limit, offset)`                               | Search for artists   |
 | `get(artist_id)`                                              | Get a single artist  |
-| `get_many(artist_ids)`                                        | Get up to 50 artists |
+| `get_many(artist_ids)`                                        | Get multiple artists |
 | `top_tracks(artist_id, *, market)`                            | Artist's top tracks  |
 | `albums(artist_id, *, include_groups, market, limit, offset)` | Artist's discography |
 | `related(artist_id)`                                          | Related artists      |
@@ -177,9 +182,9 @@ Spotifyify
 
 | Method                                       | Description         |
 | -------------------------------------------- | ------------------- |
-| `find(query, *, limit, offset, market)`      | Search for albums   |
+| `search(query, *, limit, offset, market)`      | Search for albums   |
 | `get(album_id, *, market)`                   | Get a single album  |
-| `get_many(album_ids, *, market)`             | Get up to 20 albums |
+| `get_many(album_ids, *, market)`             | Get multiple albums |
 | `tracks(album_id, *, limit, offset, market)` | Tracks in an album  |
 | `new_releases(*, country, limit, offset)`    | New album releases  |
 
@@ -187,10 +192,10 @@ Spotifyify
 
 | Method                                                                           | Description                                  |
 | -------------------------------------------------------------------------------- | -------------------------------------------- |
-| `find(query, *, limit, offset)`                                                  | Search for playlists                         |
+| `search(query, *, limit, offset)`                                                  | Search for playlists                         |
 | `get(playlist_id, *, market)`                                                    | Get a single playlist                        |
 | `list(*, user_id, limit, offset)`                                                | Current user's (or another user's) playlists |
-| `tracks(playlist_id, *, market, fields, limit, offset, additional_types)`        | Get playlist tracks                          |
+| `items(playlist_id, *, market, fields, limit, offset, additional_types)`        | Get playlist tracks and episodes                          |
 | `create(name, *, public, collaborative, description, user_id)`                   | Create a playlist                            |
 | `update(playlist_id, *, name, public, collaborative, description)`               | Update playlist details                      |
 | `add(playlist_id, uris, *, position)`                                            | Add items to a playlist                      |
@@ -247,7 +252,7 @@ Spotifyify
 
 | Method                                        | Description         |
 | --------------------------------------------- | ------------------- |
-| `find(query, *, limit, offset, market)`       | Search for shows    |
+| `search(query, *, limit, offset, market)`       | Search for shows    |
 | `get(show_id, *, market)`                     | Get a single show   |
 | `get_many(show_ids, *, market)`               | Get multiple shows  |
 | `episodes(show_id, *, market, limit, offset)` | Episodes for a show |
@@ -256,7 +261,7 @@ Spotifyify
 
 | Method                                  | Description           |
 | --------------------------------------- | --------------------- |
-| `find(query, *, limit, offset, market)` | Search for episodes   |
+| `search(query, *, limit, offset, market)` | Search for episodes   |
 | `get(episode_id, *, market)`            | Get a single episode  |
 | `get_many(episode_ids, *, market)`      | Get multiple episodes |
 
@@ -266,7 +271,7 @@ Spotifyify
 | ---------------------------------- | -------------------------------------- |
 | `me()`                             | Current user's profile                 |
 | `get(user_id)`                     | A public user's profile                |
-| `following(*, type, limit, after)` | Artists/users the current user follows |
+| `following(*, type, limit, after)` | Artists the current user follows |
 | `follow(type, ids)`                | Follow artists or users                |
 | `unfollow(type, ids)`              | Unfollow artists or users              |
 | `check_following(type, ids)`       | Check if following artists or users    |
@@ -275,13 +280,18 @@ Spotifyify
 
 Spotify API requests automatically retry rate limits (`429`) and temporary server
 errors (`500`, `502`, `503`, `504`). Rate limits honor Spotify's `Retry-After`
-header. Server errors are only retried for idempotent HTTP methods to avoid
-duplicating mutations. Configure the defaults with `max_retries` and
-`retry_backoff_seconds` when constructing `Spotifyify`.
+header. Server errors are retried only when the operation is safe to repeat. Configure the defaults with `max_retries` and
+`retry_backoff_seconds` when constructing `SpotifyClient`.
+
+The default client adds jitter to exponential backoff, caps that backoff at 30
+seconds and stops automatic retries when a planned wait exceeds 60 seconds.
+Rate limits cool concurrent requests on the same client. `QUOTA_EXCEEDED`
+responses and ambiguous playlist reorders are not retried. Supply a `RetryPolicy`
+to customize the retry count, backoff, jitter and maximum wait.
 
 Use a request-context retry hook when planned retries should be reported to a
 caller before spotifyify sleeps and sends the request again. The hook is
-isolated per async task, so one shared `Spotifyify` instance can be used by
+isolated per async task, so one shared `SpotifyClient` instance can be used by
 concurrent conversations. `retry_number` is one-based and `retry_at` contains
 the planned retry time in UTC:
 
@@ -300,7 +310,7 @@ async def on_retry(event: RetryEvent) -> None:
         },
     )
 
-async with spotify.session(on_retry=on_retry):
+async with spotify.request_context(on_retry=on_retry):
     track = await spotify.tracks.get(track_id)
 ```
 
@@ -328,7 +338,7 @@ except SpotifyRateLimitError as exc:
 Request-scoped options can be combined without nested context managers:
 
 ```python
-async with spotify.session(access_token=end_user_access_token, on_retry=on_retry):
+async with spotify.request_context(access_token=end_user_access_token, on_retry=on_retry):
     me = await spotify.users.me()
 ```
 
@@ -503,7 +513,7 @@ snapshot and length.
 
 ```bash
 spotifyify tracks search "Daft Punk" --limit 3 --field id,name,uri
-spotifyify playlists tracks PLAYLIST_ID --spotify-fields "items(track(id,name))"
+spotifyify playlists items PLAYLIST_ID --spotify-fields "items(item(id,name))"
 ```
 
 | Option | Effect |
@@ -540,12 +550,12 @@ spotifyify library save-tracks ID_1,ID_2,ID_3
 | ------ | ----------- |
 | `--field`, `--fields`, `-f` | Include only selected field paths |
 | `--limit`, `-l` | Number of items to fetch, capped at Spotify's per-endpoint limits |
+| `--offset`, `--all` | Select a starting offset or fetch remaining pages |
 | `--wait` / `--no-wait` | Whether playback mutations wait for the change to take effect |
 
 Each command already requests the OAuth scopes it needs — there is no way to
-override that per call. When a command needs user authorization and no token
-is configured yet, the CLI uses the same interactive Authorization Code login
-and token cache as the Python client.
+override that per call. When a command needs user authorization, run `spotifyify auth login --scope ...`
+first. Normal commands never open browsers or prompt for input.
 
 ### Global options
 
@@ -559,6 +569,9 @@ spotifyify --device-id kitchen player play --uri spotify:track:TRACK_ID
 
 | Option | Description | Env var fallback |
 | ------ | ----------- | ----------------- |
+| `--profile` | Named account cache | `SPOTIFYIFY_PROFILE` |
+| `--api-mode` | Development or Extended Quota API contract | `SPOTIFYIFY_API_MODE` |
+| `--full` / `--compact` | Complete models or selected columns | `SPOTIFYIFY_FULL` |
 | `--market`, `-m` | ISO 3166-1 alpha-2 market code | `SPOTIFYIFY_MARKET` |
 | `--device-id` | Target Spotify Connect device for playback commands | `SPOTIFYIFY_DEVICE_ID` |
 
@@ -570,10 +583,11 @@ Spotify falls back to its own default market and active device.
 | Namespace | Commands |
 | --------- | -------- |
 | *(top level)* | `play` |
+| `auth` | `login`, `status`, `logout` |
 | `tracks` | `search`, `get` |
 | `artists` | `search`, `get`, `top-tracks`, `albums`, `related` |
 | `albums` | `search`, `get`, `tracks`, `new-releases` |
-| `playlists` | `search`, `get`, `list`, `tracks`, `create`, `update`, `add`, `replace`, `remove`, `reorder`, `cover-image` |
+| `playlists` | `search`, `get`, `list`, `items`, `create`, `update`, `add`, `replace`, `remove`, `reorder`, `cover-image` |
 | `shows` | `search`, `get`, `episodes` |
 | `episodes` | `search`, `get` |
 | `library` | `saved-tracks`, `saved-albums`, `saved-shows`, `saved-episodes`, `top-tracks`, `top-artists`, `save-*`, `remove-*`, `check-*` for tracks/albums/shows/episodes |
@@ -596,3 +610,19 @@ scripts:
 - [`examples/playlists/manage_playlist.py`](./examples/playlists/manage_playlist.py) — create and manage a playlist with the Python API
 - [`examples/playlists/user_token_playlist.py`](./examples/playlists/user_token_playlist.py) — create playlists with caller-supplied user tokens
 - [`examples/library/library_stats.py`](./examples/library/library_stats.py) — explore your top tracks and saved library
+
+## Development
+
+```bash
+uv sync --frozen --extra cli --group schema --group examples
+uv run --no-sync pytest -q
+uv run --no-sync ruff check spotifyify tests examples tools
+uv run --no-sync ruff format --check spotifyify tests examples tools
+uv run --no-sync pyright
+uv build
+```
+
+The CI tests Windows and Linux with Python 3.13 and 3.14, including the CLI and
+MCP example. [Model maintenance](docs/models.md) documents the pinned schema and
+comparison generator. [The migration guide](docs/migration-0.9.md) describes
+compatibility changes in 0.9.

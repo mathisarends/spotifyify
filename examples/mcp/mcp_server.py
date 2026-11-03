@@ -1,58 +1,68 @@
-import asyncio
+"""Standalone stdio MCP server. Run with: uv run --group examples python examples/mcp/mcp_server.py"""
 
-from agents import Agent, Runner
-from agents.mcp import MCPServerStdio
-from dotenv import load_dotenv
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Any
 
-load_dotenv(override=True)
+from mcp.server import MCPServer
+from mcp.server.mcpserver import Context
+
+from spotifyify import SpotifyClient, SpotifyScope
 
 
-async def interactive_session():
-    async with MCPServerStdio(
-        name="Spotify Server",
-        params={
-            "command": "uv",
-            "args": ["run", "spotify-mcp"],
-        },
-    ) as spotify_server:
-        agent = Agent(
-            name="Spotify DJ",
-            instructions="""
-            Du bist ein professioneller DJ Assistant.
-            - Spiele Musik basierend auf Stimmung und Genre
-            - Verwalte Playlists intelligent
-            - Passe Lautstärke basierend auf Kontext an
-            """,
-            mcp_servers=[spotify_server],
-        )
+@dataclass
+class AppContext:
+    spotify: SpotifyClient
 
-        print("🎵 Spotify DJ gestartet!")
-        print("Schreib 'exit' zum Beenden\n")
 
-        history = []
+@asynccontextmanager
+async def lifespan(server: MCPServer) -> AsyncIterator[AppContext]:
+    async with SpotifyClient(
+        scopes=[
+            SpotifyScope.USER_READ_PLAYBACK_STATE,
+            SpotifyScope.USER_MODIFY_PLAYBACK_STATE,
+        ],
+        api_mode=os.environ.get("SPOTIFYIFY_API_MODE", "development"),
+        cache_profile=os.environ.get("SPOTIFYIFY_PROFILE", "default"),
+    ) as spotify:
+        yield AppContext(spotify)
 
-        while True:
-            user_input = input("Du: ").strip()
 
-            if user_input.lower() in ["exit", "quit", "bye"]:
-                break
+mcp = MCPServer("Spotifyify example", lifespan=lifespan)
 
-            if not user_input:
-                continue
 
-            history.append({"role": "user", "content": user_input})
+@mcp.tool()
+async def search_tracks(
+    query: str, ctx: Context[AppContext], limit: int = 10
+) -> list[dict[str, Any]]:
+    """Search Spotify tracks by name, artist or album."""
+    page = await ctx.request_context.lifespan_context.spotify.tracks.search(
+        query, limit=limit, market=os.environ.get("SPOTIFYIFY_MARKET", "DE")
+    )
+    return [
+        {"id": item.id, "name": item.name, "uri": item.uri} for item in page.items or []
+    ]
 
-            result = await Runner.run(agent, history)
 
-            history = result.to_input_list()
+@mcp.tool()
+async def playback_state(ctx: Context[AppContext]) -> dict[str, Any] | None:
+    """Read current playback and the active device."""
+    state = await ctx.request_context.lifespan_context.spotify.player.state()
+    return state.model_dump(mode="json", exclude_unset=True) if state else None
 
-            for item in result.new_items:
-                if hasattr(item, "type") and item.type == "tool_call_item":
-                    print(f"🔧 Tool: {item.raw_item.name}({item.raw_item.arguments})")
 
-            history = result.to_input_list()
-            print(f"🤖 Assistant: {result.final_output}\n")
+@mcp.tool()
+async def play_track(
+    uri: str, ctx: Context[AppContext], device_id: str | None = None
+) -> dict[str, bool]:
+    """Request playback of one Spotify track URI on an available device."""
+    await ctx.request_context.lifespan_context.spotify.player.play(
+        uris=[uri], device_id=device_id
+    )
+    return {"accepted": True}
 
 
 if __name__ == "__main__":
-    asyncio.run(interactive_session())
+    mcp.run(transport="stdio")
