@@ -1,0 +1,149 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Verify release tag and version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          assert os.environ["REF_TYPE"] == "tag", "Run releases from a version tag"
+          assert re.fullmatch(r"\d+\.\d+\.\d+", version), "Expected a stable release version"
+          assert os.environ["RELEASE_TAG"] == f"v{version}", "Tag and package version differ"
+          packages = tomllib.loads(Path("uv.lock").read_text())["package"]
+          assert next(p for p in packages if p["name"] == "spotifyify")["version"] == version
+          assert re.search(rf"^## {re.escape(version)} \(\d{{4}}-\d{{2}}-\d{{2}}\)$", Path("CHANGELOG.md").read_text(), re.M), "Date the changelog before releasing"
+          PY
+
+      - name: Build and check distributions
+        run: |
+          uv build
+          uvx --from twine twine check dist/*.whl dist/*.tar.gz
+
+      - name: Install and smoke-test the wheel outside the source tree
+        run: |
+          uv venv --python 3.13 .release-smoke
+          uv pip install --python .release-smoke/bin/python dist/*.whl
+          cd "$(mktemp -d)"
+          "$GITHUB_WORKSPACE/.release-smoke/bin/python" -I - <<'PY'
+          import asyncio
+          import httpx2
+          import spotifyify
+          from spotifyify import SpotifyClient, Spotifyify
+
+          assert Spotifyify is SpotifyClient
+          for name in spotifyify.__all__:
+              assert hasattr(spotifyify, name), name
+
+          class Provider:
+              async def get_access_token(self, *args, **kwargs):
+                  return "release-smoke-token"
+
+          def respond(request):
+              assert request.headers["Authorization"] == "Bearer release-smoke-token"
+              assert request.url.path == "/v1/tracks/smoke"
+              return httpx2.Response(200, json={"id": "smoke", "type": "track"})
+
+          async def main():
+              async with SpotifyClient(token_provider=Provider(), transport=httpx2.MockTransport(respond)) as client:
+                  assert (await client.tracks.get("smoke")).id == "smoke"
+
+          asyncio.run(main())
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/spotifyify
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+
+      - name: Publish to PyPI with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+
+      - name: Create GitHub release with the published distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version = os.environ["RELEASE_TAG"].removeprefix("v")
+          entry = Path("CHANGELOG.md").read_text().split(f"## {version} (", 1)[1]
+          notes = entry.split("\n", 1)[1].split("\n## ", 1)[0].strip()
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/blob/{os.environ['RELEASE_TAG']}/"
+          notes = notes.replace("](docs/", f"]({base}docs/")
+          Path("release-notes.md").write_text(notes + "\n")
+          PY
+          (cd dist && sha256sum *.whl *.tar.gz > SHA256SUMS)
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/* --verify-tag --title "$RELEASE_TAG" --notes-file release-notes.md
+          fi
